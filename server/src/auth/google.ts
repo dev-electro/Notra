@@ -11,6 +11,7 @@ export function googleKeys(): JWTVerifyGetKey {
 export interface GoogleIdentity {
   sub: string;
   name: string | null;
+  email: string | null;
 }
 
 /** Verify a Google ID token: signature, issuer, audience (our client ids), expiry, verified email. */
@@ -32,7 +33,11 @@ export async function verifyGoogleIdToken(
     });
     if (payload.email_verified !== true && payload.email_verified !== 'true') throw new Error('email not verified');
     if (typeof payload.sub !== 'string' || !payload.sub) throw new Error('no sub');
-    return { sub: payload.sub, name: typeof payload.name === 'string' ? payload.name.slice(0, 200) : null };
+    return {
+      sub: payload.sub,
+      name: typeof payload.name === 'string' ? payload.name.slice(0, 200) : null,
+      email: typeof payload.email === 'string' && payload.email.length <= 254 ? payload.email.toLowerCase() : null,
+    };
   } catch {
     throw new ApiError(401, 'invalid_google_token');
   }

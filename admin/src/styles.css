@@ -1,0 +1,101 @@
+@import 'tailwindcss';
+
+/* Design tokens. Light by default, dark via the OS setting or the toggle (data-theme). */
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --surface-2: #f0eee9;
+  --border: #e2dfd7;
+  --text: #1c1917;
+  --muted: #6b665d;
+  --accent: #b45309;
+  --accent-contrast: #ffffff;
+  --accent-soft: #fdf0dc;
+  --good: #15803d;
+  --good-soft: #dcf5e3;
+  --warn: #a16207;
+  --warn-soft: #fbf0c8;
+  --bad: #b91c1c;
+  --bad-soft: #fde2e2;
+  --info: #1d4ed8;
+  --info-soft: #dfe9fd;
+  --chart-1: #b45309;
+  --chart-2: #0f766e;
+  --chart-3: #6d28d9;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #14120f;
+    --surface: #1d1a16;
+    --surface-2: #26221d;
+    --border: #38332b;
+    --text: #f1ede5;
+    --muted: #a39d90;
+    --accent: #f59e0b;
+    --accent-contrast: #1a1100;
+    --accent-soft: #3a2a0c;
+    --good: #4ade80;
+    --good-soft: #12301c;
+    --warn: #facc15;
+    --warn-soft: #3a3108;
+    --bad: #f87171;
+    --bad-soft: #3b1515;
+    --info: #7aa2ff;
+    --info-soft: #14233f;
+    --chart-1: #f59e0b;
+    --chart-2: #2dd4bf;
+    --chart-3: #a78bfa;
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #14120f;
+  --surface: #1d1a16;
+  --surface-2: #26221d;
+  --border: #38332b;
+  --text: #f1ede5;
+  --muted: #a39d90;
+  --accent: #f59e0b;
+  --accent-contrast: #1a1100;
+  --accent-soft: #3a2a0c;
+  --good: #4ade80;
+  --good-soft: #12301c;
+  --warn: #facc15;
+  --warn-soft: #3a3108;
+  --bad: #f87171;
+  --bad-soft: #3b1515;
+  --info: #7aa2ff;
+  --info-soft: #14233f;
+  --chart-1: #f59e0b;
+  --chart-2: #2dd4bf;
+  --chart-3: #a78bfa;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface-2);
+  --color-line: var(--border);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+}
+
+html, body, #root { min-height: 100%; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hi { font-family: 'Noto Sans Devanagari', 'Mangal', var(--font-sans); font-size: 15px; }
+table { border-collapse: collapse; }

@@ -1,6 +1,7 @@
 import type { Db, Queryable } from '../db';
 import { randomCode6, safeEqual, sha256Hex } from '../crypto';
 import { ApiError } from '../errors';
+import { assertNotBlocked, recordOtpEvent } from '../blocklist';
 import type { SmsProvider } from './sms';
 
 export const OTP_TTL_MIN = 5;
@@ -16,6 +17,7 @@ const hashCode = (code: string, phone: string, pepper: string) => sha256Hex(code
  * lock, so concurrent requests cannot slip past them: 3 per phone / 15 min, 10 per IP / hour, 30 s resend cooldown.
  */
 export async function startOtp(db: Db, sms: SmsProvider, pepper: string, phone: string, ip: string): Promise<{ resendAfter: number; expiresIn: number }> {
+  await assertNotBlocked(db, phone, ip);
   const code = randomCode6();
   const codeHash = await hashCode(code, phone, pepper);
   const id = crypto.randomUUID();
@@ -39,10 +41,12 @@ export async function startOtp(db: Db, sms: SmsProvider, pepper: string, phone: 
        VALUES ($1, $2, $3, now() + ($4 || ' minutes')::interval, $5)`,
       [id, phone, codeHash, String(OTP_TTL_MIN), ip],
     );
+    await q.query(`INSERT INTO otp_events (kind, phone_e164, ip) VALUES ('send', $1, $2)`, [phone, ip]);
   });
   try {
     await sms.sendOtp(phone, code);
   } catch {
+    await recordOtpEvent(db, 'send_fail', phone, ip);
     throw new ApiError(502, 'sms_failed');
   }
   return { resendAfter: RESEND_COOLDOWN_S, expiresIn: OTP_TTL_MIN * 60 };
@@ -52,7 +56,8 @@ export async function startOtp(db: Db, sms: SmsProvider, pepper: string, phone: 
  * Check a code against the newest unconsumed request for the phone. Every wrong guess counts against the request
  * (max 5), the code is single use, and the hash comparison is constant time. Throws 400/429 on failure.
  */
-export async function verifyOtp(db: Db, pepper: string, phone: string, code: unknown): Promise<void> {
+export async function verifyOtp(db: Db, pepper: string, phone: string, code: unknown, ip = 'unknown'): Promise<void> {
+  await assertNotBlocked(db, phone, ip);
   if (typeof code !== 'string' || !/^\d{6}$/.test(code)) throw new ApiError(400, 'invalid_code');
   const candidate = await hashCode(code, phone, pepper);
   type Outcome = 'ok' | 'invalid' | 'expired' | 'locked';
@@ -71,7 +76,11 @@ export async function verifyOtp(db: Db, pepper: string, phone: string, code: unk
     await q.query('UPDATE otp_requests SET consumed_at = now() WHERE id = $1', [row.id]);
     return 'ok';
   });
-  if (outcome === 'ok') return;
+  if (outcome === 'ok') {
+    await recordOtpEvent(db, 'verify_ok', phone, ip);
+    return;
+  }
+  await recordOtpEvent(db, 'verify_fail', phone, ip);
   if (outcome === 'locked') throw new ApiError(429, 'too_many_attempts');
   if (outcome === 'expired') throw new ApiError(400, 'code_expired');
   throw new ApiError(400, 'invalid_code');

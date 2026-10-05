@@ -9,7 +9,8 @@
     "test": "vitest run",
     "migrate": "node scripts/migrate.mjs",
     "dev": "npx --yes wrangler@4 dev",
-    "deploy": "npx --yes wrangler@4 deploy"
+    "deploy": "npx --yes wrangler@4 deploy",
+    "admin:bootstrap": "node scripts/admin-bootstrap.mjs"
   },
   "engines": {
     "node": ">=22"
