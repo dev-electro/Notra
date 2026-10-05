@@ -9,13 +9,13 @@ describe('parseConfig', () => {
     const c = parseConfig({
       maintenance: { enabled: true, message_hi: 'रखरखाव' }, min_supported_version: '1.2.0', latest_version: '1.3.0', force_update_message_hi: 'अपडेट',
       announcement: { enabled: true, message_hi: 'सूचना', starts_at: '2026-10-01T00:00:00Z', ends_at: '2026-10-09T00:00:00Z', level: 'warning' },
-      ads: { enabled: false, banner: false, native: true, interstitial: false, rewarded: true, interstitial_min_interval_sec: 600, native_every_n_items: 10, first_day_ads_free: false },
-      features: { web_app: true, ocr: true, invitation_cards: true, analytics: false },
+      ads: { enabled: false, banner: false, native: true, interstitial: false, rewarded: true, inaam_video: true, interstitial_min_interval_sec: 600, native_every_n_items: 10, first_day_ads_free: false },
+      features: { web_app: true, ocr: true, invitation_cards: true, analytics: false, checkin: true, videos: true, referral: true, rewards: true, rishtey_discovery: true },
     });
     expect(c.maintenance).toEqual({ enabled: true, message_hi: 'रखरखाव' });
     expect(c.min_supported_version).toBe('1.2.0');
-    expect(c.ads).toEqual({ enabled: false, banner: false, native: true, interstitial: false, rewarded: true, interstitial_min_interval_sec: 600, native_every_n_items: 10, first_day_ads_free: false });
-    expect(c.features).toEqual({ web_app: true, ocr: true, invitation_cards: true, analytics: false });
+    expect(c.ads).toEqual({ enabled: false, banner: false, native: true, interstitial: false, rewarded: true, inaam_video: true, interstitial_min_interval_sec: 600, native_every_n_items: 10, first_day_ads_free: false });
+    expect(c.features).toEqual({ web_app: true, ocr: true, invitation_cards: true, analytics: false, checkin: true, videos: true, referral: true, rewards: true, rishtey_discovery: true });
     expect(c.announcement.level).toBe('warning');
   });
   it('ignores unknown fields and invalid values, field by field', () => {
@@ -23,6 +23,11 @@ describe('parseConfig', () => {
     expect(c).toEqual({ ...DEFAULT_CONFIG, ads: { ...DEFAULT_CONFIG.ads, interstitial_min_interval_sec: 60 } });
     expect(c).not.toHaveProperty('surprise');
   });
+  it('ads are off by default and clamp like the server (60..86400 s, every 5..50 items)', () => {
+    expect(DEFAULT_CONFIG.ads).toMatchObject({ enabled: false, banner: false, native: false, interstitial: false, rewarded: false });
+    expect(parseConfig({ ads: { interstitial_min_interval_sec: 999_999, native_every_n_items: 999 } }).ads).toMatchObject({ interstitial_min_interval_sec: 86_400, native_every_n_items: 50 });
+  });
+
   it('features.analytics defaults to true and only an explicit boolean changes it', () => {
     expect(DEFAULT_CONFIG.features.analytics).toBe(true);
     expect(parseConfig({ features: { analytics: false } }).features.analytics).toBe(false);

@@ -3,7 +3,9 @@ name: 07 - हिसाब tab, open each report, send a report as photos
 ---
 - runFlow: subflows/launch-home.yaml
 - tapOn:
-    id: tab-hisaab
+    id: tab-notra
+- tapOn:
+    id: seg-hisab
 - extendedWaitUntil:
     visible:
       id: report-given

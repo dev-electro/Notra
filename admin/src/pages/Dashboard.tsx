@@ -13,7 +13,9 @@ export default function Dashboard() {
   const active = useApi<Report>('/admin/api/reports/active', range);
   const signups = useApi<Report>('/admin/api/reports/signups', range);
   const sync = useApi<Report>('/admin/api/reports/sync', range);
+  const rewards = useApi<Report>('/admin/api/reports/rewards', range);
 
+  const sum = (r: Report, key: string) => r.rows.reduce((a, x) => a + (typeof x[key] === 'number' ? (x[key] as number) : 0), 0);
   const o = ov.data;
   const col = (r: Report | null, key: string) => (r?.rows ?? []).map((x) => x[key] ?? null);
   const days = (r: Report | null) => (r?.rows ?? []).map((x) => String(x.day ?? '').slice(5));
@@ -54,6 +56,16 @@ export default function Dashboard() {
         <Card title="Sync health: failure rate %">
           {sync.error != null ? <ErrorBox error={sync.error} retry={sync.reload} /> : sync.data ? (
             <LineChart labels={days(sync.data)} label="Sync failure rate percent" series={[{ name: 'Failure %', values: col(sync.data, 'error_rate_pct'), color: 'var(--chart-3)' }]} />
+          ) : <Spinner />}
+        </Card>
+        <Card title="Rewards: points issued per day">
+          {rewards.error != null ? <ErrorBox error={rewards.error} retry={rewards.reload} /> : rewards.data ? (
+            <>
+              <BarChart labels={days(rewards.data)} values={col(rewards.data, 'points')} label="Reward points issued per day" color="var(--chart-2)" />
+              <p className="mt-2 text-xs text-muted">
+                {fmtNum(sum(rewards.data, 'checkins'))} check-ins · {fmtNum(sum(rewards.data, 'videos'))} videos · {fmtNum(sum(rewards.data, 'referrals'))} referrals qualified (30 days). Points are an achievement score, not cash. Days with under 5 users are hidden.
+              </p>
+            </>
           ) : <Spinner />}
         </Card>
       </div>

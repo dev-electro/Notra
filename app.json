@@ -114,8 +114,8 @@
     },
     "jsEngine": "hermes",
     "extra": {
-      "apiUrl": "https://api.notra-book.example",
-      "googleWebClientId": "REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com"
+      "apiUrl": "https://notra-book-api.gauravapproved.workers.dev",
+      "googleWebClientId": "79798372655-o3oq9p93e31fsf299l2njb49igjvi5f5.apps.googleusercontent.com"
     }
   }
 }

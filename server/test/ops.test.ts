@@ -16,6 +16,8 @@ describe('remote config', () => {
     expect(Object.keys(r.json).sort()).toEqual(['ads', 'announcement', 'features', 'fetched_at', 'force_update_message_hi', 'latest_version', 'maintenance', 'min_supported_version']);
     expect(r.json.maintenance.enabled).toBe(false);
     expect(r.json.ads).toEqual(CONFIG_DEFAULTS.ads);
+    expect(r.json.ads.enabled).toBe(false);
+    expect(r.json.features).toEqual({ web_app: false, ocr: false, invitation_cards: false, analytics: true, checkin: true, videos: true, referral: true, rewards: true, rishtey_discovery: false });
     // a stray key in the table is never exposed
     await t.pg.query(`INSERT INTO app_config (key, value) VALUES ('internal_secret', '"x"')`);
     expect(JSON.stringify((await t.call('GET', '/v1/config')).json)).not.toContain('internal_secret');
@@ -41,6 +43,7 @@ describe('remote config', () => {
       ['ads', { native_every_n_items: 1 }],
       ['ads', { banner: 'true' }],
       ['features', { web_app: 1 }],
+      ['features', { analytics: 'no' }],
       ['features', { unknown_flag: true }],
     ];
     for (const [k, v] of bad) {
@@ -64,17 +67,21 @@ describe('remote config', () => {
     expect(all.json.items.find((e: any) => e.key === 'ads')).toMatchObject({ is_default: false });
   });
 
-  it('maintenance mode: sign-in and sync answer 503 with the message; health, config and the admin API stay up', async () => {
+  it('maintenance mode: sync answers 503 with the message; health, config, the admin API and /api/auth/* (staff sign-in) stay up', async () => {
     const t = await setup();
     const owner = await makeStaff(t, 'owner');
     const u = await signInWithPhone(t, nextPhone());
     const on = await put(t, owner.accessToken, 'maintenance', { enabled: true, message_hi: 'रखरखाव चल रहा है', message_en: 'Down for maintenance' });
     expect(on.status).toBe(200);
-    for (const [m, p, body] of [['POST', '/v1/sync/push', {}], ['GET', '/v1/sync/pull', undefined], ['POST', '/api/auth/phone-number/send-otp', { phoneNumber: '9876543210' }], ['POST', '/api/auth/sign-out', {}], ['POST', '/api/auth/sign-in/social', { provider: 'google', idToken: { token: 'x' } }]] as const) {
+    for (const [m, p, body] of [['POST', '/v1/sync/push', {}], ['GET', '/v1/sync/pull', undefined]] as const) {
       const r = await t.call(m, p, { token: u.accessToken, body });
       expect(r.status, p).toBe(503);
       expect(r.json).toMatchObject({ error: 'maintenance', message_hi: 'रखरखाव चल रहा है', message_en: 'Down for maintenance' });
       expect(r.headers.get('retry-after')).toBeTruthy();
+    }
+    for (const [p, body] of [['/api/auth/phone-number/send-otp', { phoneNumber: '9876543210' }], ['/api/auth/sign-in/social', { provider: 'google', idToken: { token: 'x' } }]] as const) {
+      const r = await t.call('POST', p, { token: u.accessToken, body });
+      expect(r.status, p).not.toBe(503);
     }
     expect((await t.call('GET', '/v1/health')).status).toBe(200);
     expect((await t.call('GET', '/v1/config')).json.maintenance.enabled).toBe(true);

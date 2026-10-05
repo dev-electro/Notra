@@ -10,9 +10,11 @@ import { getMaintenance, publicConfig } from './appconfig';
 import type { Config } from './config';
 import { withUserTx, type Db } from './db';
 import { deleteAccount } from './account';
+import { createRishteyApi, rishteyPgError } from './rishtey';
 import { ApiError } from './errors';
 import { PAGE_HEADERS, renderPage } from './pages';
 import { activeGrant, grantAccess, parseTicketInput, revokeAccess, submitFromApp } from './support';
+import * as rewards from './rewards';
 import { enforceDirections, pullRows, pushRows } from './sync';
 import { countSyncError, logError, parseClientInfo, touchActivity } from './telemetry';
 import { authState, getUser, publicUser } from './users';
@@ -55,6 +57,8 @@ export function createApp(deps: Deps): Hono<Vars> {
     if (pg.code === '42501') return c.json({ error: 'forbidden' }, 403);
     if (pg.code === 'P0002') return c.json({ error: 'not_found' }, 404);
     if (pg.message === 'last_owner') return c.json({ error: 'last_owner' }, 409);
+    const rishtey = rishteyPgError(pg.message);
+    if (rishtey) return c.json({ error: rishtey.code, ...rishtey.extra }, rishtey.status);
     console.error('unhandled', err instanceof Error ? err.message : err);
     await logError(deps.db, { method: c.req.method, path: c.req.path, status: 500, error: err });
     return c.json({ error: 'internal' }, 500);
@@ -72,13 +76,12 @@ export function createApp(deps: Deps): Hono<Vars> {
     }
   });
 
-  // Maintenance mode (remote config): sign-in and sync answer 503 with the message. Health, config and the admin API stay up.
+  // Maintenance mode (remote config): app sync answers 503 with the message. Health, config, the admin API and /api/auth/* (staff sign-in) stay up.
   const maintenance = async (_c: Context, next: () => Promise<void>) => {
     const m = await getMaintenance(deps.db);
     if (m.enabled) throw new ApiError(503, 'maintenance', { message_hi: m.message_hi, message_en: m.message_en, retryAfter: 300 });
     await next();
   };
-  app.use(`${AUTH_BASE_PATH}/*`, maintenance);
   app.use('/v1/sync/*', maintenance);
 
   if (deps.admin?.allowedOrigin) {
@@ -163,11 +166,39 @@ export function createApp(deps: Deps): Hono<Vars> {
     return c.json(await pullRows(deps.db, c.get('userId'), since, limit));
   });
 
+  // ---- rewards (इनाम): points are an achievement score only; the server decides the IST day and enforces every cap ----
+  app.get('/v1/rewards', requireAuth, async (c) => {
+    const uid = c.get('userId');
+    return c.json(await withUserTx(deps.db, uid, 'user', (q) => rewards.getState(q, now())));
+  });
+  app.post('/v1/rewards/checkin', requireAuth, async (c) => {
+    const uid = c.get('userId');
+    return c.json({ ok: true, ...(await withUserTx(deps.db, uid, 'user', (q) => rewards.checkin(q, uid, now()))) });
+  });
+  app.post('/v1/rewards/video', requireAuth, async (c) => {
+    const uid = c.get('userId');
+    return c.json({ ok: true, ...(await withUserTx(deps.db, uid, 'user', (q) => rewards.video(q, uid, now()))) });
+  });
+  app.get('/v1/rewards/referral', requireAuth, async (c) => {
+    const uid = c.get('userId');
+    return c.json(await withUserTx(deps.db, uid, 'user', (q) => rewards.getReferral(q, uid, now())));
+  });
+  app.post('/v1/rewards/referral/redeem', requireAuth, async (c) => {
+    const uid = c.get('userId');
+    const code = field(await body(c), 'code');
+    await withUserTx(deps.db, uid, 'user', (q) => rewards.redeemReferral(q, code, now()));
+    return c.json({ ok: true });
+  });
+
   // ---- delete my account and all my data (Play Store + DPDP) ----
   app.delete('/v1/account', requireAuth, async (c) => {
     await deleteAccount(deps.db, c.get('userId'));
     return c.json({ ok: true });
   });
+
+  // ---- रिश्ते community discovery (dark until features.rishtey_discovery is on; see server/src/rishtey.ts) ----
+  app.use('/v1/rishtey/*', requireAuth);
+  app.route('/v1/rishtey', createRishteyApi(deps.db, body) as unknown as Hono<Vars>);
 
   // ---- support: send a ticket / grievance (rate limited), and consented support access to my data ----
   app.post('/v1/support', requireAuth, async (c) => {

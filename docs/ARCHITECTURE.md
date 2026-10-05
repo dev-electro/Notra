@@ -107,10 +107,10 @@ docs/                               this documentation
 
 | Route | Screen |
 | --- | --- |
-| `(tabs)/index` घर | totals, calendar of all programs, परिवार, पुराना हिसाब जोड़ें, settings gear; also decides first-run routing |
-| `(tabs)/mera` मेरा नोतरा | programs I host (receive only) |
-| `(tabs)/doosre` दूसरों का नोतरा | programs of other families (give only) |
-| `(tabs)/hisab` हिसाब | totals + report hub |
+| `(tabs)/index` घर | summary, 3 quick actions, calendar, परिवार, रिश्ते/इनाम cards, settings gear; also decides first-run routing |
+| `(tabs)/notra` नोतरा | segments मेरा (programs I host, receive only) · दूसरों का (give only) · हिसाब (totals, reports, पुराना हिसाब); bodies in `src/features/notra/`; `?seg=mera\|doosre\|hisab` |
+| `(tabs)/rishte` रिश्ते | private on-phone biodata builder (flag `FEATURES.rishte`; JSON in settings key `biodata_v1`) |
+| `(tabs)/inaam` इनाम | points, levels, badges from local activity (`src/core/rewards.ts`) |
 | `events/new`, `events/[id]`, `events/[id]/ledger` | create my program, its page, its खाता (record who came) |
 | `others/new`, `entry/new` | "नए नोतरे में गए" (pick host, occasion, date) then write the amount |
 | `old` | पुराना हिसाब जोड़ें (past dates; photo import card "जल्द आ रहा है") |

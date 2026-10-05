@@ -14,6 +14,7 @@ const Config = lazy(() => import('./pages/Config'));
 const Abuse = lazy(() => import('./pages/Abuse'));
 const Monitoring = lazy(() => import('./pages/Monitoring'));
 const Reports = lazy(() => import('./pages/Reports'));
+const Rishtey = lazy(() => import('./pages/Rishtey'));
 const Staff = lazy(() => import('./pages/Staff'));
 const Audit = lazy(() => import('./pages/Audit'));
 
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="abuse" element={page('view_abuse', <Abuse />)} />
             <Route path="monitoring" element={page('view_monitoring', <Monitoring />)} />
             <Route path="reports" element={page('view_reports', <Reports />)} />
+            <Route path="rishtey" element={page('moderate_rishtey', <Rishtey />)} />
             <Route path="staff" element={page('manage_staff', <Staff />)} />
             <Route path="audit" element={page('view_audit', <Audit />)} />
           </Route>

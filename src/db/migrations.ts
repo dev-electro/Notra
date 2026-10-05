@@ -205,11 +205,14 @@ export const MIGRATIONS: readonly string[] = [
 
   INSERT OR IGNORE INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, status, created_at, updated_at, dirty, ledger_id)
     SELECT 'a1a1a1a1-' || substr(e.ledger_id, 10),
-           COALESCE((SELECT value FROM settings WHERE key = 'my_household_id'), MIN(e.other_household_id)),
+           (SELECT value FROM settings WHERE key = 'my_household_id'),
            'OTHER', MIN(e.occurred_on), 0, 'CARD', 'SETTLED',
            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 1, e.ledger_id
-    FROM entries e WHERE e.event_id IS NULL AND e.direction = 'AAYA' GROUP BY e.ledger_id;
-  UPDATE entries SET event_id = 'a1a1a1a1-' || substr(ledger_id, 10) WHERE event_id IS NULL AND direction = 'AAYA';
+    FROM entries e WHERE e.event_id IS NULL AND e.direction = 'AAYA'
+      AND (SELECT value FROM settings WHERE key = 'my_household_id') IS NOT NULL GROUP BY e.ledger_id;
+  -- If my household was never set, "my" old entries stay without a program (event_id NULL, shown as "—") rather than being hosted by another family.
+  UPDATE entries SET event_id = 'a1a1a1a1-' || substr(ledger_id, 10)
+    WHERE event_id IS NULL AND direction = 'AAYA' AND (SELECT value FROM settings WHERE key = 'my_household_id') IS NOT NULL;
   INSERT OR IGNORE INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, status, created_at, updated_at, dirty, ledger_id)
     SELECT 'b2b2b2b2-' || substr(e.other_household_id, 10, 4) || '-' || substr(e.other_household_id, 15, 4) || '-' ||
            substr(e.other_household_id, 20, 4) || '-' || substr(e.ledger_id, 25, 12),

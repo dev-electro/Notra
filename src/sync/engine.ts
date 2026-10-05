@@ -148,6 +148,7 @@ export async function applyPage(db: Db, page: PullPage): Promise<void> {
       for (const e of page.entries) {
         const occurredOn = e.occurredOn ?? e.createdAt.slice(0, 10);
         const eventId = e.eventId ?? (await ensureLegacyEvent(db, { direction: e.direction as 'AAYA' | 'GAYA', ledgerId: e.ledgerId, otherHouseholdId: e.otherHouseholdId, occurredOn }));
+        if (!eventId) continue; // old row with no program and my household unknown: not hosted on a guess
         await db.runAsync(
           `INSERT OR IGNORE INTO entries (id, event_id, other_household_id, direction, cash_paise, in_kind_item, in_kind_value_paise,
              payment_mode, recorded_by, created_at, occurred_on, corrects_entry_id, is_void, ledger_id, dirty)

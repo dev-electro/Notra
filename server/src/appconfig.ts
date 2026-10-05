@@ -17,10 +17,10 @@ export const CONFIG_DEFAULTS = {
   force_update_message_hi: 'ऐप का नया संस्करण आ गया है। कृपया अपडेट करें।',
   announcement: { enabled: false, message_hi: '', starts_at: null, ends_at: null, level: 'info' },
   ads: {
-    enabled: false, banner: false, native: false, interstitial: false, rewarded: false,
+    enabled: false, banner: false, native: false, interstitial: false, rewarded: false, inaam_video: false,
     interstitial_min_interval_sec: 300, native_every_n_items: 8, first_day_ads_free: true,
   },
-  features: { web_app: false, ocr: false, invitation_cards: true },
+  features: { web_app: false, ocr: false, invitation_cards: false, analytics: true, checkin: true, videos: true, referral: true, rewards: true, rishtey_discovery: false },
 } as const;
 
 export type ConfigKey = keyof typeof CONFIG_DEFAULTS;
@@ -113,15 +113,17 @@ export function validateConfig(key: ConfigKey, value: unknown, current: Record<s
       const o = shape(value, key);
       return {
         enabled: bool(o.enabled, 'enabled'), banner: bool(o.banner, 'banner'), native: bool(o.native, 'native'),
-        interstitial: bool(o.interstitial, 'interstitial'), rewarded: bool(o.rewarded, 'rewarded'),
-        interstitial_min_interval_sec: int(o.interstitial_min_interval_sec, 'interstitial_min_interval_sec', 30, 86400),
-        native_every_n_items: int(o.native_every_n_items, 'native_every_n_items', 2, 50),
+        interstitial: bool(o.interstitial, 'interstitial'), rewarded: bool(o.rewarded, 'rewarded'), inaam_video: bool(o.inaam_video, 'inaam_video'),
+        interstitial_min_interval_sec: int(o.interstitial_min_interval_sec, 'interstitial_min_interval_sec', 60, 86400),
+        native_every_n_items: int(o.native_every_n_items, 'native_every_n_items', 5, 50),
         first_day_ads_free: bool(o.first_day_ads_free, 'first_day_ads_free'),
       };
     }
     case 'features': {
       const o = shape(value, key);
-      return { web_app: bool(o.web_app, 'web_app'), ocr: bool(o.ocr, 'ocr'), invitation_cards: bool(o.invitation_cards, 'invitation_cards') };
+      return { web_app: bool(o.web_app, 'web_app'), ocr: bool(o.ocr, 'ocr'), invitation_cards: bool(o.invitation_cards, 'invitation_cards'), analytics: bool(o.analytics, 'analytics'),
+        checkin: bool(o.checkin, 'checkin'), videos: bool(o.videos, 'videos'), referral: bool(o.referral, 'referral'), rewards: bool(o.rewards, 'rewards'),
+        rishtey_discovery: bool(o.rishtey_discovery, 'rishtey_discovery') };
     }
   }
 }
@@ -200,4 +202,15 @@ export async function setConfig(
     [key, before === null ? null : JSON.stringify(before), JSON.stringify(after), by, reason],
   );
   return { before, after };
+}
+
+/** One boolean in the `features` config (false when never set or unreadable). Used to keep a feature's endpoints dark until it is switched on. */
+export async function featureOn(q: Queryable, name: keyof typeof CONFIG_DEFAULTS.features): Promise<boolean> {
+  try {
+    const [r] = await q.query<{ value: unknown }>(`SELECT value::text AS value FROM app_config WHERE key = 'features'`);
+    const v = r ? (asJson(r.value) as Record<string, unknown>)[name] : undefined;
+    return typeof v === 'boolean' ? v : (CONFIG_DEFAULTS.features[name] as boolean);
+  } catch {
+    return false;
+  }
 }

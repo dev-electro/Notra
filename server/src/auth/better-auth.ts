@@ -8,6 +8,7 @@ import { ApiError } from '../errors';
 import { authState } from '../users';
 import { parseClientInfo, touchActivity } from '../telemetry';
 import { dbDialect } from './dialect';
+import { checkOtp, hashOtpValue } from './otp-store';
 import { verifyGoogleIdToken } from './google';
 import { guardOtpSend, guardOtpVerify, OTP_LENGTH, OTP_MAX_ATTEMPTS, OTP_TTL_S, recordSendFail, recordVerify } from './otp-guard';
 import { normalizeIndianMobile } from './phone';
@@ -118,6 +119,13 @@ export function createAuth(deps: AuthDeps, suspendedMessage: string) {
           getTempName: () => '',
         },
         schema: { user: { fields: { phoneNumber: 'phone_e164', phoneNumberVerified: 'phone_verified' } } },
+        verifyOTP: async ({ phoneNumber: phone, code }) => {
+          const r = await checkOtp(db, config.authSecret, phone, code, OTP_MAX_ATTEMPTS);
+          if (r === 'ok') return true;
+          if (r === 'invalid') return false;
+          const c = { not_found: 'OTP_NOT_FOUND', expired: 'OTP_EXPIRED', too_many: 'TOO_MANY_ATTEMPTS' }[r];
+          throw new APIError(r === 'too_many' ? 'FORBIDDEN' : 'BAD_REQUEST', { code: c, message: c });
+        },
         sendOTP: async ({ phoneNumber: phone, code }, ctx) => {
           try {
             await deps.sms.sendOtp(phone, code);
@@ -204,6 +212,12 @@ export function createAuth(deps: AuthDeps, suspendedMessage: string) {
       }),
     },
     databaseHooks: {
+      // The OTP is stored as a keyed hash, never in clear (see otp-store.ts).
+      verification: {
+        create: {
+          before: async (v) => ({ data: { ...v, value: await hashOtpValue(config.authSecret, String(v.identifier), String(v.value)) } }),
+        },
+      },
       // Privacy: never keep Google's tokens. The account row only needs (provider, subject).
       account: {
         create: { before: async (account) => ({ data: { ...account, accessToken: null, refreshToken: null, idToken: null, scope: null } as typeof account }) },

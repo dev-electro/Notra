@@ -11,30 +11,33 @@
  *  first-day      first 24 h after install: no banner/native/rewarded when first_day_ads_free, and NEVER an interstitial
  *  data-entry     interstitial only: not within 2 minutes of the last entry/edit save
  *  interval       interstitial only: at least ads.interstitial_min_interval_sec since the last one
- *  daily-cap      interstitial only: at most 3 per calendar day
+ *  daily-cap      interstitial only: at most 3 per calendar day; inaam_video: at most 3 a day
  *  too-few-items  native only: the list has fewer than 6 items
  *  first-item     native only: never as the first item
  */
 import type { RemoteConfig } from '@/remote/config';
 
-export type AdPlacement = 'banner' | 'native' | 'interstitial' | 'rewarded';
+export type AdPlacement = 'banner' | 'native' | 'interstitial' | 'rewarded' | 'inaam_video';
 
 /** Screens that exist for ad purposes. Anything not named in ALLOWED is ad-free, including every screen not listed here. */
 export type AdScreen =
   | 'home' | 'hisab' | 'mera' | 'doosre' | 'report_list' | 'report_export'
-  | 'event_ledger' | 'entry_form' | 'keypad' | 'lock' | 'onboarding' | 'signin' | 'settings' | 'legal' | 'backup' | 'account_delete' | 'error' | 'other';
+  | 'inaam' | 'event_ledger' | 'entry_form' | 'keypad' | 'lock' | 'onboarding' | 'signin' | 'settings' | 'legal' | 'backup' | 'account_delete' | 'error' | 'other';
 
 export const ALLOWED_SCREENS: Record<AdPlacement, readonly AdScreen[]> = {
   banner: ['home', 'hisab'],
   native: ['mera', 'doosre', 'report_list'],
   interstitial: ['report_export'],
   rewarded: ['report_export'],
+  inaam_video: ['inaam'],
 };
 
 export const DAY_MS = 86_400_000;
 export const MAX_INTERSTITIALS_PER_DAY = 3;
 export const ENTRY_COOLDOWN_MS = 120_000;
 export const MIN_ITEMS_FOR_NATIVE = 6;
+/** इनाम "वीडियो देखें": at most this many rewarded videos a day (the server enforces the same cap on points). */
+export const MAX_INAAM_VIDEOS_PER_DAY = 3;
 
 export interface PolicyInput {
   placement: AdPlacement;
@@ -45,6 +48,8 @@ export interface PolicyInput {
   installAt: number | null;
   lastInterstitialAt: number | null;
   interstitialsToday: number;
+  /** inaam_video only: rewarded videos already watched today. */
+  inaamVideosToday?: number;
   online: boolean;
   /** SDK initialised and consent allows requesting ads. */
   sdkReady: boolean;
@@ -77,6 +82,7 @@ export function adDecision(i: PolicyInput): Decision {
     if (i.lastInterstitialAt != null && i.now - i.lastInterstitialAt < i.ads.interstitial_min_interval_sec * 1000) return no('interval');
     if (i.interstitialsToday >= MAX_INTERSTITIALS_PER_DAY) return no('daily-cap');
   }
+  if (i.placement === 'inaam_video' && (i.inaamVideosToday ?? 0) >= MAX_INAAM_VIDEOS_PER_DAY) return no('daily-cap');
   if (i.placement === 'native') {
     if ((i.itemCount ?? 0) < MIN_ITEMS_FOR_NATIVE) return no('too-few-items');
     if (i.index !== undefined && i.index <= 0) return no('first-item');

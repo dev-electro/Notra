@@ -11,7 +11,7 @@ Hindi (and Wagdi/Bhili-area) terms used in the app, code and docs, with the mean
 | नोतरा बुक (Notra Book) | the app's name (the family's diary of Notra); package `app.notra.book` | `app.json`, onboarding, lock screen, report header; internal storage names remain `notra-diary` |
 | बही (bahi) | the traditional account book or diary; the paper diary this app replaces | product plan; PDF title "नोतरा बही" (`services/export.ts`); diary-paper look in `exportHtml.ts` |
 | लेना-देना (lena-dena) | taking and giving; the relationship balance between two households | `households/[id].tsx` ("लेना-देना" PDF), plan, README |
-| हिसाब (hisaab) | account / calculation / reckoning; used for reports and the "diary" itself | tab हिसाब (`(tabs)/hisab.tsx`), "पुराना हिसाब", `components/icons.tsx` `hisaab` |
+| हिसाब (hisaab) | account / calculation / reckoning; used for reports and the "diary" itself | segment हिसाब (`features/notra/HisabPane.tsx`), "पुराना हिसाब", `components/icons.tsx` `hisaab` |
 | खाता (khata) | ledger / account; the page where a host records guests, and also a ledger of the app | "खाता खोलें" (`events/[id]/ledger.tsx`), "घर का खाता" (`DEFAULT_LEDGER_NAME`), `src/app/ledgers.tsx`, "मेरा खाता (क्रम से)" report |
 | पुराना हिसाब | previous/old records copied from the paper diary, with past dates | `src/app/old.tsx`; automatic legacy events `core/eventRules.ts` `LEGACY_EVENT_LABEL` |
 | कार्यक्रम (karyakram) | a program/event (wedding etc.) at which Notra is given | `events/*`, `events` table, "कार्यक्रम" tile |
@@ -30,8 +30,8 @@ Hindi (and Wagdi/Bhili-area) terms used in the app, code and docs, with the mean
 | लौटाना बाकी | "yet to return": families I have received more from than I gave; deliberately neutral wording (never "defaulter") | `reports/pending.tsx`, `core/reports.ts` `pendingReturns`, `sqlPersonRange` |
 | सुझाव (sujhav) | suggestion: the suggested amount to return (last received + increment, rounded up to a shagun number) | chip in `entry/new.tsx`, `core/explain.ts`, `suggestReturn` |
 | कितना ज़्यादा (increment) | how much more than received people return in a village: FIXED Rs 51/101 or 10% | `setup.tsx` choices, `village_increment` setting |
-| मेरा नोतरा | my own program (I am the host): I only receive | tab `(tabs)/mera.tsx` |
-| दूसरों का नोतरा | other families' programs: I only give | tab `(tabs)/doosre.tsx`, `others/new.tsx` |
+| मेरा नोतरा | my own program (I am the host): I only receive | segment `features/notra/MeraPane.tsx` |
+| दूसरों का नोतरा | other families' programs: I only give | segment `features/notra/DoosrePane.tsx`, `others/new.tsx` |
 | नए नोतरे में गए | "went to a new Notra": record that I attended another family's program | `others/new.tsx` |
 | वापस | back (navigation button) and "undo last entry" (appends a void) | `components/screen.tsx`, `events/[id]/ledger.tsx` |
 | बदलें | change: correct an entry (new entry that supersedes the old) | `entry/new.tsx` `btn-change` |

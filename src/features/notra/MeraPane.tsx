@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/empty-state';
 import { EventCardView } from '@/components/event-card';
 import { Icon } from '@/components/icons';
 import { PressableScale } from '@/components/pressable-scale';
-import { listContent, Screen } from '@/components/screen';
+import { listContent } from '@/components/screen';
 import { Text } from '@/components/text';
 import { formatINR } from '@/core';
 import { getMyHouseholdId, sqlEventCards, sqlTotals, type EventCard } from '@/db';
@@ -18,9 +18,9 @@ import { colors, spacing, type } from '@/theme';
 const keyOf = (c: EventCard) => c.event.id;
 
 /**
- * मेरा नोतरा: the programs I hold. Here I only RECEIVE. Open one and add who came and how much they gave.
+ * नोतरा > मेरा: the programs I hold. Here I only RECEIVE. Open one and add who came and how much they gave.
  */
-export default function MineTab() {
+export function MeraPane() {
   const { data, loading } = useLoad(
     async (db, ledgerId) => {
       const me = await getMyHouseholdId(db);
@@ -39,7 +39,6 @@ export default function MineTab() {
   );
   const ad = useAdRows(data.cards, 'mera', 'mera', keyOf, renderItem);
   return (
-    <Screen tab title="मेरा नोतरा" scroll={false} action={{ testID: 'btn-new-event', icon: 'plus', label: 'नया नोतरा', onPress: () => go('/events/new'), hint: 'अपना नया नोतरा बनाएँ' }}>
       <FlatList
         data={ad.rows}
         keyExtractor={ad.keyExtractor}
@@ -68,7 +67,6 @@ export default function MineTab() {
         removeClippedSubviews
         contentContainerStyle={[listContent, styles.list]}
       />
-    </Screen>
   );
 }
 

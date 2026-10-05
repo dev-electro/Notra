@@ -96,6 +96,21 @@ describe('v7 migration on an old (v6) database', () => {
     await expect(db.runAsync("DELETE FROM entries WHERE id = 'e1'", [])).rejects.toThrow(/append-only/);
   });
 
+  it('does not host "my" old entries on another family when my household was never set (they stay without a program)', async () => {
+    const db = await v6();
+    const ra = '22222222-2222-4222-8222-222222222222';
+    await db.runAsync(`INSERT INTO households (id, head_name, father_name, jati, atak, village, fala, created_at, updated_at) VALUES (?, 'रमेश', 'f', 'j', 'a', 'v', 'fa', 'n', 'n')`, [ra]);
+    const entry = (id: string, dir: string) => db.runAsync(
+      `INSERT INTO entries (id, event_id, other_household_id, direction, cash_paise, in_kind_value_paise, payment_mode, recorded_by, created_at)
+       VALUES (?, NULL, ?, ?, 100, 0, 'CASH', 'me', ?)`, [id, ra, dir, N('01')]);
+    await entry('m1', 'AAYA');
+    await entry('t1', 'GAYA');
+    await migrate(db);
+    expect(await db.getFirstAsync('SELECT event_id FROM entries WHERE id = ?', ['m1'])).toEqual({ event_id: null });
+    expect(await db.getFirstAsync('SELECT event_id FROM entries WHERE id = ?', ['t1'])).toEqual({ event_id: legacyEventId('GAYA', L, ra) });
+    expect(await db.getFirstAsync('SELECT COUNT(*) AS n FROM events WHERE id = ?', [legacyEventId('AAYA', L, ra)])).toEqual({ n: 0 });
+  });
+
   it('adds the two new occasions and the custom label columns; still refuses a death-feast occasion', async () => {
     const db = await v6();
     await migrate(db);

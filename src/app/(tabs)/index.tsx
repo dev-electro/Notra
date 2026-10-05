@@ -2,23 +2,23 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Animated, Easing, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
+import type { IconName } from '@/components/icons';
 import { NoticeBanners } from '@/components/notice-banners';
 import { Calendar, type DayMarkers } from '@/components/calendar';
-import { Card, SectionTitle, SoonBadge } from '@/components/card';
+import { Card, SectionTitle } from '@/components/card';
 import { Icon } from '@/components/icons';
 import { OccasionBadge } from '@/components/occasion';
 import { DotBorder, Toran } from '@/components/motifs';
 import { PressableScale } from '@/components/pressable-scale';
 import { SpeakerButton } from '@/components/speaker-button';
 import { Text } from '@/components/text';
-import { BottomBar } from '@/components/screen';
 import { DEFAULT_LEDGER_ID, firstRunRoute, formatINR, LEGACY_EVENT_LABEL, longDateHi, monthRange, occasionName, todayIso, type Occasion } from '@/core';
 import { getMyHousehold, getMyHouseholdId, sqlEventCards, type EventCard } from '@/db';
+import { touchToday } from '@/features/rewards/store';
 import { isReduceMotion } from '@/hooks/use-reduce-motion';
 import { useActiveLedger } from '@/hooks/use-active-ledger';
 import { useLedgerTotals } from '@/hooks/use-ledger-totals';
 import { useLoad } from '@/hooks/use-load';
-import { MODULES } from '@/modules/registry';
 import { go, replace } from '@/nav';
 import { HELP_HOME } from '@/onboarding/help';
 import { BORDER, colors, GUTTER, MIN_TOUCH, radius, spacing, type } from '@/theme';
@@ -171,28 +171,14 @@ function DayPrograms({ day, items }: { day: string; items: MonthProgram[] }) {
   );
 }
 
-/** "सेवाएँ": small tiles for every module. Notra opens the ledger; the rest open the shared "coming soon" page. */
-function Services() {
+function QuickAction({ id, icon, label, hint, onPress }: { id: string; icon: IconName; label: string; hint: string; onPress: () => void }) {
   return (
-    <View style={styles.grid}>
-      {MODULES.map((m) => (
-        <PressableScale
-          key={m.id}
-          testID={`tile-${m.id}`}
-          accessibilityRole="button"
-          accessibilityLabel={m.status === 'soon' ? `${m.title}, जल्द आ रहा है` : m.title}
-          onPress={() => go(m.route)}
-          outerStyle={styles.tileOuter}
-          style={[styles.tile, m.status === 'live' && styles.tileLive]}
-        >
-          <View style={styles.tileDisc}>
-            <Icon name={m.icon} size={32} color={colors.received} />
-          </View>
-          <Text style={[type.captionBold, styles.ink, styles.tileLabel]} numberOfLines={2}>{m.title}</Text>
-          {m.status === 'soon' ? <SoonBadge /> : null}
-        </PressableScale>
-      ))}
-    </View>
+    <PressableScale testID={id} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} onPress={onPress} outerStyle={styles.qaOuter} style={styles.qa}>
+      <Icon name={icon} size={28} color={colors.received} />
+      <Text style={[type.captionBold, styles.qaText]} numberOfLines={2} importantForAccessibility="no">
+        {label}
+      </Text>
+    </PressableScale>
   );
 }
 
@@ -219,6 +205,7 @@ export default function Home() {
     // First launch: picture cards, then the (skippable) sign-in so a new phone can restore its data, then setup.
     const next = firstRunRoute({ onboardingSeen, signinPrompted, setupDone });
     if (next) replace(next);
+    else void touchToday(); // daily-use streak for इनाम (on the phone only)
   }, [loading, error, setupDone, signinPrompted, onboardingSeen]);
 
   return (
@@ -245,7 +232,7 @@ export default function Home() {
                   outerStyle={styles.gearOuter}
                   style={styles.gear}
                 >
-                  <Icon name="settings" size={30} color={colors.muted} />
+                  <Icon name="settings" size={28} color={colors.muted} />
                 </PressableScale>
               </View>
               <DotBorder />
@@ -264,28 +251,36 @@ export default function Home() {
               </View>
             </FadeIn>
 
+            <View style={styles.row}>
+              <QuickAction id="qa-new" icon="write" label="नया नोतरा लिखें" hint="अपना नया नोतरा बनाएँ" onPress={() => go('/events/new')} />
+              <QuickAction id="qa-give" icon="moneyOut" label="दूसरों में दें" hint="किसी और के नोतरे में जो दिया वह लिखें" onPress={() => go('/others/new')} />
+            </View>
+
             <FadeIn delay={80}>
               <UpcomingStrip items={upcoming} />
             </FadeIn>
 
-            <SectionTitle icon="star">सेवाएँ</SectionTitle>
-            <Services />
+            <View style={styles.block}>
+              <SectionTitle icon="calendar">कैलेंडर</SectionTitle>
+              <Calendar value={day} onSelect={setDay} markers={markers} onMonthChange={onMonth} />
+              <DayPrograms day={day} items={dayItems} />
+            </View>
 
-            <SectionTitle icon="calendar">कैलेंडर</SectionTitle>
-            <Calendar value={day} onSelect={setDay} markers={markers} onMonthChange={onMonth} />
-            <DayPrograms day={day} items={dayItems} />
+            <PressableScale testID="btn-families" accessibilityRole="button" accessibilityLabel="परिवार" accessibilityHint="सब परिवारों की सूची और खोज" onPress={() => go('/households')} style={styles.link}>
+              <Icon name="families" size={28} color={colors.received} />
+              <Text style={[type.bodyBold, styles.flex, { color: colors.received }]} importantForAccessibility="no">
+                परिवार
+              </Text>
+              <Icon name="chevron" size={22} color={colors.muted} />
+            </PressableScale>
 
-            <BigButton testID="btn-families" icon="families" label="परिवार" tone="plain" hint="सब परिवारों की सूची और खोज" onPress={() => go('/households')} />
-            {error ? (
-              <Card tint="given">
-                <Text style={[type.bodyBold, { color: colors.given }]}>डेटा नहीं खुल पाया। ऐप दोबारा खोलें।</Text>
-              </Card>
-            ) : null}
+          {error ? (
+            <Card tint="given">
+              <Text style={[type.bodyBold, { color: colors.given }]}>डेटा नहीं खुल पाया। ऐप दोबारा खोलें।</Text>
+            </Card>
+          ) : null}
           </View>
         </ScrollView>
-        <BottomBar>
-          <BigButton testID="btn-old" tone="primary" icon="doc" label="पुराना हिसाब जोड़ें" hint="पुरानी डायरी का हिसाब पिछली तारीख से लिखें" onPress={() => go('/old')} />
-        </BottomBar>
       </SafeAreaView>
     </View>
   );
@@ -299,17 +294,6 @@ const styles = StyleSheet.create({
   band: { backgroundColor: colors.haldiTint, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card, overflow: 'hidden' },
   top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, paddingBottom: spacing.sm },
   greeting: { flex: 1, color: colors.ink },
-  gearOuter: { width: MIN_TOUCH, height: MIN_TOUCH },
-  gear: {
-    width: MIN_TOUCH,
-    height: MIN_TOUCH,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.button,
-    borderWidth: BORDER,
-    borderColor: colors.hairline,
-    backgroundColor: colors.card,
-  },
   sumRow: { flexDirection: 'row', gap: spacing.sm },
   sumTile: { flex: 1, gap: spacing.sm, paddingLeft: spacing.md + spacing.xs },
   sumHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -320,18 +304,32 @@ const styles = StyleSheet.create({
   upCard: {
     width: 176, gap: spacing.xs, padding: spacing.md, backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
   },
+  row: { flexDirection: 'row', gap: spacing.sm },
+  qaOuter: { flex: 1 },
+  qa: {
+    minHeight: 96, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, padding: spacing.sm,
+    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
+  qaText: { color: colors.ink, textAlign: 'center' },
+  link: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: MIN_TOUCH, paddingHorizontal: spacing.md,
+    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
+  block: { gap: spacing.sm },
+  gearOuter: { width: MIN_TOUCH, height: MIN_TOUCH },
+  gear: {
+    width: MIN_TOUCH,
+    height: MIN_TOUCH,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.pill,
+    borderWidth: BORDER,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+  },
   muted: { color: colors.muted },
   ink: { color: colors.ink },
   flex: { flex: 1 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  tileOuter: { width: '31%', flexGrow: 1 },
-  tile: {
-    minHeight: 112, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, padding: spacing.sm,
-    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
-  },
-  tileLive: { backgroundColor: colors.haldiTint },
-  tileDisc: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.receivedTint },
-  tileLabel: { textAlign: 'center' },
   dayList: { gap: spacing.sm },
   dayRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: MIN_TOUCH + spacing.sm, paddingHorizontal: spacing.md,

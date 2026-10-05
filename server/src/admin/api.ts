@@ -11,6 +11,7 @@ import { Registry, type AdminVars, type Env, type RouteInfo } from './kit';
 import { monitoringRoutes } from './monitoring';
 import { findForbidden } from './privacy';
 import { reportRoutes } from './reports';
+import { rishteyRoutes } from './rishtey';
 import { staffRoutes } from './staff';
 import { supportViewRoutes, SUPPORT_VIEW_PREFIX } from './supportview';
 import { ticketRoutes } from './tickets';
@@ -30,7 +31,7 @@ export function createAdminApi(deps: Deps, admin: AdminDeps, auth: Auth): { app:
   const env: Env = { deps, admin, now };
 
   if (admin.allowedOrigin) {
-    app.use('*', cors({ origin: admin.allowedOrigin, allowHeaders: ['authorization', 'content-type'], credentials: true, allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], maxAge: 600 }));
+    app.use('*', cors({ origin: admin.allowedOrigin, allowHeaders: ['authorization', 'content-type', 'x-platform', 'x-app-version'], credentials: true, allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], maxAge: 600 }));
   }
 
   app.use('*', async (c, next) => {
@@ -67,6 +68,7 @@ export function createAdminApi(deps: Deps, admin: AdminDeps, auth: Auth): { app:
   ticketRoutes(reg, env);
   abuseRoutes(reg, env);
   reportRoutes(reg, env);
+  rishteyRoutes(reg, env);
   supportViewRoutes(reg, env);
   return { app, routes: reg.routes };
 }

@@ -7,6 +7,7 @@ import { pagesBucket, type ReportId } from '@/analytics/events';
 import { BigButton } from '@/components/big-button';
 import { ReportSheet, SHEET_W } from '@/components/report-sheet';
 import { Text } from '@/components/text';
+import { recordReport } from '@/features/rewards/store';
 import { paginateDoc, type ReportDoc, type ReportPage } from '@/core';
 import { captureView, MAX_IMAGE_ROWS, shareImageFile, shareReportPdf } from '@/services/report-export';
 import { showToast } from '@/services/toast';
@@ -59,6 +60,7 @@ export function ExportBar({ build, disabled, reportId }: Props) {
       if (!ok) showToast('इस फ़ोन में भेजने की सुविधा नहीं मिली।');
       else {
         track('report_exported', { report: reportId, format: 'pdf', pages: pagesBucket(paginateDoc(doc).length) });
+        void recordReport();
         void showExportInterstitial();
       } // natural break: the share sheet has closed
     } catch {
@@ -95,6 +97,7 @@ export function ExportBar({ build, disabled, reportId }: Props) {
       }
       setShot(null);
       track('report_exported', { report: reportId, format: 'png', pages: pagesBucket(pages.length) });
+      void recordReport();
       setDone({ title: doc.title, uris });
     } catch {
       showToast('फ़ोटो नहीं बन पाई। फिर कोशिश करें।');

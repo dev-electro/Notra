@@ -101,6 +101,22 @@ const BUILDERS: Record<string, Builder> = {
       note: `Cost = (sent - failed) x SMS_COST_PAISE (${env.admin.smsCostPaise} paise).`,
     };
   },
+  rewards: async (_c, q, _e, from, to) => {
+    const rows = await q.query<{ day: string | Date; users: number | null; points: number | null; checkins: number | null; videos: number | null; referrals: number | null; suppressed: boolean }>(
+      'SELECT day, users, points, checkins, videos, referrals, suppressed FROM analytics.rewards_daily($1::date, $2::date)', [from, to],
+    );
+    const by = new Map(rows.map((r) => [iso(r.day)!.slice(0, 10), r]));
+    return {
+      title: 'Rewards: points issued, check-ins, videos, referrals per day (IST)',
+      columns: [{ key: 'day', label: 'Day' }, { key: 'points', label: 'Points issued' }, { key: 'checkins', label: 'Check-ins' }, { key: 'videos', label: 'Videos' }, { key: 'referrals', label: 'Referrals qualified' }],
+      rows: days(from, to).map((d) => {
+        const r = by.get(d);
+        if (!r) return { day: d, points: 0, checkins: 0, videos: 0, referrals: 0 };
+        return { day: d, points: cell(r.points, r.suppressed), checkins: cell(r.checkins, r.suppressed), videos: cell(r.videos, r.suppressed), referrals: cell(r.referrals, r.suppressed) };
+      }),
+      note: 'Points are an achievement score; there is no cash redemption. Days with fewer than 5 users are shown as "<5".',
+    };
+  },
   deletions: async (_c, q, _e, from, to) => {
     const m = await loadStats(q, from, to, ['account_deletions']);
     return { title: 'Account deletions per day', columns: [{ key: 'day', label: 'Day' }, { key: 'deletions', label: 'Deletions' }], rows: days(from, to).map((d) => ({ day: d, deletions: stat(m, d, 'account_deletions') })) };

@@ -44,10 +44,14 @@ export function loadConfig(env: Env): Config {
   };
 }
 
+/** Built lazily: a missing MSG91 secret only fails when an OTP is actually sent, so health, config and Google sign-in keep working. */
 export function smsFromEnv(env: Env): SmsProvider {
-  if (env.SMS_PROVIDER === 'dev') return new ConsoleSmsProvider();
-  if (!env.MSG91_AUTH_KEY || !env.MSG91_TEMPLATE_ID) throw new Error('MSG91_AUTH_KEY and MSG91_TEMPLATE_ID are required');
-  return new Msg91Provider(env.MSG91_AUTH_KEY, env.MSG91_TEMPLATE_ID);
+  const make = (): SmsProvider => {
+    if (env.SMS_PROVIDER === 'dev') return new ConsoleSmsProvider();
+    if (!env.MSG91_AUTH_KEY || !env.MSG91_TEMPLATE_ID) throw new Error('MSG91_AUTH_KEY and MSG91_TEMPLATE_ID are required');
+    return new Msg91Provider(env.MSG91_AUTH_KEY, env.MSG91_TEMPLATE_ID);
+  };
+  return { sendOtp: async (phone, code) => make().sendOtp(phone, code) };
 }
 
 export const SERVER_VERSION = '1.0.0';

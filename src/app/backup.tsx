@@ -11,6 +11,7 @@ import {
 import { getDb, type Db } from '@/db';
 import { getUnlocked } from '@/ledgers/session';
 import { back } from '@/nav';
+import { recordBackup } from '@/features/rewards/store';
 import { syncSoon } from '@/sync/runtime';
 import { colors, type } from '@/theme';
 import { track } from '@/analytics';
@@ -42,6 +43,7 @@ function Create() {
       const { getRandomBytes } = await import('expo-crypto');
       const r = await createBackup(await dbOf(), pw, getUnlocked(), { randomBytes: getRandomBytes });
       track('backup_created');
+      void recordBackup();
       const FS = await import('expo-file-system');
       const file = new FS.File(FS.Paths.cache, backupFileName());
       file.create({ overwrite: true });

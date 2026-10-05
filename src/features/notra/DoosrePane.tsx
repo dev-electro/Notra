@@ -7,7 +7,7 @@ import { EmptyState } from '@/components/empty-state';
 import { EventCardView } from '@/components/event-card';
 import { Icon } from '@/components/icons';
 import { PressableScale } from '@/components/pressable-scale';
-import { listContent, Screen } from '@/components/screen';
+import { listContent } from '@/components/screen';
 import { Text } from '@/components/text';
 import { formatINR } from '@/core';
 import { getMyHouseholdId, sqlEventCards, sqlTotals, type EventCard } from '@/db';
@@ -18,9 +18,9 @@ import { colors, spacing, type } from '@/theme';
 const keyOf = (c: EventCard) => c.event.id;
 
 /**
- * दूसरों का नोतरा: the programs of other families that I went to. Here I only GIVE. Newest first; each card is a family and its program.
+ * नोतरा > दूसरों का: the programs of other families that I went to. Here I only GIVE. Newest first; each card is a family and its program.
  */
-export default function OthersTab() {
+export function DoosrePane() {
   const { data, loading } = useLoad(
     async (db, ledgerId) => {
       const me = await getMyHouseholdId(db);
@@ -39,7 +39,6 @@ export default function OthersTab() {
   );
   const ad = useAdRows(data.cards, 'doosre', 'doosre', keyOf, renderItem);
   return (
-    <Screen tab title="दूसरों का नोतरा" scroll={false} action={{ testID: 'btn-new-visit', icon: 'plus', label: 'नए नोतरे में गए', onPress: () => go('/others/new'), hint: 'किसी और परिवार के नोतरे में जो दिया वह लिखें' }}>
       <FlatList
         data={ad.rows}
         keyExtractor={ad.keyExtractor}
@@ -67,7 +66,6 @@ export default function OthersTab() {
         removeClippedSubviews
         contentContainerStyle={[listContent, styles.list]}
       />
-    </Screen>
   );
 }
 

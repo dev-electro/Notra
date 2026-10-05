@@ -126,13 +126,13 @@ async function readLog(): Promise<InterstitialLog> {
 }
 
 /** Decision with the live state filled in (config, install date, online hint, SDK state). */
-export function liveDecision(placement: Parameters<typeof adDecision>[0]['placement'], screen: AdScreen, more: { itemCount?: number; index?: number; log?: InterstitialLog; assumeReady?: boolean } = {}) {
+export function liveDecision(placement: Parameters<typeof adDecision>[0]['placement'], screen: AdScreen, more: { itemCount?: number; index?: number; log?: InterstitialLog; assumeReady?: boolean; inaamVideosToday?: number } = {}) {
   const st = getAdsState();
   const now = Date.now();
   const log = more.log ?? EMPTY_LOG;
   return adDecision({
     placement, screen, ads: getRemote().config.ads, now, installAt: st.installAt, lastInterstitialAt: log.lastAt, interstitialsToday: countToday(log, now),
-    online: isOnlineHint(), sdkReady: st.ready || !!more.assumeReady, lastEntryAt, itemCount: more.itemCount, index: more.index,
+    online: isOnlineHint(), sdkReady: st.ready || !!more.assumeReady, lastEntryAt, itemCount: more.itemCount, index: more.index, inaamVideosToday: more.inaamVideosToday,
   });
 }
 
@@ -192,30 +192,64 @@ export async function watchRewardedAd(loadTimeoutMs = 10_000): Promise<boolean> 
   try {
     await initAds();
     if (!rewardedAllowed()) return false;
-    const { RewardedAd, RewardedAdEventType, AdEventType } = lib();
-    const ad = RewardedAd.createForAdRequest(adUnits().units.rewarded, requestOptions());
-    return await new Promise<boolean>((resolve) => {
-      let earned = false;
-      const offs: (() => void)[] = [];
-      const done = (v: boolean) => {
-        offs.forEach((o) => o());
-        clearTimeout(timer);
-        resolve(v);
-      };
-      const timer = setTimeout(() => done(false), loadTimeoutMs);
-      offs.push(ad.addAdEventListener(RewardedAdEventType.LOADED, () => {
-        clearTimeout(timer);
-        void ad.show().catch(() => done(false));
-      }));
-      offs.push(ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
-        earned = true;
-        track('ad_reward_earned');
-      }));
-      offs.push(ad.addAdEventListener(AdEventType.CLOSED, () => done(earned)));
-      offs.push(ad.addAdEventListener(AdEventType.ERROR, () => done(false)));
-      ad.load();
-    });
+    return await playRewarded(loadTimeoutMs);
   } catch {
     return false;
   }
+}
+
+// ---------- rewarded (opt-in): इनाम "वीडियो देखें" (+5 points, 3 a day) ----------
+const INAAM_LOG_KEY = 'ads_inaam_video_log_v1';
+
+async function inaamLog(): Promise<InterstitialLog> {
+  try {
+    return parseLog(await getSetting((await getDb()) as unknown as Db, INAAM_LOG_KEY));
+  } catch {
+    return EMPTY_LOG;
+  }
+}
+
+/** Would an इनाम video be offered now (switches, first day, offline, today's local count)? Used to decide whether to show the card. */
+export async function inaamVideoAllowed(): Promise<boolean> {
+  if (e2eBuild()) return false;
+  return liveDecision('inaam_video', 'inaam', { inaamVideosToday: countToday(await inaamLog(), Date.now()) }).show;
+}
+
+/** Plays one rewarded video; true only if it was watched to the reward (and then counted for today's local cap). */
+export async function watchInaamVideo(loadTimeoutMs = 10_000): Promise<boolean> {
+  try {
+    await initAds();
+    if (!(await inaamVideoAllowed())) return false;
+    if (!(await playRewarded(loadTimeoutMs))) return false;
+    await setSetting((await getDb()) as unknown as Db, INAAM_LOG_KEY, JSON.stringify(recordInterstitial(await inaamLog(), Date.now())));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function playRewarded(loadTimeoutMs: number): Promise<boolean> {
+  const { RewardedAd, RewardedAdEventType, AdEventType } = lib();
+  const ad = RewardedAd.createForAdRequest(adUnits().units.rewarded, requestOptions());
+  return new Promise<boolean>((resolve) => {
+    let earned = false;
+    const offs: (() => void)[] = [];
+    const done = (v: boolean) => {
+      offs.forEach((o) => o());
+      clearTimeout(timer);
+      resolve(v);
+    };
+    const timer = setTimeout(() => done(false), loadTimeoutMs);
+    offs.push(ad.addAdEventListener(RewardedAdEventType.LOADED, () => {
+      clearTimeout(timer);
+      void ad.show().catch(() => done(false));
+    }));
+    offs.push(ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+      earned = true;
+      track('ad_reward_earned');
+    }));
+    offs.push(ad.addAdEventListener(AdEventType.CLOSED, () => done(earned)));
+    offs.push(ad.addAdEventListener(AdEventType.ERROR, () => done(false)));
+    ad.load();
+  });
 }

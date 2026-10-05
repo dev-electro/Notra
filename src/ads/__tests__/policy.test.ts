@@ -1,9 +1,12 @@
 import { DEFAULT_CONFIG } from '@/remote/config';
 import { adDecision, ALLOWED_SCREENS, countToday, dayKey, DAY_MS, EMPTY_LOG, ENTRY_COOLDOWN_MS, parseLog, recordInterstitial, type AdScreen, type PolicyInput } from '../policy';
 
+/** Ads are off by default (as on the server); the policy tests need every placement on. */
+const ADS_ON = { ...DEFAULT_CONFIG.ads, enabled: true, banner: true, native: true, interstitial: true, rewarded: true };
+
 const NOW = Date.UTC(2026, 9, 10, 12, 0, 0);
 const base = (o: Partial<PolicyInput> = {}): PolicyInput => ({
-  placement: 'banner', screen: 'home', ads: DEFAULT_CONFIG.ads, now: NOW, installAt: NOW - 5 * DAY_MS, lastInterstitialAt: null,
+  placement: 'banner', screen: 'home', ads: ADS_ON, now: NOW, installAt: NOW - 5 * DAY_MS, lastInterstitialAt: null,
   interstitialsToday: 0, online: true, sdkReady: true, ...o,
 });
 const reason = (o: Partial<PolicyInput>) => {
@@ -18,9 +21,9 @@ describe('ads policy', () => {
   });
   it('needs the SDK ready', () => expect(reason({ sdkReady: false })).toBe('not-ready'));
   it('master switch and each placement switch', () => {
-    expect(reason({ ads: { ...DEFAULT_CONFIG.ads, enabled: false } })).toBe('disabled');
+    expect(reason({ ads: { ...ADS_ON, enabled: false } })).toBe('disabled');
     for (const p of ['banner', 'native', 'interstitial', 'rewarded'] as const) {
-      expect(reason({ placement: p, screen: ALLOWED_SCREENS[p][0]!, itemCount: 10, index: 3, ads: { ...DEFAULT_CONFIG.ads, [p]: false } })).toBe('placement-off');
+      expect(reason({ placement: p, screen: ALLOWED_SCREENS[p][0]!, itemCount: 10, index: 3, ads: { ...ADS_ON, [p]: false } })).toBe('placement-off');
     }
   });
   it('offline shows nothing', () => expect(reason({ online: false })).toBe('offline'));
@@ -46,7 +49,7 @@ describe('ads policy', () => {
       expect(reason({ placement: 'rewarded', screen: 'report_export', installAt: first })).toBe('first-day');
     });
     it('config can allow banners on day one, but an interstitial is NEVER shown on day one', () => {
-      const ads = { ...DEFAULT_CONFIG.ads, first_day_ads_free: false };
+      const ads = { ...ADS_ON, first_day_ads_free: false };
       expect(reason({ ads, installAt: first })).toBe('show');
       expect(reason({ ads, placement: 'interstitial', screen: 'report_export', installAt: first })).toBe('first-day');
     });
@@ -84,7 +87,7 @@ describe('ads policy', () => {
     it('respects the minimum interval from remote config', () => {
       expect(i({ lastInterstitialAt: NOW - 299_000 })).toBe('interval');
       expect(i({ lastInterstitialAt: NOW - 300_000 })).toBe('show');
-      const ads = { ...DEFAULT_CONFIG.ads, interstitial_min_interval_sec: 900 };
+      const ads = { ...ADS_ON, interstitial_min_interval_sec: 900 };
       expect(i({ ads, lastInterstitialAt: NOW - 600_000 })).toBe('interval');
     });
     it('at most 3 a day', () => {
@@ -117,5 +120,23 @@ describe('interstitial log', () => {
     expect(parseLog(null)).toEqual(EMPTY_LOG);
     expect(parseLog('nonsense')).toEqual(EMPTY_LOG);
     expect(parseLog('{"lastAt":5,"day":"2026-01-01","count":2}')).toEqual({ lastAt: 5, day: '2026-01-01', count: 2 });
+  });
+
+  describe('inaam_video (rewarded video on the इनाम tab)', () => {
+    const on = { ...ADS_ON, inaam_video: true };
+    it('shows only on the inaam screen, when its own switch is on', () => {
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: on })).toBe('show');
+      expect(reason({ placement: 'inaam_video', screen: 'inaam' })).toBe('placement-off'); // default: off
+      expect(reason({ placement: 'inaam_video', screen: 'home', ads: on })).toBe('screen');
+      expect(reason({ placement: 'rewarded', screen: 'inaam' })).toBe('screen');
+    });
+    it('is capped at 3 a day', () => {
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: on, inaamVideosToday: 2 })).toBe('show');
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: on, inaamVideosToday: 3 })).toBe('daily-cap');
+    });
+    it('respects the master switch and the first-day rule', () => {
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: { ...on, enabled: false } })).toBe('disabled');
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: on, installAt: NOW - 1000 })).toBe('first-day');
+    });
   });
 });

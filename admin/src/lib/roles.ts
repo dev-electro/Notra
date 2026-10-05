@@ -21,6 +21,7 @@ export const ACTIONS = {
   suspend_user: 'support',
   signout_user: 'support',
   manage_blocklist: 'support',
+  moderate_rishtey: 'support', // approve/reject community profiles and handle reports; the only place staff see a profile (public details only)
   view_consented_data: 'support',
   unmask_user: 'admin',
   delete_user: 'admin',
