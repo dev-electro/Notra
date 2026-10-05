@@ -4,9 +4,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 
-const url = process.env.DATABASE_URL;
+// Migrations run as the table OWNER (MIGRATION_DATABASE_URL). The Worker's DATABASE_URL is a different, restricted role (RLS applies to it).
+const url = process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL;
 if (!url) {
-  console.error('DATABASE_URL is not set');
+  console.error('MIGRATION_DATABASE_URL (or DATABASE_URL) is not set');
   process.exit(1);
 }
 const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');

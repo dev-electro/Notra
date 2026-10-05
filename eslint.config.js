@@ -3,7 +3,7 @@ const expoConfig = require('eslint-config-expo/flat');
 
 module.exports = defineConfig([
   expoConfig,
-  { ignores: ['dist/*', 'android/*', 'ios/*', '.expo/*', 'server/*', '.claude/*'] },
+  { ignores: ['dist/*', 'android/*', 'ios/*', '.expo/*', 'server/*', 'admin/*', '.claude/*'] },
   {
     // Text/TextInput come from components/text.tsx, which caps font scaling at 1.3x so big-print users do not break layouts.
     files: ['src/**/*.{ts,tsx}'],

@@ -23,6 +23,7 @@
   ],
   "exclude": [
     "server",
+    "admin",
     "node_modules",
     "android",
     "ios",

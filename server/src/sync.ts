@@ -1,4 +1,4 @@
-import type { Db, Queryable } from './db';
+import { withUserTx, type Db, type Queryable } from './db';
 import type { EntryRow, EventRow, HouseholdRow, LedgerRow, ProfileRow, PushBatch, Rejection } from './validate';
 
 /**
@@ -11,7 +11,8 @@ import type { EntryRow, EventRow, HouseholdRow, LedgerRow, ProfileRow, PushBatch
 export async function pushRows(
   db: Db, userId: string, b: PushBatch,
 ): Promise<{ ledgers: number; households: number; events: number; entries: number; profile: number }> {
-  return db.tx(async (q) => {
+  // Row Level Security: the transaction acts as this user with the plain 'user' role, whatever staff role they hold.
+  return withUserTx(db, userId, 'user', async (q) => {
     await q.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`sync:${userId}`]);
     const out = { ledgers: 0, households: 0, events: 0, entries: 0, profile: 0 };
     if (b.ledgers.length) {
@@ -99,7 +100,7 @@ const seqOf = (v: unknown) => Number(v);
 
 /** Rows with server_seq > since for this user, at most `limit` rows in total across the three tables. */
 export async function pullRows(db: Db, userId: string, since: number, limit: number): Promise<PullResult> {
-  return db.tx(async (q: Queryable) => {
+  return withUserTx(db, userId, 'user', async (q: Queryable) => {
     await q.query('SELECT pg_advisory_xact_lock_shared(hashtext($1))', [`sync:${userId}`]);
     const take = limit + 1;
     const [ls, ps, hs, evs, ens] = [
@@ -174,29 +175,32 @@ const camelEntry = (r: EntryRow) => ({
  */
 export async function enforceDirections(db: Db, userId: string, b: PushBatch): Promise<{ batch: PushBatch; rejected: Rejection[] }> {
   if (!b.entries.length) return { batch: b, rejected: [] };
-  const stored = await db.query<{ my_household_id: string | null }>('SELECT my_household_id FROM profiles WHERE user_id = $1', [userId]);
-  const me = b.profile ? b.profile.my_household_id : stored[0]?.my_household_id ?? null;
-  if (!me) return { batch: b, rejected: [] };
-  const host = new Map<string, string>();
-  const need = [...new Set(b.entries.map((e) => e.event_id).filter((x): x is string => !!x))];
-  if (need.length) {
-    const rows = await db.query<{ id: string; host_household_id: string }>(
-      'SELECT id, host_household_id FROM events WHERE user_id = $1 AND id = ANY($2::uuid[])', [userId, need]);
-    for (const r of rows) host.set(r.id, r.host_household_id);
-  }
-  for (const e of b.events) host.set(e.id, e.host_household_id);
-  const rejected: Rejection[] = [];
-  const keep: EntryRow[] = [];
-  const keepIdx: number[] = [];
-  b.entries.forEach((e, i) => {
-    const h = e.event_id ? host.get(e.event_id) : undefined;
-    const exempt = e.is_void || !!e.corrects_entry_id;
-    if (h && !exempt && (h === me ? 'AAYA' : 'GAYA') !== e.direction) {
-      rejected.push({ table: 'entries', id: e.id, index: b.entryIndex[i]!, reason: 'invalid_payload:direction' });
-    } else {
-      keep.push(e);
-      keepIdx.push(b.entryIndex[i]!);
+  // Runs as this user under Row Level Security: outside withUserTx the restricted role sees no rows at all.
+  return withUserTx(db, userId, 'user', async (q: Queryable) => {
+    const stored = await q.query<{ my_household_id: string | null }>('SELECT my_household_id FROM profiles WHERE user_id = $1', [userId]);
+    const me = b.profile ? b.profile.my_household_id : stored[0]?.my_household_id ?? null;
+    if (!me) return { batch: b, rejected: [] };
+    const host = new Map<string, string>();
+    const need = [...new Set(b.entries.map((e) => e.event_id).filter((x): x is string => !!x))];
+    if (need.length) {
+      const rows = await q.query<{ id: string; host_household_id: string }>(
+        'SELECT id, host_household_id FROM events WHERE user_id = $1 AND id = ANY($2::uuid[])', [userId, need]);
+      for (const r of rows) host.set(r.id, r.host_household_id);
     }
+    for (const e of b.events) host.set(e.id, e.host_household_id);
+    const rejected: Rejection[] = [];
+    const keep: EntryRow[] = [];
+    const keepIdx: number[] = [];
+    b.entries.forEach((e, i) => {
+      const h = e.event_id ? host.get(e.event_id) : undefined;
+      const exempt = e.is_void || !!e.corrects_entry_id;
+      if (h && !exempt && (h === me ? 'AAYA' : 'GAYA') !== e.direction) {
+        rejected.push({ table: 'entries', id: e.id, index: b.entryIndex[i]!, reason: 'invalid_payload:direction' });
+      } else {
+        keep.push(e);
+        keepIdx.push(b.entryIndex[i]!);
+      }
+    });
+    return { batch: { ...b, entries: keep, entryIndex: keepIdx }, rejected };
   });
-  return { batch: { ...b, entries: keep, entryIndex: keepIdx }, rejected };
 }
