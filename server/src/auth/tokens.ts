@@ -1,5 +1,5 @@
 import { jwtVerify, SignJWT } from 'jose';
-import type { Queryable } from '../db';
+import { setUserContext, type Queryable } from '../db';
 import { randomToken, sha256Hex } from '../crypto';
 import { ApiError } from '../errors';
 
@@ -48,16 +48,17 @@ type Rotation = { ok: true; userId: string; token: string } | { ok: false };
 /**
  * Rotate: the presented token is revoked and replaced. Presenting an already-rotated (revoked) token means it was
  * stolen or replayed, so the whole family is revoked. Runs inside the caller's transaction.
+ * The token is found by hash through auth_refresh_lookup (SECURITY DEFINER: no user is known yet); from then on the
+ * transaction acts as that token's user, so Row Level Security covers the rest.
  */
 export async function rotateRefreshToken(q: Queryable, presented: string): Promise<Rotation> {
   const hash = await sha256Hex(presented);
-  const rows = await q.query<{ id: string; user_id: string; family_id: string; revoked: boolean; expired: boolean }>(
-    `SELECT id, user_id, family_id, revoked_at IS NOT NULL AS revoked, expires_at <= now() AS expired
-     FROM refresh_tokens WHERE token_hash = $1 FOR UPDATE`,
+  const row = (await q.query<{ id: string; user_id: string; family_id: string; revoked: boolean; expired: boolean }>(
+    'SELECT id, user_id, family_id, revoked, expired FROM auth_refresh_lookup($1)',
     [hash],
-  );
-  const row = rows[0];
+  ))[0];
   if (!row) return { ok: false };
+  await setUserContext(q, row.user_id);
   if (row.revoked) {
     await q.query('UPDATE refresh_tokens SET revoked_at = now() WHERE family_id = $1 AND revoked_at IS NULL', [row.family_id]);
     return { ok: false };
@@ -69,9 +70,5 @@ export async function rotateRefreshToken(q: Queryable, presented: string): Promi
 }
 
 export async function revokeFamilyOf(q: Queryable, presented: string): Promise<void> {
-  await q.query(
-    `UPDATE refresh_tokens SET revoked_at = now()
-     WHERE revoked_at IS NULL AND family_id IN (SELECT family_id FROM refresh_tokens WHERE token_hash = $1)`,
-    [await sha256Hex(presented)],
-  );
+  await q.query('SELECT auth_revoke_family($1)', [await sha256Hex(presented)]);
 }

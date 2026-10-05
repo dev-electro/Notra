@@ -1,4 +1,4 @@
-import type { Db, Queryable } from './db';
+import { withUserTx, type Db, type Queryable } from './db';
 import type { EntryRow, EventRow, HouseholdRow, LedgerRow, ProfileRow, PushBatch } from './validate';
 
 /**
@@ -11,7 +11,8 @@ import type { EntryRow, EventRow, HouseholdRow, LedgerRow, ProfileRow, PushBatch
 export async function pushRows(
   db: Db, userId: string, b: PushBatch,
 ): Promise<{ ledgers: number; households: number; events: number; entries: number; profile: number }> {
-  return db.tx(async (q) => {
+  // Row Level Security: the transaction acts as this user with the plain 'user' role, whatever staff role they hold.
+  return withUserTx(db, userId, 'user', async (q) => {
     await q.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`sync:${userId}`]);
     const out = { ledgers: 0, households: 0, events: 0, entries: 0, profile: 0 };
     if (b.ledgers.length) {
@@ -98,7 +99,7 @@ const seqOf = (v: unknown) => Number(v);
 
 /** Rows with server_seq > since for this user, at most `limit` rows in total across the three tables. */
 export async function pullRows(db: Db, userId: string, since: number, limit: number): Promise<PullResult> {
-  return db.tx(async (q: Queryable) => {
+  return withUserTx(db, userId, 'user', async (q: Queryable) => {
     await q.query('SELECT pg_advisory_xact_lock_shared(hashtext($1))', [`sync:${userId}`]);
     const take = limit + 1;
     const [ls, ps, hs, evs, ens] = [

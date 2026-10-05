@@ -4,7 +4,7 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Secrets are NOT stored here. Set them with `wrangler secret put <NAME>` (or the deploy workflow):
-#   DATABASE_URL, JWT_SECRET, OTP_PEPPER, GOOGLE_CLIENT_IDS, MSG91_AUTH_KEY, MSG91_TEMPLATE_ID, SMS_PROVIDER
+#   DATABASE_URL (the RESTRICTED runtime role, member of notra_app; see docs/ADMIN.md), JWT_SECRET, OTP_PEPPER, GOOGLE_CLIENT_IDS, MSG91_AUTH_KEY, MSG91_TEMPLATE_ID, SMS_PROVIDER
 # SMS_PROVIDER is "msg91" in production, "dev" (logs the code, sends nothing) only for local development.
 
 # Optional: Cloudflare Hyperdrive (connection pooling in front of Neon/Supabase). When bound, the Worker
@@ -12,3 +12,14 @@ compatibility_flags = ["nodejs_compat"]
 # [[hyperdrive]]
 # binding = "HYPERDRIVE"
 # id = "<your-hyperdrive-config-id>"
+
+# Daily rollups into daily_stats (aggregates for the admin panel). 00:45 UTC = 06:15 IST; the job recomputes the last 7 days.
+[triggers]
+crons = ["45 0 * * *"]
+
+# Plain variables (not secrets). Override per environment in the dashboard or with `wrangler deploy --var`.
+[vars]
+ENVIRONMENT = "production"
+SMS_COST_PAISE = "25"
+# Origin of the admin web app, only if it is served from a different origin than this Worker (enables CORS for it):
+# ADMIN_ORIGIN = "https://admin.example.com"

@@ -1,8 +1,9 @@
 name: Deploy server
 
-# Manual only. Applies database migrations to DATABASE_URL, then deploys the Cloudflare Worker.
+# Manual only. Applies database migrations as the OWNER role (MIGRATION_DATABASE_URL), then deploys the Cloudflare Worker, which
+# runs as the restricted role in DATABASE_URL (a member of notra_app: Row Level Security applies to it). See docs/ADMIN.md.
 # Required repository secrets (Settings > Secrets and variables > Actions):
-#   DATABASE_URL, CLOUDFLARE_API_TOKEN, JWT_SECRET, OTP_PEPPER, GOOGLE_CLIENT_IDS
+#   MIGRATION_DATABASE_URL, DATABASE_URL, CLOUDFLARE_API_TOKEN, JWT_SECRET, OTP_PEPPER, GOOGLE_CLIENT_IDS
 # Required for SMS in production: MSG91_AUTH_KEY, MSG91_TEMPLATE_ID. Optional: SMS_PROVIDER (defaults to msg91; "dev" only for testing).
 # Also set CLOUDFLARE_ACCOUNT_ID if your token can access more than one account.
 on:
@@ -31,7 +32,7 @@ jobs:
       - name: Apply migrations
         run: npm run migrate
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
       - name: Deploy Worker
         run: npm run deploy
         env:
