@@ -8,12 +8,13 @@ import { PressableScale } from '@/components/pressable-scale';
 import { Text } from '@/components/text';
 import { BORDER, colors, MIN_TOUCH, radius, spacing, type } from '@/theme';
 
-/** The four tabs, in order: picture + plain Hindi word each. मेरा नोतरा = where I only receive, दूसरों का नोतरा = where I only give. */
+/** The five tabs, in order: picture + plain Hindi word each. मेरा नोतरा = where I only receive, दूसरों का नोतरा = where I only give. */
 export const TABS: Record<string, { label: string; icon: IconName; id: string }> = {
   index: { label: 'घर', icon: 'house', id: 'tab-home' },
   mera: { label: 'मेरा नोतरा', icon: 'moneyIn', id: 'tab-mine' },
   doosre: { label: 'दूसरों का नोतरा', icon: 'moneyOut', id: 'tab-others' },
   hisab: { label: 'हिसाब', icon: 'hisaab', id: 'tab-hisaab' },
+  inaam: { label: 'इनाम', icon: 'star', id: 'tab-rewards' },
 };
 
 /** Real-app bottom bar: big (84dp) targets, icon above a bold word, the open tab in a haldi pill. Meaning is never colour alone. */
@@ -45,7 +46,7 @@ export function BottomTabs({ state, navigation }: BottomTabBarProps) {
               style={styles.tab}
             >
               <View style={[styles.pill, focused && styles.pillOn]}>
-                <Icon name={t.icon} size={28} color={ink} strokeWidth={focused ? 2.5 : 2} />
+                <Icon name={t.icon} size={24} color={ink} strokeWidth={focused ? 2.5 : 2} />
               </View>
               <Text style={[focused ? type.captionBold : type.caption, styles.label, { color: ink }]} numberOfLines={2} importantForAccessibility="no">
                 {t.label}
@@ -61,8 +62,8 @@ export function BottomTabs({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
   bar: { flexDirection: 'row', backgroundColor: colors.card, borderTopWidth: BORDER, borderTopColor: colors.hairline, paddingTop: spacing.xs, paddingHorizontal: spacing.xs },
   tabOuter: { flex: 1 },
-  tab: { minHeight: MIN_TOUCH + spacing.md, alignItems: 'center', justifyContent: 'flex-start', gap: 2, paddingVertical: spacing.xs },
-  pill: { width: 64, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  tab: { minHeight: 60, alignItems: 'center', justifyContent: 'flex-start', gap: 2, paddingVertical: spacing.xs },
+  pill: { width: 52, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   pillOn: { backgroundColor: colors.haldiTint },
-  label: { textAlign: 'center', lineHeight: 22 },
+  label: { textAlign: 'center', fontSize: 13, lineHeight: 18 },
 });

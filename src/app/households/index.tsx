@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
+import { Icon } from '@/components/icons';
 import { HOUSEHOLD_ROW_HEIGHT, HouseholdRow } from '@/components/household-row';
 import { listContent, Screen } from '@/components/screen';
 import type { Household } from '@/core';
 import { searchHouseholds } from '@/db';
 import { useLoad } from '@/hooks/use-load';
 import { go } from '@/nav';
-import { GUTTER, spacing } from '@/theme';
+import { colors, GUTTER, spacing } from '@/theme';
 
 const PAGE = 40;
 const keyOf = (h: Household) => h.id;
@@ -39,7 +40,12 @@ export default function Households() {
       action={{ testID: 'btn-new-household', icon: 'plus', label: empty ? 'पहला परिवार जोड़ें' : 'नया परिवार', onPress: () => go('/households/edit') }}
     >
       <View style={styles.top}>
-        <Field testID="family-search" label="खोजें (नाम, पिता, गाँव, मोबाइल)" value={query} onChangeText={setQuery} />
+        <View>
+          <Field testID="family-search" label="खोजें (नाम, पिता, गाँव, मोबाइल)" value={query} onChangeText={setQuery} style={styles.searchInput} />
+          <View style={styles.searchIcon} pointerEvents="none">
+            <Icon name="search" size={24} color={colors.muted} />
+          </View>
+        </View>
       </View>
       <FlatList
         data={data}
@@ -61,5 +67,7 @@ export default function Households() {
 }
 
 const styles = StyleSheet.create({
+  searchInput: { paddingLeft: 48 },
+  searchIcon: { position: 'absolute', left: 14, bottom: 0, height: 56, justifyContent: 'center' },
   top: { gap: spacing.sm, paddingHorizontal: GUTTER, paddingBottom: spacing.md },
 });

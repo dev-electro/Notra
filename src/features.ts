@@ -8,7 +8,18 @@ import type { RemoteConfig } from '@/remote/config';
  */
 export const FEATURES = {
   diaryPhotoImport: false,
+  /** Super-app modules (src/modules/registry.ts). notra is the live ledger; the rest are "coming soon" placeholders. */
+  notra: false,
+  rishtey: false,
+  checkin: false,
+  rewards: false,
+  referral: false,
+  videos: false,
 } as const;
 
 /** Default flag OR the server's features.ocr. */
 export const diaryPhotoImportOn = (c: Pick<RemoteConfig, 'features'>): boolean => FEATURES.diaryPhotoImport || c.features.ocr;
+
+/** Module switch: the baked-in default OR the server's features.<id> when it sends one (the server may add keys freely). */
+export const moduleOn = (id: Exclude<keyof typeof FEATURES, 'diaryPhotoImport'>, c: Pick<RemoteConfig, 'features'>): boolean =>
+  FEATURES[id] || (c.features as unknown as Record<string, unknown>)[id] === true;

@@ -7,7 +7,7 @@ import { tapLight, warmHaptics } from '@/services/haptics';
 import { BORDER, colors, radius, spacing, type } from '@/theme';
 
 export const KEY_BACK = '⌫';
-const KEY_HEIGHT = 72;
+const KEY_HEIGHT = 64;
 
 interface Props {
   /** Key labels in reading order; '' leaves a gap; KEY_BACK is the erase key. */
@@ -16,7 +16,7 @@ interface Props {
   disabled?: boolean;
 }
 
-/** Big rounded keys (72dp) with a light tick on each tap. Shared by the amount pad and the PIN pad. */
+/** Big rounded keys (64dp) with a light tick on each tap. Shared by the amount pad and the PIN pad. */
 export const Keypad = React.memo(function Keypad({ keys, onKey, disabled }: Props) {
   useEffect(() => warmHaptics(), []);
   return (

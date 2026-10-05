@@ -17,6 +17,7 @@ import { getMyHousehold, getMyHouseholdId, sqlEventCards, type EventCard } from 
 import { useActiveLedger } from '@/hooks/use-active-ledger';
 import { useLedgerTotals } from '@/hooks/use-ledger-totals';
 import { useLoad } from '@/hooks/use-load';
+import { MODULES } from '@/modules/registry';
 import { go, replace } from '@/nav';
 import { HELP_HOME } from '@/onboarding/help';
 import { BORDER, colors, GUTTER, MIN_TOUCH, radius, spacing, type } from '@/theme';
@@ -107,6 +108,29 @@ function DayPrograms({ day, items }: { day: string; items: MonthProgram[] }) {
   );
 }
 
+/** "सेवाएँ": small tiles for every module. Notra opens the ledger; the rest open the shared "coming soon" page. */
+function Services() {
+  return (
+    <View style={styles.grid}>
+      {MODULES.map((m) => (
+        <PressableScale
+          key={m.id}
+          testID={`tile-${m.id}`}
+          accessibilityRole="button"
+          accessibilityLabel={m.status === 'soon' ? `${m.title}, जल्द आ रहा है` : m.title}
+          onPress={() => go(m.route)}
+          outerStyle={styles.tileOuter}
+          style={styles.tile}
+        >
+          <Icon name={m.icon} size={28} color={colors.received} />
+          <Text style={[type.captionBold, styles.ink, styles.tileLabel]} numberOfLines={2}>{m.title}</Text>
+          {m.status === 'soon' ? <View style={styles.soonTag}><Text style={styles.soonText}>जल्द</Text></View> : null}
+        </PressableScale>
+      ))}
+    </View>
+  );
+}
+
 export default function Home() {
   const { loading, error, receivedPaise, givenPaise, setupDone, signinPrompted, onboardingSeen } = useLedgerTotals();
   const ledger = useActiveLedger();
@@ -167,6 +191,9 @@ export default function Home() {
               <SummaryRow tone="given" word="कुल दिया" paired="(गया)" amount={show(givenPaise)} />
             </Card>
 
+            <SectionTitle icon="star">सेवाएँ</SectionTitle>
+            <Services />
+
             <SectionTitle icon="calendar">कैलेंडर</SectionTitle>
             <Calendar value={day} onSelect={setDay} markers={markers} onMonthChange={onMonth} />
             <DayPrograms day={day} items={dayItems} />
@@ -214,6 +241,15 @@ const styles = StyleSheet.create({
   ink: { color: colors.ink },
   flex: { flex: 1 },
   divider: { height: BORDER, backgroundColor: colors.hairline },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  tileOuter: { width: '31%', flexGrow: 1 },
+  tile: {
+    minHeight: 84, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, padding: spacing.sm,
+    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
+  tileLabel: { textAlign: 'center' },
+  soonTag: { position: 'absolute', top: 4, right: 4, paddingHorizontal: 6, borderRadius: radius.pill, backgroundColor: colors.haldiTint },
+  soonText: { fontSize: 12, lineHeight: 16, color: colors.ink },
   dayList: { gap: spacing.sm },
   dayRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: MIN_TOUCH + spacing.sm, paddingHorizontal: spacing.md,
