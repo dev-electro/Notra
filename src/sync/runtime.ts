@@ -9,14 +9,16 @@ import type { Db } from '@/db/types';
 import { onLocalWrite } from '@/db/writes';
 import { bindAccount, releaseOwner, type AskChoice } from './account';
 import { syncOnce } from './engine';
-import { apiTransport, createApi, SignedOutError, type Api } from './http';
+import { appHeaders } from '@/remote/device';
+import { setSuspended, syncPaused } from '@/remote/state';
+import { apiTransport, createApi, SignedOutError, SuspendedError, type Api } from './http';
 import { createScheduler, type Scheduler } from './scheduler';
 import { countRejected } from './rejected';
 import { getSyncState, pendingCount, setSyncEnabled } from './state';
 
 const baseUrl = () => (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl ?? '';
 
-export const api: Api = createApi({ baseUrl: baseUrl(), tokens: secureTokenStore });
+export const api: Api = createApi({ baseUrl: baseUrl(), tokens: secureTokenStore, headers: appHeaders, onSuspended: setSuspended });
 const dbOf = async () => (await getDb()) as unknown as Db;
 
 export interface AuthResponse {
@@ -32,13 +34,14 @@ async function runOnce(): Promise<boolean> {
   const db = await dbOf();
   if (!(await getSyncState(db)).enabled) return true;
   if (!(await secureTokenStore.get())) return true; // not signed in: nothing to do
+  if (syncPaused()) return true; // maintenance or suspended account: only sync waits, the diary keeps working
   try {
     await syncOnce(db, apiTransport(api));
     lastError = false;
     return true;
   } catch (e) {
     lastError = true;
-    return e instanceof SignedOutError; // signed out: don't hammer the server
+    return e instanceof SignedOutError || e instanceof SuspendedError; // signed out / suspended: don't hammer the server
   }
 }
 
@@ -73,6 +76,7 @@ export async function completeSignIn(r: AuthResponse, ask: AskChoice = askAddPho
     return 'cancelled';
   }
   await secureTokenStore.set({ accessToken: r.accessToken, refreshToken: r.refreshToken });
+  setSuspended(null);
   await setAuthUser(r.user);
   await setSyncEnabled(db, true);
   syncSoon();
@@ -115,6 +119,7 @@ export async function signOut(clearLocal = false): Promise<void> {
   const t = await secureTokenStore.get();
   if (t) await api.request('POST', '/v1/auth/logout', { body: { refreshToken: t.refreshToken } }).catch(() => {});
   await secureTokenStore.set(null);
+  setSuspended(null);
   await setAuthUser(null);
   const db = await dbOf();
   await setSyncEnabled(db, false);

@@ -4,12 +4,15 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, StyleSheet, View } from 'react-native';
+import { startAds } from '@/ads/service';
 import { BigButton } from '@/components/big-button';
+import { ForceUpdate } from '@/components/force-update';
 import { LockScreen } from '@/components/lock-screen';
 import { Text } from '@/components/text';
 import { ToastHost } from '@/components/toast-host';
 import { getDb, isAppLockOn, type Db } from '@/db';
 import { relockLedgers, shouldRelock } from '@/ledgers/session';
+import { startRemoteConfig } from '@/remote/fetch';
 import { startSync } from '@/sync/runtime';
 import { colors, fonts, GUTTER, spacing, type } from '@/theme';
 
@@ -78,6 +81,8 @@ export default function RootLayout() {
     if (ready) void SplashScreen.hideAsync().catch(() => undefined);
   }, [ready]);
   useEffect(() => startSync(), []);
+  useEffect(() => startRemoteConfig(), []); // GET /v1/config: cached copy first, then the network (silent if there is no server)
+  useEffect(() => startAds(), []); // arms ads ~3 s after the first render; nothing native loads before a screen asks
   const [locked, setLocked] = useAppLock();
   if (!ready) return null;
   return (
@@ -86,6 +91,7 @@ export default function RootLayout() {
       <View style={styles.flex} importantForAccessibility={locked ? 'no-hide-descendants' : 'auto'}>
         <Stack screenOptions={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: colors.paper } }} />
       </View>
+      <ForceUpdate />
       {locked ? <LockScreen onUnlock={() => setLocked(false)} onWiped={() => setLocked(false)} /> : null}
       <ToastHost />
     </>

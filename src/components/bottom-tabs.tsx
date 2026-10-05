@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
+import { AdBanner } from '@/ads/AdBanner';
 import { Icon, type IconName } from '@/components/icons';
 import { PressableScale } from '@/components/pressable-scale';
 import { Text } from '@/components/text';
@@ -18,36 +19,41 @@ export const TABS: Record<string, { label: string; icon: IconName; id: string }>
 /** Real-app bottom bar: big (84dp) targets, icon above a bold word, the open tab in a haldi pill. Meaning is never colour alone. */
 export function BottomTabs({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const focusedName = state.routes[state.index]?.name;
+  const bannerScreen = focusedName === 'index' ? 'home' : focusedName === 'hisab' ? 'hisab' : null; // ads on these two tabs only
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, spacing.xs) }]} accessibilityRole="tablist">
-      {state.routes.map((route, i) => {
-        const t = TABS[route.name];
-        if (!t) return null;
-        const focused = state.index === i;
-        const ink = focused ? colors.received : colors.muted;
-        return (
-          <PressableScale
-            key={route.key}
-            testID={t.id}
-            accessibilityRole="tab"
-            accessibilityLabel={t.label}
-            accessibilityState={{ selected: focused }}
-            onPress={() => {
-              const e = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-              if (!focused && !e.defaultPrevented) navigation.navigate(route.name as never);
-            }}
-            outerStyle={styles.tabOuter}
-            style={styles.tab}
-          >
-            <View style={[styles.pill, focused && styles.pillOn]}>
-              <Icon name={t.icon} size={28} color={ink} strokeWidth={focused ? 2.5 : 2} />
-            </View>
-            <Text style={[focused ? type.captionBold : type.caption, styles.label, { color: ink }]} numberOfLines={2} importantForAccessibility="no">
-              {t.label}
-            </Text>
-          </PressableScale>
-        );
-      })}
+    <View>
+      {bannerScreen ? <AdBanner screen={bannerScreen} /> : null}
+      <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, spacing.xs) }]} accessibilityRole="tablist">
+        {state.routes.map((route, i) => {
+          const t = TABS[route.name];
+          if (!t) return null;
+          const focused = state.index === i;
+          const ink = focused ? colors.received : colors.muted;
+          return (
+            <PressableScale
+              key={route.key}
+              testID={t.id}
+              accessibilityRole="tab"
+              accessibilityLabel={t.label}
+              accessibilityState={{ selected: focused }}
+              onPress={() => {
+                const e = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+                if (!focused && !e.defaultPrevented) navigation.navigate(route.name as never);
+              }}
+              outerStyle={styles.tabOuter}
+              style={styles.tab}
+            >
+              <View style={[styles.pill, focused && styles.pillOn]}>
+                <Icon name={t.icon} size={28} color={ink} strokeWidth={focused ? 2.5 : 2} />
+              </View>
+              <Text style={[focused ? type.captionBold : type.caption, styles.label, { color: ink }]} numberOfLines={2} importantForAccessibility="no">
+                {t.label}
+              </Text>
+            </PressableScale>
+          );
+        })}
+      </View>
     </View>
   );
 }

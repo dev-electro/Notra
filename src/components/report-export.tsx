@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Image, Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Image, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { prepareExportInterstitial, rewardedAllowed, showExportInterstitial, watchRewardedAd } from '@/ads/service';
 import { BigButton } from '@/components/big-button';
 import { ReportSheet, SHEET_W } from '@/components/report-sheet';
 import { Text } from '@/components/text';
@@ -11,6 +12,20 @@ import { BORDER, colors, GUTTER, radius, spacing, type } from '@/theme';
 
 const OUT_W = 1080; // pixels of every image
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** Asks (never forces): watch one ad to send without the "Notra Diary" footer, or send with it. Resolves true = watch. */
+const askWatch = () =>
+  new Promise<boolean>((resolve) =>
+    Alert.alert(
+      'वॉटरमार्क के बारे में',
+      'फ़ोटो के नीचे छोटा "Notra Diary" लिखा जाता है। चाहें तो एक विज्ञापन देखकर इसके बिना भेजें। यह आपकी मर्ज़ी है।',
+      [
+        { text: 'वॉटरमार्क के साथ भेजें', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'विज्ञापन देखकर बिना वॉटरमार्क भेजें', onPress: () => resolve(true) },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    ),
+  );
 
 interface Props {
   /** Builds the whole report (every row, from SQL) when a button is pressed; nothing is built while just looking. */
@@ -25,7 +40,7 @@ interface Props {
  */
 export function ExportBar({ build, disabled }: Props) {
   const [busy, setBusy] = useState<'pdf' | 'img' | null>(null);
-  const [shot, setShot] = useState<{ page: ReportPage } | null>(null);
+  const [shot, setShot] = useState<{ page: ReportPage; watermark: boolean } | null>(null);
   const [done, setDone] = useState<{ title: string; uris: string[] } | null>(null);
   const sheetRef = useRef<View>(null);
   const heightRef = useRef(0);
@@ -33,9 +48,11 @@ export function ExportBar({ build, disabled }: Props) {
   const pdf = useCallback(async () => {
     if (busy) return;
     setBusy('pdf');
+    void prepareExportInterstitial();
     try {
       const ok = await shareReportPdf(await build());
       if (!ok) showToast('इस फ़ोन में भेजने की सुविधा नहीं मिली।');
+      else void showExportInterstitial(); // natural break: the share sheet has closed
     } catch {
       showToast('PDF नहीं बन पाया। फिर कोशिश करें।');
     } finally {
@@ -46,6 +63,7 @@ export function ExportBar({ build, disabled }: Props) {
   const images = useCallback(async () => {
     if (busy) return;
     setBusy('img');
+    void prepareExportInterstitial();
     try {
       const doc = await build();
       if (doc.rows.length > MAX_IMAGE_ROWS) {
@@ -53,10 +71,16 @@ export function ExportBar({ build, disabled }: Props) {
         return;
       }
       const pages = paginateDoc(doc);
+      // Large exports (2+ pages) carry a small "Notra Diary" footer; the person may opt in to a rewarded ad to send without it.
+      let watermark = pages.length >= 2;
+      if (watermark && rewardedAllowed() && (await askWatch())) {
+        if (await watchRewardedAd()) watermark = false;
+        else showToast('विज्ञापन अभी नहीं मिला। फ़ोटो वॉटरमार्क के साथ भेज रहे हैं।');
+      }
       const uris: string[] = [];
       for (const p of pages) {
         heightRef.current = 0;
-        setShot({ page: p });
+        setShot({ page: p, watermark });
         for (let i = 0; i < 40 && heightRef.current === 0; i++) await wait(50); // until the page has been laid out
         await wait(60);
         uris.push(await captureView(sheetRef, OUT_W, Math.max(1, Math.round((heightRef.current * OUT_W) / SHEET_W))));
@@ -74,6 +98,7 @@ export function ExportBar({ build, disabled }: Props) {
   const send = useCallback(async (uri: string, title: string) => {
     try {
       if (!(await shareImageFile(uri, title))) showToast('इस फ़ोन में भेजने की सुविधा नहीं मिली।');
+      else void showExportInterstitial();
     } catch {
       showToast('भेज नहीं पाए। फिर कोशिश करें।');
     }
@@ -99,7 +124,7 @@ export function ExportBar({ build, disabled }: Props) {
               heightRef.current = e.nativeEvent.layout.height;
             }}
           >
-            <ReportSheet page={shot.page} />
+            <ReportSheet page={shot.page} watermark={shot.watermark} />
           </View>
         </View>
       ) : null}

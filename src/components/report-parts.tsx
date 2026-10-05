@@ -1,5 +1,6 @@
 import React from 'react';
 import { FlatList, StyleSheet, View, type ListRenderItem } from 'react-native';
+import { useAdRows } from '@/ads/use-ad-rows';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
 import type { IconName } from '@/components/icons';
@@ -48,12 +49,13 @@ interface ShellProps<T> {
 
 /** Screen + paged list for a report: filters/totals/export sit in the header and scroll away. */
 export function ReportShell<T>({ title, header, data, loading, keyOf, renderItem, onEnd, emptyIcon = 'hisaab', emptyText, onBack }: ShellProps<T>) {
+  const ad = useAdRows(data, 'report_list', title, keyOf, renderItem);
   return (
     <Screen title={title} scroll={false} onBack={onBack}>
       <FlatList
-        data={data}
-        keyExtractor={keyOf}
-        renderItem={renderItem}
+        data={ad.rows}
+        keyExtractor={ad.keyExtractor}
+        renderItem={ad.renderItem}
         ListHeaderComponent={<View style={styles.header}>{header}</View>}
         ListEmptyComponent={loading ? null : <EmptyState icon={emptyIcon} text={emptyText} />}
         ItemSeparatorComponent={Gap}

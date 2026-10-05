@@ -13,7 +13,7 @@ const INK: Record<Tone, string> = { received: colors.received, given: colors.giv
  * The print-style view of one report page: header (family, report, filters, date), the table, totals on the last page.
  * Plain paper, no buttons: this is what view-shot photographs. Table columns use the doc's flex weights.
  */
-export const ReportSheet = React.memo(function ReportSheet({ page }: { page: ReportPage }) {
+export const ReportSheet = React.memo(function ReportSheet({ page, watermark }: { page: ReportPage; watermark?: boolean }) {
   const { doc } = page;
   return (
     <View style={styles.sheet} collapsable={false}>
@@ -53,9 +53,12 @@ export const ReportSheet = React.memo(function ReportSheet({ page }: { page: Rep
             {doc.note ? <Text style={[type.caption, styles.note]}>{doc.note}</Text> : null}
           </View>
         ) : null}
-        <Text style={[type.caption, styles.muted, styles.foot]}>
-          पन्ना {page.page}/{page.pages} · बनाया: {longDateHi(doc.generatedOn)}
-        </Text>
+        <View style={styles.footRow}>
+          <Text style={[type.caption, styles.muted, styles.flex]}>
+            पन्ना {page.page}/{page.pages} · बनाया: {longDateHi(doc.generatedOn)}
+          </Text>
+          {watermark ? <Text style={[type.caption, styles.muted]}>Notra Diary</Text> : null}
+        </View>
       </View>
     </View>
   );
@@ -77,5 +80,5 @@ const styles = StyleSheet.create({
   totals: { gap: spacing.xs, marginTop: spacing.md },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
   note: { color: colors.muted, marginTop: spacing.sm },
-  foot: { marginTop: spacing.md },
+  footRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
 });

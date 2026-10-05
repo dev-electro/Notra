@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { FlatList, StyleSheet } from 'react-native';
+import { useAdRows } from '@/ads/use-ad-rows';
 import { Card } from '@/components/card';
 import { DirectionTag } from '@/components/direction';
 import { EmptyState } from '@/components/empty-state';
@@ -36,12 +37,13 @@ export default function MineTab() {
     ),
     [open, ledger],
   );
+  const ad = useAdRows(data.cards, 'mera', 'mera', keyOf, renderItem);
   return (
     <Screen tab title="मेरा नोतरा" scroll={false} action={{ testID: 'btn-new-event', icon: 'plus', label: 'नया नोतरा', onPress: () => go('/events/new'), hint: 'अपना नया नोतरा बनाएँ' }}>
       <FlatList
-        data={data.cards}
-        keyExtractor={keyOf}
-        renderItem={renderItem}
+        data={ad.rows}
+        keyExtractor={ad.keyExtractor}
+        renderItem={ad.renderItem}
         ListHeaderComponent={
           <PressableScale
             accessibilityRole="button"

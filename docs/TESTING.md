@@ -78,3 +78,7 @@ and dumps `logcat.txt`.
   `index: 1` for the input (`.maestro/subflows/type-field.yaml`). Adding `testID`s would make this robust.
 - The home totals cards expose `"<title>, <amount>"` as their accessibility label.
 - If a flow fails, open the failing screenshot in `~/.maestro/tests/<timestamp>/` or run `maestro studio`.
+
+## Ads in end-to-end runs
+
+CI builds set `NOTRA_ADS_TEST=1` (Google test ids only) and the e2e build also `NOTRA_ADS_E2E=1`, which makes the app behave as if installed 2 days ago, so the घर / हिसाब banner (`testID ad-banner`) and native cards can appear. The banner sits in the layout above the tab bar (it never overlays content) and no ad appears on any other flow screen; full-screen ads are disabled in the e2e build. Without the e2e flag every Maestro run is on "day one", which is ad-free by policy.

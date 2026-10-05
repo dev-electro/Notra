@@ -1,4 +1,4 @@
-import { HttpError } from '@/sync/http';
+import { HttpError, SuspendedError } from '@/sync/http';
 
 const BY_CODE: Record<string, string> = {
   invalid_phone: 'सही 10 अंकों का मोबाइल नंबर डालें',
@@ -15,6 +15,7 @@ const BY_CODE: Record<string, string> = {
 
 /** Plain-Hindi message for a sign-in failure. Network problems get the "no internet" message. */
 export function authErrorMessage(e: unknown): string {
+  if (e instanceof SuspendedError) return e.messageHi;
   if (e instanceof HttpError) return BY_CODE[e.code] ?? 'कुछ गड़बड़ हुई, दोबारा कोशिश करें';
   return 'इंटरनेट नहीं है, दोबारा कोशिश करें';
 }

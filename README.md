@@ -28,6 +28,7 @@ src/db/                     expo-sqlite schema, migrations, key handling, typed 
 src/app/                    expo-router screens
 src/ledgers/                Open ledger + unlocked PINs (memory only), PIN flow rules
 src/backup/                 Password-encrypted backup file: scrypt + XChaCha20-Poly1305 (@noble), snapshot build/validate/merge
+src/ads/                    AdMob: pure policy (tested), lazy service, banner / native card; remote config in src/remote/, support in src/support/ (docs/ADS.md)
 src/legal/content.ts        Privacy, terms, grievance, delete-account text: ONE source for the app screens and the Worker pages
 src/onboarding/             Picture cards and screen help text, spoken in Hindi (expo-speech)
 src/sync/                   Cloud backup: engine (push dirty / pull cursor), http client, scheduler, runtime wiring

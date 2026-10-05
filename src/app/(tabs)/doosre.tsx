@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { FlatList, StyleSheet } from 'react-native';
+import { useAdRows } from '@/ads/use-ad-rows';
 import { Card } from '@/components/card';
 import { DirectionTag } from '@/components/direction';
 import { EmptyState } from '@/components/empty-state';
@@ -36,12 +37,13 @@ export default function OthersTab() {
     ),
     [open, give],
   );
+  const ad = useAdRows(data.cards, 'doosre', 'doosre', keyOf, renderItem);
   return (
     <Screen tab title="दूसरों का नोतरा" scroll={false} action={{ testID: 'btn-new-visit', icon: 'plus', label: 'नए नोतरे में गए', onPress: () => go('/others/new'), hint: 'किसी और परिवार के नोतरे में जो दिया वह लिखें' }}>
       <FlatList
-        data={data.cards}
-        keyExtractor={keyOf}
-        renderItem={renderItem}
+        data={ad.rows}
+        keyExtractor={ad.keyExtractor}
+        renderItem={ad.renderItem}
         ListHeaderComponent={
           <PressableScale
             accessibilityRole="button"

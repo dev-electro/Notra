@@ -15,6 +15,14 @@ export class HttpError extends Error {
     super(`${status} ${code}`);
   }
 }
+/** The server answered 403 "suspended": the cloud account is paused. `messageHi` is the server's Hindi text. Local use is unaffected. */
+export class SuspendedError extends Error {
+  constructor(readonly messageHi: string) {
+    super('suspended');
+  }
+}
+export const SUSPENDED_FALLBACK_HI = 'आपका क्लाउड खाता अभी रोका गया है। आपका हिसाब फ़ोन में सुरक्षित है और ऐप चलता रहेगा।';
+
 /** The refresh token was rejected: the person must sign in again. Local data is untouched. */
 export class SignedOutError extends Error {
   constructor() {
@@ -29,6 +37,10 @@ export interface ApiClientOptions {
   timeoutMs?: number;
   /** Called with the refreshed token response's user (optional). */
   onSignedOut?: () => void;
+  /** Extra headers on every call (app version, platform, OS version). */
+  headers?: () => Record<string, string>;
+  /** Called when the server says the account is suspended (403). */
+  onSuspended?: (messageHi: string) => void;
 }
 
 export interface Api {
@@ -50,6 +62,7 @@ export function createApi(o: ApiClientOptions): Api {
         method,
         headers: {
           accept: 'application/json',
+          ...(o.headers?.() ?? {}),
           ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
           ...(token ? { authorization: `Bearer ${token}` } : {}),
         },
@@ -73,6 +86,7 @@ export function createApi(o: ApiClientOptions): Api {
           o.onSignedOut?.();
           throw new SignedOutError();
         }
+        if (res.status === 403) await parse(res); // suspended: throws SuspendedError
         if (!res.ok) throw new HttpError(res.status, 'refresh_failed');
         const j = (await res.json()) as Tokens;
         const next = { accessToken: j.accessToken, refreshToken: j.refreshToken };
@@ -86,7 +100,12 @@ export function createApi(o: ApiClientOptions): Api {
   }
 
   async function parse<T>(res: Response): Promise<T> {
-    const j = (await res.json().catch(() => ({}))) as { error?: string };
+    const j = (await res.json().catch(() => ({}))) as { error?: string; message_hi?: string; suspended?: boolean };
+    if (res.status === 403 && (j.suspended === true || /suspend/i.test(j.error ?? ''))) {
+      const msg = typeof j.message_hi === 'string' && j.message_hi.trim() ? j.message_hi : SUSPENDED_FALLBACK_HI;
+      o.onSuspended?.(msg);
+      throw new SuspendedError(msg);
+    }
     if (!res.ok) throw new HttpError(res.status, j.error ?? 'error');
     return j as T;
   }

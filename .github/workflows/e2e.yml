@@ -52,6 +52,8 @@ jobs:
         run: npx expo prebuild --platform android --no-install
         env:
           CI: '1'
+          NOTRA_ADS_TEST: '1' # test builds never carry real AdMob ids (docs/ADS.md)
+          NOTRA_ADS_E2E: '1'
 
       - name: Free runner disk space
         run: |

@@ -150,6 +150,35 @@ name: 09 - screenshots of every main screen (for review, not assertions)
     visible: "इंटरनेट बैकअप"
     timeout: 20000
 - takeScreenshot: screenshots/settings
+- scrollUntilVisible:
+    element: "शिकायत / सुझाव"
+- takeScreenshot: screenshots/settings-help
+# शिकायत / सुझाव (not signed in here: asks to sign in and shows the grievance email)
+- tapOn: "शिकायत / सुझाव"
+- extendedWaitUntil:
+    visible: ".*साइन इन.*"
+    timeout: 20000
+- takeScreenshot: screenshots/support
+- tapOn:
+    id: btn-back
+# सहायता को मेरा डेटा दिखाएं
+- scrollUntilVisible:
+    element: "सहायता को मेरा डेटा दिखाएं"
+- tapOn: "सहायता को मेरा डेटा दिखाएं"
+- extendedWaitUntil:
+    visible: ".*साइन इन.*"
+    timeout: 20000
+- takeScreenshot: screenshots/support-access
+- tapOn:
+    id: btn-back
+# the small "विज्ञापन" information card
+- scrollUntilVisible:
+    element:
+      id: info-ads
+- takeScreenshot: screenshots/settings-ads-info
+- tapOn:
+    id: btn-back
+
 
 # Onboarding appears only on a fresh install, so this goes last: it wipes the app's data.
 - launchApp:

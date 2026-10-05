@@ -47,34 +47,36 @@ const privacy: LegalDoc = {
     hi: [
       'आपका हिसाब आपके फ़ोन में रहता है, ताले में (एनक्रिप्टेड)।',
       'बैकअप चालू करें तभी हिसाब की कॉपी इंटरनेट पर जाती है।',
-      'हम आपका डेटा बेचते नहीं, विज्ञापन नहीं दिखाते।',
-      'हम संपर्क, SMS, कॉल या लोकेशन नहीं देखते।',
+      'मुफ़्त ऐप में हिसाब के पन्नों के बाहर Google AdMob के विज्ञापन दिखते हैं। आपका हिसाब विज्ञापन वालों को कभी नहीं जाता।',
+      'हम आपका डेटा बेचते नहीं। हम संपर्क, SMS, कॉल या लोकेशन नहीं देखते।',
     ],
     en: [
       'Your record stays on your phone, locked (encrypted).',
       'A copy goes online only if you turn on backup.',
-      'We do not sell your data and show no ads.',
-      'We do not see contacts, SMS, calls or location.',
+      'The free app shows Google AdMob ads outside the diary screens. Your record is never shared with advertisers.',
+      'We do not sell your data. We do not see contacts, SMS, calls or location.',
     ],
   },
   sections: [
     {
-      hi: { h: 'यह ऐप क्या है', p: ['नोतरा डायरी आपके परिवार के नोतरा (आया और गया) का हिसाब रखने की डायरी है। यह आपका अपना हिसाब है। ऐप में कोई विज्ञापन नहीं है।'] },
-      en: { h: 'What this app is', p: ["Notra Diary is a diary for keeping the record of your family's Notra gifts (received and given). It is your own record. The app has no ads."] },
+      hi: { h: 'यह ऐप क्या है', p: ['नोतरा डायरी आपके परिवार के नोतरा (आया और गया) का हिसाब रखने की डायरी है। यह आपका अपना हिसाब है। यह ऐप मुफ़्त है और कुछ पन्नों पर विज्ञापन दिखते हैं (नीचे "विज्ञापन" देखें)।'] },
+      en: { h: 'What this app is', p: ["Notra Diary is a diary for keeping the record of your family's Notra gifts (received and given). It is your own record. The app is free and shows ads on some screens (see \"Advertising\" below)."] },
     },
     {
       hi: {
         h: 'हम कौन सी जानकारी रखते हैं',
         p: [
           'जो आप ऐप में लिखते हैं: परिवारों के नाम, पिता का नाम, जाति, अटक, गाँव, फला, (चाहें तो) फ़ोन नंबर और फ़ोटो; कार्यक्रम; रकम, सामान और तारीख़ की एंट्री; अपने परिवार की जानकारी और परिवार के सदस्यों के निजी खातों के नाम।',
-          'अगर आप साइन इन करते हैं: Google खाते का नाम और पहचान संख्या, या आपका मोबाइल नंबर।',
+          'अगर आप साइन इन करते हैं: Google खाते का नाम और पहचान संख्या, या आपका मोबाइल नंबर; साथ में ऐप का संस्करण, फ़ोन का प्रकार (Android) व उसका संस्करण, और बैकअप कब हुआ जैसी गतिविधि।',
+          'अगर आप "शिकायत / सुझाव" भेजते हैं: आपकी लिखी बात और विषय।',
         ],
       },
       en: {
         h: 'What information we keep',
         p: [
           "What you write in the app: names of families, father's name, jati, atak, village, fala, (optionally) phone number and photo; events; entries of amounts, goods and dates; your own family's details and the names of family members' personal ledgers.",
-          'If you sign in: your Google account name and ID, or your mobile number.',
+          'If you sign in: your Google account name and ID, or your mobile number; also the app version, the phone type (Android) and its version, and activity such as when a backup happened.',
+          'If you send a "Complaint / Suggestion": what you write and the subject.',
         ],
       },
     },
@@ -137,7 +139,8 @@ const privacy: LegalDoc = {
           'Google: साइन इन के लिए। बोलकर लिखने में फ़ोन की स्पीच पहचान सेवा चलती है; अगर फ़ोन में हिंदी की ऑफ़लाइन भाषा नहीं है तो आवाज़ फ़ोन की ऑनलाइन (Google की) सेवा को जा सकती है। ऐप आवाज़ सेव नहीं करती।',
           'SMS कंपनी: मोबाइल OTP भेजने के लिए आपका मोबाइल नंबर उन्हें जाता है, और किसी काम के लिए नहीं।',
           'सर्वर और डेटाबेस की होस्टिंग कंपनियाँ: क्लाउड बैकअप का डेटा उनके सर्वर पर रखा जाता है।',
-          'ऐप में कोई विज्ञापन, एनालिटिक्स या क्रैश-रिपोर्टिंग सेवा नहीं है।',
+          'Google AdMob: विज्ञापन दिखाने के लिए (नीचे "विज्ञापन" देखें)।',
+          'ऐप में कोई क्रैश-रिपोर्टिंग सेवा नहीं है। इस्तेमाल के आँकड़े हम अपने ही सर्वर पर, सिर्फ़ ऊपर बताई जानकारी से बनाते हैं (नीचे "स्टाफ़ और आँकड़े" देखें)।',
         ],
       },
       en: {
@@ -146,7 +149,44 @@ const privacy: LegalDoc = {
           'Google: for sign-in. "Speak to write" uses the phone\'s speech recognition; if the phone has no offline Hindi model, the audio may go to the phone\'s online (Google) service. The app does not save the audio.',
           'SMS company: your mobile number is sent to them to deliver the OTP, for nothing else.',
           'Server and database hosting companies: cloud backup data is stored on their servers.',
-          'The app has no ads, analytics or crash-reporting service.',
+          'Google AdMob: to show ads (see "Advertising" below).',
+          'The app has no crash-reporting service. Usage statistics are made on our own server, only from the information listed above (see "Staff and statistics" below).',
+        ],
+      },
+    },
+    {
+      hi: {
+        h: 'विज्ञापन',
+        p: [
+          'ऐप मुफ़्त रखने के लिए इसमें Google AdMob के विज्ञापन दिखते हैं: घर और हिसाब के पन्ने पर, कुछ लंबी सूचियों के बीच, और रिपोर्ट भेजने के बाद कभी-कभी। एंट्री भरने, पिन, साइन इन, सेटिंग, बैकअप और खाता हटाने के पन्नों पर कोई विज्ञापन नहीं आता। विज्ञापन पर साफ़ "विज्ञापन" लिखा होता है। रिपोर्ट की फ़ोटो से "Notra Diary" की छोटी लाइन हटाने के लिए आप चाहें तो एक विज्ञापन देख सकते हैं; यह आपकी मर्ज़ी है।',
+          'विज्ञापन दिखाने के लिए Google आपके फ़ोन की विज्ञापन पहचान (Advertising ID) और फ़ोन की सामान्य जानकारी इस्तेमाल कर सकता है। आपका हिसाब, परिवारों के नाम, रकम या कोई भी एंट्री विज्ञापन वालों को कभी नहीं भेजी जाती, और विज्ञापन के अनुरोध में आपके डेटा से कोई शब्द नहीं जाता।',
+          'जहाँ क़ानून ज़रूरी बताता है (जैसे यूरोप में), Google की सहमति का फ़ॉर्म दिखता है, और सेटिंग में "विज्ञापन गोपनीयता विकल्प" से आप सहमति बदल सकते हैं। सहमति तय होने तक सिर्फ़ गैर-वैयक्तिक विज्ञापन माँगे जाते हैं। आप फ़ोन की सेटिंग में विज्ञापन पहचान मिटा या बदल सकते हैं।',
+          'विज्ञापन सामग्री PG या उससे कम रेटिंग की रखी जाती है, और यह ऐप बच्चों के लिए नहीं है। Google की नीति: https://policies.google.com/technologies/ads',
+        ],
+      },
+      en: {
+        h: 'Advertising',
+        p: [
+          'To keep the app free it shows Google AdMob ads: on the Home and Hisaab screens, between items of some long lists, and sometimes after you send a report. No ads appear on the screens where you enter entries, or on PIN, sign-in, settings, backup and account-deletion screens. Every ad is clearly labelled "विज्ञापन" (Ad). If you wish, you can watch one ad to remove the small "Notra Diary" footer from a report photo; that is your choice.',
+          'To show ads, Google may use your phone\'s advertising ID and general device information. Your record, family names, amounts or any entry are never sent to advertisers, and no word from your data goes into an ad request.',
+          'Where the law requires it (for example in Europe), Google\'s consent form is shown, and you can change your choice in Settings under "Ad privacy options". Until consent is settled only non-personalised ads are requested. You can reset or delete the advertising ID in your phone\'s settings.',
+          'Ad content is kept at PG rating or lower, and this app is not for children. Google\'s policy: https://policies.google.com/technologies/ads',
+        ],
+      },
+    },
+    {
+      hi: {
+        h: 'स्टाफ़ और आँकड़े',
+        p: [
+          'हमारे अधिकृत स्टाफ़ खाते की जानकारी देख सकते हैं: साइन इन का तरीका (Google या मोबाइल), ऐप का संस्करण और गतिविधि (जैसे बैकअप कब हुआ)। इसके अलावा वे बहुत सारे उपयोगकर्ताओं के मिले-जुले आँकड़े ही देखते हैं; जिस समूह में 5 से कम उपयोगकर्ता हों वह छिपा दिया जाता है।',
+          'स्टाफ़ आपकी डायरी (परिवार, कार्यक्रम, एंट्री) नहीं पढ़ सकते। सहायता टीम आपकी डायरी सिर्फ़ तब, सिर्फ़ देखने के लिए, देख सकती है जब आप खुद सेटिंग में "सहायता को मेरा डेटा दिखाएं" चालू करें। यह सीमित दिनों (1, 3 या 7) के लिए होता है, आप इसे कभी भी बंद कर सकते हैं, और हर बार देखे जाने का रिकॉर्ड रखा जाता है।',
+        ],
+      },
+      en: {
+        h: 'Staff and statistics',
+        p: [
+          'Our authorised staff can see account information: the sign-in method (Google or mobile), the app version and activity (such as when a backup happened). Beyond that they see only combined statistics across many users; any group of fewer than 5 users is hidden.',
+          'Staff cannot read your diary (families, events, entries). The support team can view your diary, read-only, only when you yourself turn on "Show my data to support" in Settings. This is for a limited time (1, 3 or 7 days), you can turn it off at any moment, and every such access is logged.',
         ],
       },
     },
@@ -154,14 +194,14 @@ const privacy: LegalDoc = {
       hi: {
         h: 'हम क्या नहीं करते',
         p: [
-          'हम आपका डेटा बेचते नहीं। विज्ञापन के लिए इस्तेमाल नहीं करते। ऊपर बताई गई सेवाओं के अलावा किसी से साझा नहीं करते।',
+          'हम आपका डेटा बेचते नहीं। आपका हिसाब विज्ञापन के लिए इस्तेमाल नहीं करते और विज्ञापन वालों से साझा नहीं करते। ऊपर बताई गई सेवाओं के अलावा किसी से साझा नहीं करते।',
           'ऐप में अभी कोई कर्ज़ (लोन) या ब्याज का काम नहीं है; यह सिर्फ़ हिसाब की डायरी है। भविष्य में ऐसा कुछ जोड़ा गया तो पहले आपकी अलग सहमति ली जाएगी और यह नीति बदली जाएगी।',
         ],
       },
       en: {
         h: 'What we do not do',
         p: [
-          'We do not sell your data. We do not use it for advertising. We do not share it with anyone other than the services listed above.',
+          'We do not sell your data. We do not use your record for advertising or share it with advertisers. We do not share it with anyone other than the services listed above.',
           'The app has no loans or interest today; it is only a record diary. If anything like that is added in future, we will ask for your separate consent first and change this policy.',
         ],
       },
@@ -309,8 +349,8 @@ const terms: LegalDoc = {
       },
     },
     {
-      hi: { h: 'मुफ़्त और बदलाव', p: ['ऐप अभी मुफ़्त है। हम ऐप और ये नियम बदल सकते हैं; बड़ा बदलाव होगा तो ऐप में बताएँगे।'] },
-      en: { h: 'Free of charge, and changes', p: ['The app is free today. We may change the app and these terms; for a major change we will tell you in the app.'] },
+      hi: { h: 'मुफ़्त और बदलाव', p: ['ऐप मुफ़्त है और विज्ञापनों से चलता है (गोपनीयता नीति में "विज्ञापन" देखें)। हम ऐप और ये नियम बदल सकते हैं; बड़ा बदलाव होगा तो ऐप में बताएँगे।'] },
+      en: { h: 'Free of charge, and changes', p: ['The app is free and supported by ads (see "Advertising" in the Privacy Policy). We may change the app and these terms; for a major change we will tell you in the app.'] },
     },
     {
       hi: { h: 'हमारी ज़िम्मेदारी की सीमा', p: ['क़ानून जितनी इजाज़त देता है, उतना ही: ऐप के इस्तेमाल से हुए किसी अप्रत्यक्ष नुकसान, डेटा खोने या लेन-देन के विवाद के लिए हम ज़िम्मेदार नहीं हैं।'] },

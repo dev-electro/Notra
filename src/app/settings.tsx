@@ -1,5 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
+import { getAdsState, subscribeAds } from '@/ads/state';
+import { showPrivacyOptions } from '@/ads/service';
+import { NoticeBanners } from '@/components/notice-banners';
 import { BigButton } from '@/components/big-button';
 import { Card, SectionTitle } from '@/components/card';
 import { Icon } from '@/components/icons';
@@ -24,6 +27,7 @@ export default function Settings() {
     return () => clearInterval(t);
   }, [reload]);
 
+  const ads = useSyncExternalStore(subscribeAds, getAdsState, getAdsState);
   const signedIn = !!st?.user;
   const on = !!st?.enabled && signedIn;
 
@@ -50,6 +54,7 @@ export default function Settings() {
 
   return (
     <Screen title="सेटिंग">
+      <NoticeBanners scope="settings" />
       <SectionTitle icon="cloud">इंटरनेट बैकअप</SectionTitle>
       <Text style={[type.body, styles.body]}>
         जब तक आप बैकअप चालू नहीं करते, आपका हिसाब फ़ोन से बाहर नहीं जाता। चालू करने पर उसकी कॉपी सुरक्षित जगह रहती है, ताकि फ़ोन खोए तो साइन इन करके वापस मिले। फ़ोटो की कॉपी नहीं होती।
@@ -84,7 +89,18 @@ export default function Settings() {
       <SettingRow icon="hisaab" label="खाते (निजी खाता)" sub="परिवार के सदस्य का अपना खाता" onPress={() => go('/ledgers')} />
       <SettingRow icon="lock" label="ऐप का ताला" sub="ऐप खोलने पर पिन" onPress={() => go('/app-lock')} />
 
+      <SectionTitle icon="phone">मदद</SectionTitle>
+      <SettingRow icon="write" label="शिकायत / सुझाव" sub="अपनी बात हमें लिखकर भेजें" onPress={() => go('/support')} />
+      <SettingRow icon="lock" label="सहायता को मेरा डेटा दिखाएं" sub="कुछ दिनों के लिए, सिर्फ़ देखने के लिए" onPress={() => go('/support-access')} />
+
       <SectionTitle icon="star">जानकारी</SectionTitle>
+      <Card testID="info-ads">
+        <Text style={type.bodyBold}>विज्ञापन</Text>
+        <Text style={[type.caption, styles.muted]}>
+          ऐप मुफ़्त रखने के लिए कुछ पन्नों (घर, हिसाब और लंबी सूचियों) पर Google के विज्ञापन दिखते हैं। एंट्री, पिन और सेटिंग के पन्नों पर कभी नहीं। आपका हिसाब विज्ञापन वालों को नहीं जाता।
+        </Text>
+      </Card>
+      {ads.privacyOptions ? <SettingRow icon="lock" label="विज्ञापन गोपनीयता विकल्प" sub="विज्ञापन के लिए अपनी सहमति बदलें" onPress={() => void showPrivacyOptions()} /> : null}
       <SettingRow icon="lock" label="गोपनीयता नीति" onPress={() => go('/legal/privacy')} />
       <SettingRow icon="doc" label="नियम व शर्तें" onPress={() => go('/legal/terms')} />
       <SettingRow icon="phone" label="शिकायत अधिकारी" onPress={() => go('/legal/grievance')} />

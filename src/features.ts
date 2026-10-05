@@ -1,8 +1,14 @@
+import type { RemoteConfig } from '@/remote/config';
+
 /**
- * Feature switches. Flip a flag here (or later read it from remote config) to show a feature that is built but not ready.
- * diaryPhotoImport: "पुरानी डायरी की फ़ोटो से हिसाब" (read an old diary page from a photo). NOT built yet: while false, only a
- * non-interactive "जल्द आ रहा है" card is shown. It needs no camera permission and no network.
+ * Feature switches. A flag here is the baked-in default; the server's remote config (features.*) can turn a feature on without
+ * a new release.
+ * diaryPhotoImport: "पुरानी डायरी की फ़ोटो से हिसाब" (read an old diary page from a photo). NOT built yet: whether the card looks
+ * switched off or on, tapping it only says "यह सुविधा जल्द आएगी". It needs no camera permission and no network.
  */
 export const FEATURES = {
   diaryPhotoImport: false,
 } as const;
+
+/** Default flag OR the server's features.ocr. */
+export const diaryPhotoImportOn = (c: Pick<RemoteConfig, 'features'>): boolean => FEATURES.diaryPhotoImport || c.features.ocr;

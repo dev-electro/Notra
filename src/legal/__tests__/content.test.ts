@@ -35,6 +35,19 @@ describe('legal text', () => {
     expect(en).not.toMatch(/analytics (are|is) used|we use analytics/i);
   });
 
+  it('privacy text describes the ads and the admin / support access honestly', () => {
+    const hi = all('privacy', 'hi');
+    const en = all('privacy', 'en');
+    for (const must of ['AdMob', 'विज्ञापन पहचान|Advertising ID', 'कभी नहीं भेजी', 'policies.google.com', 'विज्ञापन गोपनीयता विकल्प', 'स्टाफ़', '5 से कम', 'सहायता को मेरा डेटा दिखाएं', 'रिकॉर्ड रखा']) {
+      expect(new RegExp(must).test(hi)).toBe(true);
+    }
+    for (const must of ['AdMob', "advertising ID", 'never sent to advertisers', 'policies.google.com', 'Ad privacy options', 'fewer than 5 users', 'cannot read your diary', 'read-only', 'logged']) {
+      expect(new RegExp(must, 'i').test(en)).toBe(true);
+    }
+    expect(en).not.toMatch(/app has no ads|shows no ads/i);
+    expect(hi).not.toContain('कोई विज्ञापन नहीं है');
+  });
+
   it('grievance officer: placeholder name/email/phone and the 30-day response time', () => {
     const hi = all('grievance', 'hi');
     const en = all('grievance', 'en');

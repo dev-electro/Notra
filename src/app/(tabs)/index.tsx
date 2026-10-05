@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
+import { NoticeBanners } from '@/components/notice-banners';
 import { Calendar, type DayMarkers } from '@/components/calendar';
 import { Card, SectionTitle } from '@/components/card';
 import { Icon } from '@/components/icons';
@@ -153,6 +154,8 @@ export default function Home() {
                 <Icon name="settings" size={30} color={colors.muted} />
               </PressableScale>
             </View>
+
+            <NoticeBanners scope="home" />
 
             {ledger.id !== DEFAULT_LEDGER_ID ? (
               <BigButton icon="lock" label={`खाता: ${ledger.name}`} tone="plain" hint="दूसरा खाता खोलें" onPress={() => go('/ledgers')} />
