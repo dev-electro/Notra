@@ -1,0 +1,55 @@
+appId: app.notra.book
+name: 01 - launch, skip sign-in, first-launch setup
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+# First launch shows the picture cards (skippable with "छोड़ें"), then the optional sign-in, then setup.
+- extendedWaitUntil:
+    visible: "छोड़ें|.*बाद में|मेरा परिवार"
+    timeout: 120000
+- takeScreenshot: screenshots/01-first-launch
+- runFlow: subflows/skip-onboarding.yaml
+- extendedWaitUntil:
+    visible: ".*बाद में|मेरा परिवार"
+    timeout: 60000
+- runFlow: subflows/skip-signin.yaml
+- extendedWaitUntil:
+    visible: "मेरा परिवार"
+    timeout: 60000
+- takeScreenshot: screenshots/01-setup-empty
+- runFlow:
+    file: subflows/type-id.yaml
+    env: { ID: "field-name", VALUE: "Ramesh" }
+- runFlow:
+    file: subflows/type-id.yaml
+    env: { ID: "field-father", VALUE: "Gopal" }
+- runFlow:
+    file: subflows/type-id.yaml
+    env: { ID: "field-village", VALUE: "Udaipur" }
+- scrollUntilVisible:
+    element:
+      id: chip-101
+    timeout: 20000
+- tapOn:
+    id: chip-101
+- takeScreenshot: screenshots/01-setup-filled
+- tapOn:
+    id: btn-save
+# Home: greeting, the summary strip (कुल मिला / कुल दिया), the calendar, and the four tabs.
+- extendedWaitUntil:
+    visible:
+      id: btn-families
+    timeout: 30000
+- assertVisible: ".*कुल मिला.*"
+- assertVisible: ".*कुल दिया.*"
+- assertVisible: "कैलेंडर"
+- assertVisible:
+    id: tab-home
+- assertVisible:
+    id: tab-mine
+- assertVisible:
+    id: tab-others
+- assertVisible:
+    id: tab-hisaab
+- takeScreenshot: screenshots/01-home-after-setup

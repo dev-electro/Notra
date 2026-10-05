@@ -1,0 +1,120 @@
+{
+  "expo": {
+    "name": "Notra Book",
+    "slug": "notra-book",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "notradiary",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "app.notra.book",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "आवाज़ से नोतरा की एंट्री दर्ज करने के लिए माइक्रोफ़ोन चाहिए।"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FBF6EC",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "app.notra.book",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.READ_CONTACTS",
+        "android.permission.READ_SMS",
+        "android.permission.READ_CALL_LOG",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.MANAGE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "googleServicesFile": "./google-services.json"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FBF6EC",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ],
+      [
+        "expo-sqlite",
+        {
+          "useSQLCipher": true
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "आवाज़ से नोतरा की एंट्री दर्ज करने के लिए माइक्रोफ़ोन चाहिए।",
+          "speechRecognitionPermission": "बोली हुई एंट्री को लिखने के लिए स्पीच रिकग्निशन चाहिए।"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "परिवार की फ़ोटो खींचने के लिए कैमरा चाहिए।",
+          "photosPermission": "परिवार की फ़ोटो चुनने के लिए गैलरी चाहिए।"
+        }
+      ],
+      "expo-secure-store",
+      "@react-native-firebase/app",
+      "@react-native-firebase/analytics",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "minSdkVersion": 26,
+            "buildArchs": [
+              "armeabi-v7a",
+              "arm64-v8a"
+            ]
+          }
+        }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "delayAppMeasurementInit": true,
+          "optimizeInitialization": true,
+          "optimizeAdLoading": true
+        }
+      ],
+      "./plugins/withReleaseSigning",
+      "./plugins/withKotlinMetadataCompat"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "jsEngine": "hermes",
+    "extra": {
+      "apiUrl": "https://api.notra-book.example",
+      "googleWebClientId": "REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com"
+    }
+  }
+}

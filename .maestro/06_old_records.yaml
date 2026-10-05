@@ -1,0 +1,140 @@
+appId: app.notra.book
+name: 06 - पुराना हिसाब जोड़ें, past dates for my old Notra and another family's
+---
+- runFlow: subflows/launch-home.yaml
+- tapOn:
+    id: btn-old
+- extendedWaitUntil:
+    visible: "पुराना हिसाब जोड़ें"
+    timeout: 20000
+- takeScreenshot: screenshots/06-old-choice
+- assertVisible: ".*जल्द आ रहा है.*"
+# (1) an old visit to another family's Notra: ₹251 given, dated the 15th of last month
+- tapOn:
+    id: btn-old-others
+- extendedWaitUntil:
+    visible:
+      id: picker-search
+    timeout: 20000
+- tapOn:
+    id: picker-search
+- inputText: "Kherwa"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: household-row-Mohan
+    timeout: 20000
+- tapOn:
+    id: household-row-Mohan
+- extendedWaitUntil:
+    visible:
+      id: field-date
+    timeout: 20000
+- tapOn:
+    id: field-date
+- extendedWaitUntil:
+    visible:
+      id: cal-prev
+    timeout: 10000
+- takeScreenshot: screenshots/06-calendar-picker
+- tapOn:
+    id: cal-prev
+- tapOn:
+    id: "cal-day-.*-15"
+- tapOn:
+    id: btn-next
+- extendedWaitUntil:
+    visible:
+      id: key-2
+    timeout: 20000
+- tapOn:
+    id: key-2
+- tapOn:
+    id: key-5
+- tapOn:
+    id: key-1
+- tapOn:
+    id: btn-save
+- extendedWaitUntil:
+    visible: "सही है?"
+    timeout: 20000
+- assertVisible: ".*251.*"
+- takeScreenshot: screenshots/06-old-others-readback
+- tapOn:
+    id: btn-confirm
+# (2) my own old Notra with a custom name: "नामकरण", then who came (₹101)
+- tapOn:
+    id: btn-old
+- extendedWaitUntil:
+    visible:
+      id: btn-old-mine
+    timeout: 20000
+- tapOn:
+    id: btn-old-mine
+- extendedWaitUntil:
+    visible:
+      id: occasion-OTHER
+    timeout: 20000
+- tapOn:
+    id: occasion-OTHER
+- runFlow:
+    file: subflows/type-id.yaml
+    env: { ID: "field-occasion-label", VALUE: "Namkaran" }
+- takeScreenshot: screenshots/06-old-mine-form
+- scrollUntilVisible:
+    element:
+      id: field-date
+    timeout: 20000
+- tapOn:
+    id: field-date
+- tapOn:
+    id: cal-prev
+- tapOn:
+    id: cal-prev
+- tapOn:
+    id: "cal-day-.*-10"
+- tapOn:
+    id: btn-save
+- extendedWaitUntil:
+    visible: "नोतरा बन गया"
+    timeout: 20000
+- tapOn:
+    id: btn-who-came
+- extendedWaitUntil:
+    visible:
+      id: picker-search
+    timeout: 20000
+- tapOn:
+    id: picker-search
+- inputText: "Kherwa"
+- hideKeyboard
+- tapOn:
+    id: household-row-Mohan
+# the number pad is open straight away for old records
+- extendedWaitUntil:
+    visible:
+      id: key-1
+    timeout: 20000
+- tapOn:
+    id: key-1
+- tapOn:
+    id: key-0
+- tapOn:
+    id: key-1
+- tapOn:
+    id: btn-next
+- extendedWaitUntil:
+    visible:
+      id: btn-finish
+    timeout: 20000
+- takeScreenshot: screenshots/06-old-mine-ledger
+- tapOn:
+    id: btn-finish
+- extendedWaitUntil:
+    visible: "हो गया"
+    timeout: 30000
+- tapOn:
+    id: btn-open-event
+# the custom name is shown wherever the occasion name is shown
+- assertVisible: "Namkaran"
+- takeScreenshot: screenshots/06-old-mine-event

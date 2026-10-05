@@ -1,0 +1,190 @@
+appId: app.notra.book
+name: 09 - screenshots of every main screen (for review, not assertions)
+---
+# Runs after flows 01-08, so the families "Mohan" and "Ramesh", a wedding with two givers, an old visit and an old "Namkaran" exist.
+# Output: screenshots/<name>.png  (home, calendar, mine, others, hisab hub, each report, old, search, forms, settings, onboarding)
+- runFlow: subflows/launch-home.yaml
+- takeScreenshot: screenshots/home
+- scroll
+- takeScreenshot: screenshots/home-calendar
+# calendar: jump by month and year
+- tapOn:
+    id: cal-title
+- takeScreenshot: screenshots/calendar-quick-switch
+- tapOn:
+    id: "cal-month-.*"
+- tapOn:
+    id: cal-prev
+- takeScreenshot: screenshots/calendar-month
+
+# मेरा नोतरा and its event
+- tapOn:
+    id: tab-mine
+- extendedWaitUntil:
+    visible:
+      id: btn-new-event
+    timeout: 20000
+- takeScreenshot: screenshots/mine
+- tapOn:
+    id: btn-who-came
+- extendedWaitUntil:
+    visible:
+      id: picker-search
+    timeout: 20000
+- takeScreenshot: screenshots/mine-who-came
+- tapOn:
+    id: btn-back
+
+# दूसरों का नोतरा
+- tapOn:
+    id: tab-others
+- extendedWaitUntil:
+    visible:
+      id: btn-new-visit
+    timeout: 20000
+- takeScreenshot: screenshots/others
+- tapOn:
+    id: btn-new-visit
+- extendedWaitUntil:
+    visible:
+      id: picker-search
+    timeout: 20000
+- takeScreenshot: screenshots/others-pick-family
+- tapOn:
+    id: btn-back
+
+# Families, search and a family's page
+- tapOn:
+    id: tab-home
+- tapOn:
+    id: btn-families
+- extendedWaitUntil:
+    visible: "Mohan"
+    timeout: 20000
+- takeScreenshot: screenshots/families
+- tapOn:
+    id: family-search
+- inputText: "98765"
+- hideKeyboard
+- takeScreenshot: screenshots/family-search
+- tapOn: "Mohan"
+- extendedWaitUntil:
+    visible: "पूरा हिसाब"
+    timeout: 20000
+- takeScreenshot: screenshots/family-detail
+- tapOn:
+    id: btn-edit-household
+- extendedWaitUntil:
+    visible:
+      id: field-phone
+    timeout: 20000
+- takeScreenshot: screenshots/household-form
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: btn-back
+
+# हिसाब hub and every report
+- tapOn:
+    id: tab-hisaab
+- extendedWaitUntil:
+    visible:
+      id: report-given
+    timeout: 20000
+- takeScreenshot: screenshots/hisab
+- tapOn:
+    id: report-given
+- extendedWaitUntil:
+    visible: ".*कुल दिया \\(.*"
+    timeout: 20000
+- takeScreenshot: screenshots/report-given
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: report-year
+- extendedWaitUntil:
+    visible: ".*कुल उतार.*"
+    timeout: 20000
+- takeScreenshot: screenshots/report-year
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: report-guests
+- extendedWaitUntil:
+    visible:
+      id: btn-pick-event
+    timeout: 20000
+- tapOn:
+    id: btn-pick-event
+- extendedWaitUntil:
+    visible: ".*कुल मिला \\(.*"
+    timeout: 20000
+- takeScreenshot: screenshots/report-guests
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: btn-old
+- extendedWaitUntil:
+    visible:
+      id: btn-old-mine
+    timeout: 20000
+- takeScreenshot: screenshots/old-records
+# the diary-photo import is only a "coming soon" card for now
+- tapOn:
+    id: card-diary-photo
+- assertVisible: "यह सुविधा जल्द आएगी"
+- takeScreenshot: screenshots/old-records-coming-soon
+- tapOn:
+    id: btn-back
+
+# Settings (the gear, top right of घर).
+- tapOn:
+    id: tab-home
+- tapOn:
+    id: btn-settings
+- extendedWaitUntil:
+    visible: "इंटरनेट बैकअप"
+    timeout: 20000
+- takeScreenshot: screenshots/settings
+- scrollUntilVisible:
+    element: "शिकायत / सुझाव"
+- takeScreenshot: screenshots/settings-help
+# शिकायत / सुझाव (not signed in here: asks to sign in and shows the grievance email)
+- tapOn: "शिकायत / सुझाव"
+- extendedWaitUntil:
+    visible: ".*साइन इन.*"
+    timeout: 20000
+- takeScreenshot: screenshots/support
+- tapOn:
+    id: btn-back
+# सहायता को मेरा डेटा दिखाएं
+- scrollUntilVisible:
+    element: "सहायता को मेरा डेटा दिखाएं"
+- tapOn: "सहायता को मेरा डेटा दिखाएं"
+- extendedWaitUntil:
+    visible: ".*साइन इन.*"
+    timeout: 20000
+- takeScreenshot: screenshots/support-access
+- tapOn:
+    id: btn-back
+# the small "विज्ञापन" information card
+- scrollUntilVisible:
+    element:
+      id: info-ads
+- takeScreenshot: screenshots/settings-ads-info
+- tapOn:
+    id: btn-back
+
+
+# Onboarding appears only on a fresh install, so this goes last: it wipes the app's data.
+- launchApp:
+    clearState: true
+    stopApp: true
+- extendedWaitUntil:
+    visible: "छोड़ें"
+    timeout: 120000
+- takeScreenshot: screenshots/onboarding

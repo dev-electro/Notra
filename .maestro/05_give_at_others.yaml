@@ -1,0 +1,68 @@
+appId: app.notra.book
+name: 05 - दूसरों का नोतरा, go to another family's program, give, उतार and चढ़ाव in the read-back
+---
+# Mohan gave 501 at my wedding (flow 04). Now I give 701 at HIS program: 501 repays, 200 is new.
+- runFlow: subflows/launch-home.yaml
+- tapOn:
+    id: tab-others
+- extendedWaitUntil:
+    visible:
+      id: btn-new-visit
+    timeout: 20000
+- takeScreenshot: screenshots/05-others-empty
+- tapOn:
+    id: btn-new-visit
+- extendedWaitUntil:
+    visible:
+      id: picker-search
+    timeout: 20000
+- tapOn:
+    id: picker-search
+- inputText: "Kherwa"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: household-row-Mohan
+    timeout: 20000
+- tapOn:
+    id: household-row-Mohan
+# their program: occasion + date (today)
+- extendedWaitUntil:
+    visible:
+      id: occasion-MUNDAN
+    timeout: 20000
+- tapOn:
+    id: occasion-MUNDAN
+- takeScreenshot: screenshots/05-their-program
+- tapOn:
+    id: btn-next
+- extendedWaitUntil:
+    visible:
+      id: key-7
+    timeout: 20000
+- tapOn:
+    id: key-7
+- tapOn:
+    id: key-0
+- tapOn:
+    id: key-1
+- assertVisible: ".*₹701.*"
+- takeScreenshot: screenshots/05-give-form
+- tapOn:
+    id: btn-save
+- extendedWaitUntil:
+    visible: "सही है?"
+    timeout: 20000
+- assertVisible: ".*701.*"
+- assertVisible: ".*₹501 उतार.*"
+- assertVisible: ".*₹200 चढ़ाव.*"
+- takeScreenshot: screenshots/05-readback
+- tapOn:
+    id: btn-confirm
+# The program now shows under दूसरों का नोतरा
+- tapOn:
+    id: tab-others
+- extendedWaitUntil:
+    visible: "Mohan"
+    timeout: 20000
+- takeScreenshot: screenshots/05-others-list

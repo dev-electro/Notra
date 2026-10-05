@@ -1,0 +1,51 @@
+import React, { useState } from 'react';
+import { StyleSheet, View, type TextInputProps } from 'react-native';
+import { Text, TextInput } from '@/components/text';
+import { colors, MIN_TOUCH, radius, spacing, type } from '@/theme';
+
+interface Props extends TextInputProps {
+  label: string;
+}
+
+/** Labelled text box: the label sits above in bold, the box has a clear border that thickens when it is being typed in. */
+export function Field({ label, style, onFocus, onBlur, ...rest }: Props) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={styles.wrap}>
+      <Text style={[type.bodyBold, styles.label]}>{label}</Text>
+      <TextInput
+        {...rest}
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
+        style={[styles.input, focused && styles.focused, style]}
+        placeholderTextColor={colors.muted}
+        accessibilityLabel={label}
+      />
+    </View>
+  );
+}
+
+export const inputStyle = {
+  minHeight: MIN_TOUCH,
+  borderWidth: 1.5,
+  borderColor: colors.outline,
+  borderRadius: radius.card,
+  backgroundColor: colors.card,
+  paddingHorizontal: spacing.md,
+  ...type.body,
+  fontSize: 22,
+  color: colors.ink,
+} as const;
+
+const styles = StyleSheet.create({
+  wrap: { gap: spacing.xs },
+  label: { color: colors.ink },
+  input: inputStyle,
+  focused: { borderColor: colors.received, borderWidth: 3 },
+});

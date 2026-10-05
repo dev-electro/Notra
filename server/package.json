@@ -1,0 +1,32 @@
+{
+  "name": "notra-diary-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Notra Book backend: Cloudflare Worker (Hono + Better Auth) + Neon Postgres",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "migrate": "node scripts/migrate.mjs",
+    "dev": "npx --yes wrangler@4 dev",
+    "deploy": "npx --yes wrangler@4 deploy",
+    "admin:bootstrap": "node scripts/admin-bootstrap.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "better-auth": "^1.7.7",
+    "hono": "^4.13.13",
+    "jose": "^6.2.12",
+    "kysely": "^0.29.6",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
+    "@types/node": "^22.20.5",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.3"
+  }
+}

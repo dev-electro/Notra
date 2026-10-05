@@ -1,0 +1,12 @@
+# Fill one text box by its stable testID (Android resource-id). Env: ID (e.g. field-village), VALUE (ASCII text).
+# Ids, not labels: the label Text and the input's accessibilityLabel both match a text selector, ids are unambiguous.
+appId: app.notra.book
+---
+- scrollUntilVisible:
+    element:
+      id: ${ID}
+    timeout: 20000
+- tapOn:
+    id: ${ID}
+- inputText: ${VALUE}
+- hideKeyboard

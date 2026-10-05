@@ -1,0 +1,30 @@
+appId: app.notra.book
+name: 08 - kill and relaunch, data persisted
+---
+- runFlow: subflows/launch-home.yaml
+- stopApp
+# NOTE: no clearState - the encrypted SQLite DB must survive a cold start.
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: ".*बाद में|कुल मिला"
+    timeout: 90000
+- runFlow: subflows/skip-signin.yaml
+- extendedWaitUntil:
+    visible:
+      id: btn-families
+    timeout: 60000
+# received: 501 + 251 (my wedding) + 101 (old Namkaran) = 853; given: 701 + 251 (old visit) = 952; must NOT have bounced back to setup.
+- assertNotVisible: "मेरा परिवार"
+- extendedWaitUntil:
+    visible: ".*कुल मिला.*₹853.*"
+    timeout: 20000
+- assertVisible: ".*कुल दिया.*₹952.*"
+- takeScreenshot: screenshots/08-home-after-relaunch
+- tapOn:
+    id: btn-families
+- extendedWaitUntil:
+    visible: "Mohan"
+    timeout: 20000
+- assertVisible: "Ramesh"
+- takeScreenshot: screenshots/08-households-after-relaunch

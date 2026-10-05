@@ -1,0 +1,12 @@
+{
+  // Standalone config so the server (vitest/wrangler) can compile this shared file
+  // without the app's expo/tsconfig.base being installed.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["*.ts"]
+}

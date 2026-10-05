@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "578667921395",
+    "project_id": "notra-pp",
+    "storage_bucket": "notra-pp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:578667921395:android:9e8416959f61f65c2c1c86",
+        "android_client_info": {
+          "package_name": "app.notra.book"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6QeTArKVG-l8l9MAk0vIj5oSAiBQ-ZOA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
