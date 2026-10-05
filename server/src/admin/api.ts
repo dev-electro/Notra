@@ -30,7 +30,7 @@ export function createAdminApi(deps: Deps, admin: AdminDeps, auth: Auth): { app:
   const env: Env = { deps, admin, now };
 
   if (admin.allowedOrigin) {
-    app.use('*', cors({ origin: admin.allowedOrigin, allowHeaders: ['authorization', 'content-type'], credentials: true, allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], maxAge: 600 }));
+    app.use('*', cors({ origin: admin.allowedOrigin, allowHeaders: ['authorization', 'content-type', 'x-platform', 'x-app-version'], credentials: true, allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], maxAge: 600 }));
   }
 
   app.use('*', async (c, next) => {
