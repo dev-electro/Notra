@@ -318,3 +318,7 @@ The product is **Notra Book / नोतरा बुक**, package `app.notra.bo
 `notra-diary` for data compatibility with early builds: the SQLite file `notra-diary.db`, the secure-store keys
 `notra_diary_db_key_v1`, `notra_auth_tokens_v1`, the root npm package name `notra-diary`, the backup snapshot marker
 `app: 'notra-diary'`. Do not rename these without a migration.
+
+## 11. Modules (super-app structure)
+
+`src/modules/registry.ts` lists every module of the app (`notra`, `rishtey`, `checkin`, `rewards`, `referral`, `videos`) with a Hindi title, icon, route, `status` (`live` | `soon`) and a flag key. Each flag has a default in `src/features.ts` `FEATURES` (all false) and `moduleOn(id, remoteConfig)` ORs the server's `features.<id>`. Only `notra` is live; the others open the shared placeholder `src/app/soon/[id].tsx` ("जल्द आ रहा है", with a local "notify me" button that stores interest in the local settings table and sends the `feature_interest` analytics event). Home shows a "सेवाएँ" grid and the fifth tab `इनाम` (`src/app/(tabs)/inaam.tsx`) holds the reward placeholders. Module data must stay separate from the private ledger database.

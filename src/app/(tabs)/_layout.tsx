@@ -13,7 +13,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="notra" />
-      <Tabs.Screen name="rishte" options={FEATURES.rishte ? undefined : ({ href: null } as object)} />
+      <Tabs.Screen name="rishte" options={FEATURES.rishtey ? undefined : ({ href: null } as object)} />
       <Tabs.Screen name="inaam" />
     </Tabs>
   );

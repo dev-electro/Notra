@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Card as Box } from '@/components/card';
 import { BigButton } from '@/components/big-button';
 import { DirectionTag } from '@/components/direction';
 import { OccasionBadge } from '@/components/occasion';
@@ -7,7 +8,7 @@ import { PressableScale } from '@/components/pressable-scale';
 import { Text } from '@/components/text';
 import { displayDate, formatINR, LEGACY_EVENT_LABEL, occasionName, STATUS_LABEL } from '@/core';
 import type { EventCard as Card } from '@/db';
-import { BORDER, colors, radius, spacing, type } from '@/theme';
+import { colors, spacing, type } from '@/theme';
 
 interface Props {
   card: Card;
@@ -26,7 +27,7 @@ export const EventCardView = React.memo(function EventCardView({ card: c, mine, 
   const who = mine ? '' : [c.host.headName, c.host.fatherName && `${c.host.fatherName} का`, c.host.village].filter(Boolean).join(' · ');
   const amount = mine ? c.receivedPaise : c.givenPaise;
   return (
-    <View style={styles.card}>
+    <Box accent={mine ? 'received' : 'given'} style={styles.card}>
       <PressableScale
         testID="event-card"
         accessibilityRole="button"
@@ -59,12 +60,12 @@ export const EventCardView = React.memo(function EventCardView({ card: c, mine, 
         </View>
       </PressableScale>
       {actionLabel && onAction ? <BigButton testID={actionTestID} icon={mine ? 'plus' : 'moneyOut'} label={actionLabel} onPress={() => onAction(c)} /> : null}
-    </View>
+    </Box>
   );
 });
 
 const styles = StyleSheet.create({
-  card: { gap: spacing.sm, padding: spacing.md, backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card },
+  card: { gap: spacing.sm, paddingLeft: spacing.md + spacing.xs },
   top: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   flex: { flex: 1 },
   title: { color: colors.ink },

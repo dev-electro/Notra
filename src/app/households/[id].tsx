@@ -79,9 +79,10 @@ export default function HouseholdDetail() {
           <Avatar name={h.headName} photoUri={h.photoUri} size={80} />
           <View style={styles.flex}>
             <Text style={[type.title, styles.name]}>{h.headName}</Text>
+            <Text style={[type.caption, styles.sub]}>{h.kind === 'PERSON' ? 'व्यक्ति' : 'परिवार'}</Text>
             <Text style={[type.caption, styles.sub]}>{[h.fatherName && `${h.fatherName} का`, h.village].filter(Boolean).join(' · ')}</Text>
-            {[h.jati, h.fala, h.atak].some(Boolean) ? (
-              <Text style={[type.caption, styles.sub]}>{[h.jati, h.fala, h.atak].filter(Boolean).join(' · ')}</Text>
+            {[h.jati, h.panchayat, h.tehsil, h.district].some(Boolean) ? (
+              <Text style={[type.caption, styles.sub]}>{[h.jati, h.panchayat, h.tehsil, h.district].filter(Boolean).join(' · ')}</Text>
             ) : null}
           </View>
         </View>

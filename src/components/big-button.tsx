@@ -22,6 +22,8 @@ interface Props {
   disabled?: boolean;
   /** Half-width style for rows of two (wraps when there is no room). */
   compact?: boolean;
+  /** Small pill: minHeight 48, tighter padding, auto width. */
+  small?: boolean;
   /** Third-width style for rows of three short chips. */
   third?: boolean;
   /** Spoken by TalkBack after the label; say what happens when the button is pressed. */
@@ -60,9 +62,9 @@ function look(tone: Tone, selected: boolean): Look {
   }
 }
 
-/** Big (>=64dp) rounded button with a line icon and one plain word or phrase. Flat: border and tint, no shadow. */
+/** Big (>=56dp) rounded button with a line icon and one plain word or phrase. Flat: border and tint, no shadow. */
 export const BigButton = React.memo(function BigButton({
-  label, onPress, icon, tone = 'plain', selected = false, disabled, compact, third, hint, accessibilityLabel, testID,
+  label, onPress, icon, tone = 'plain', selected = false, disabled, compact, third, small, hint, accessibilityLabel, testID,
 }: Props) {
   const l = look(tone, selected);
   // Chosen plain buttons get a check as well as the haldi fill; direction buttons keep their arrow (the filled look says chosen).
@@ -80,6 +82,7 @@ export const BigButton = React.memo(function BigButton({
       style={[
         styles.btn,
         { backgroundColor: l.bg, borderColor: l.border, borderWidth: l.borderWidth },
+        small && styles.small,
         disabled && styles.disabled,
       ]}
     >
@@ -102,6 +105,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     justifyContent: 'center',
   },
+  small: { minHeight: 48, paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
   inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   compact: { flexGrow: 1, flexBasis: '45%' },
   third: { flexGrow: 1, flexBasis: '28%' },

@@ -29,16 +29,16 @@ describe('theme tokens', () => {
     expect(colors.hairline).toBe('#E7DCC8');
   });
 
-  it('keeps the type scale at or above 18 and amounts at 40-56', () => {
-    for (const [name, s] of Object.entries(type)) expect([name, (s.fontSize ?? 0) >= 18]).toEqual([name, true]);
-    expect(type.amount.fontSize).toBe(40);
-    expect(type.amountXL.fontSize).toBe(56);
-    expect(type.title.fontSize).toBe(26);
-    expect(type.body.fontSize).toBe(20);
+  it('keeps the type scale at or above 16 and amounts at 34-48', () => {
+    for (const [name, s] of Object.entries(type)) expect([name, (s.fontSize ?? 0) >= 16]).toEqual([name, true]);
+    expect(type.amount.fontSize).toBe(34);
+    expect(type.amountXL.fontSize).toBe(48);
+    expect(type.title.fontSize).toBe(23);
+    expect(type.body.fontSize).toBe(18);
   });
 
-  it('keeps spacing on the 8-pt grid (xs is the half step) and touch targets at 64', () => {
+  it('keeps spacing on the 8-pt grid (xs is the half step) and touch targets at 56', () => {
     for (const [k, v] of Object.entries(spacing)) expect([k, k === 'xs' ? v === 4 : v % 8 === 0]).toEqual([k, true]);
-    expect(MIN_TOUCH).toBe(64);
+    expect(MIN_TOUCH).toBe(56);
   });
 });

@@ -31,6 +31,15 @@ function str(o: Obj, k: string, path: string, max = 200): string {
   if (typeof v !== 'string' || v.length > max || !clean(v)) return bad(`${path}.${k}`);
   return v;
 }
+/** an optional text field that older clients omit: defaults to '' */
+function dstr(o: Obj, k: string, path: string, max = 200): string {
+  return o[k] === undefined ? '' : str(o, k, path, max);
+}
+function kindOf(o: Obj, path: string): string {
+  const v = o.kind;
+  if (v === undefined) return 'FAMILY';
+  return v === 'FAMILY' || v === 'PERSON' ? v : bad(`${path}.kind`);
+}
 function optStr(o: Obj, k: string, path: string, max = 500): string | null {
   const v = o[k];
   if (v === undefined || v === null) return null;
@@ -64,6 +73,7 @@ export interface LedgerRow {
 }
 export interface HouseholdRow {
   id: string; head_name: string; father_name: string; jati: string; atak: string; village: string; fala: string;
+  panchayat: string; tehsil: string; district: string; kind: string;
   phone: string | null; created_at: string; updated_at: string;
 }
 export interface EventRow {
@@ -142,7 +152,8 @@ function validateHousehold(raw: unknown, p: string): HouseholdRow {
   if (!isObj(raw)) return bad(p);
   return {
     id: uuid(raw, 'id', p), head_name: str(raw, 'headName', p), father_name: str(raw, 'fatherName', p),
-    jati: str(raw, 'jati', p), atak: str(raw, 'atak', p), village: str(raw, 'village', p), fala: str(raw, 'fala', p),
+    jati: str(raw, 'jati', p), atak: dstr(raw, 'atak', p), village: str(raw, 'village', p), fala: dstr(raw, 'fala', p),
+    panchayat: dstr(raw, 'panchayat', p), tehsil: dstr(raw, 'tehsil', p), district: dstr(raw, 'district', p), kind: kindOf(raw, p),
     phone: optStr(raw, 'phone', p, 32), created_at: iso(raw, 'createdAt', p, ISO_ANY), updated_at: iso(raw, 'updatedAt', p, ISO_MS),
   };
 }

@@ -19,7 +19,7 @@ import {
 import { beginApplying, endApplying } from '../legacy';
 import type { Db } from '../types';
 
-const hh = (n: string, extra: Partial<{ fatherName: string; village: string; fala: string; phone: string }> = {}) => ({
+const hh = (n: string, extra: Partial<{ fatherName: string; village: string; fala: string; panchayat: string; phone: string }> = {}) => ({
   headName: n, fatherName: 'कालू', jati: 'भील', atak: 'डामोर', village: 'सरवन', fala: 'ऊपला', ...extra,
 });
 const base = { inKindValuePaise: 0, paymentMode: 'CASH' as const, recordedBy: 'me' };
@@ -37,7 +37,7 @@ async function world() {
   const me = await createHousehold(db, hh('मैं'));
   await setMyHouseholdId(db, me.id);
   const a = await createHousehold(db, hh('रमेश', { village: 'खेरवाड़ा', phone: '+91 98765 43210' }));
-  const b = await createHousehold(db, hh('सुरेश', { fatherName: 'गोपाल', fala: 'नीचला' }));
+  const b = await createHousehold(db, hh('सुरेश', { fatherName: 'गोपाल', panchayat: 'नीचला' }));
   const c = await createHousehold(db, hh('Mohan', { phone: '09123456789' }));
   return { db, me, a, b, c };
 }
@@ -257,7 +257,7 @@ describe('उतार / चढ़ाव in SQL == core', () => {
   });
 });
 
-describe('search: name, father, village, fala and phone', () => {
+describe('search: name, father, village, panchayat and phone', () => {
   async function seedSearch() {
     const { db, a, b, c } = await world();
     const d = await createHousehold(db, hh('गीता', { fatherName: 'मोहन', village: 'Udaipur', phone: '+91 91234-56780' }));
@@ -270,7 +270,7 @@ describe('search: name, father, village, fala and phone', () => {
     expect(await names(db, 'रमेश')).toEqual(['रमेश']);
     expect(await names(db, 'गोपाल')).toEqual(['सुरेश']); // father
     expect(await names(db, 'खेरवाड़ा')).toEqual(['रमेश']); // village
-    expect(await names(db, 'नीचला')).toEqual(['सुरेश']); // fala
+    expect(await names(db, 'नीचला')).toEqual(['सुरेश']); // panchayat
     for (const q of ['98765', '9876543210', '+91 98765 43210', '+919876543210', '098765 43210', '987-654']) expect(await names(db, q)).toEqual(['रमेश']);
     expect(await names(db, '91234')).toEqual(['Mohan', 'गीता']); // inside 09123456789 and 91234-56780, not inside रमेश's number
     expect(await names(db, '09123456789')).toEqual(['Mohan']);

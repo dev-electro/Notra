@@ -119,6 +119,14 @@ The point: Android CMake builds use per-build absolute paths; base dir + no-hash
 Cache is keyed by job name, so `android-apk`, `maestro` and `release` have separate ccaches. Caches are scoped to branches by GitHub (a new branch
 falls back to the default branch cache), so a brand new branch starts slow.
 
+### 2.1 Build-time shortcuts (test APKs only)
+
+- The test APK (`ci.yml`) is built for **arm64-v8a only**, without R8 or resource shrinking, and without release lint
+  (`NOTRA_FAST_TEST=1` → `plugins/withFastTestBuild.js`). E2E builds x86_64 the same way. A 32-bit-only phone cannot
+  install the test APK; the Play release (`release.yml`) still builds both ABIs with R8 and lint.
+- `android-apk` runs once per commit (push run); the duplicate pull-request run is skipped for same-repo branches.
+- Docs-only, Markdown-only and admin-only commits skip CI; server-only commits also skip E2E.
+
 ## 3. Secrets and variables
 
 | Name | Kind | Used by | Required |

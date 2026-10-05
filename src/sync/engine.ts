@@ -27,7 +27,7 @@ async function collectDirty(db: Db, limit: number): Promise<DirtyRows> {
     `SELECT id, name, kind, created_at, updated_at FROM ledgers
      WHERE dirty = 1 AND sync_error IS NULL ORDER BY updated_at, rowid LIMIT ?`, [limit]);
   const households = await db.getAllAsync<HouseholdRow>(
-    `SELECT id, head_name, father_name, jati, atak, village, fala, phone, created_at, updated_at
+    `SELECT id, head_name, father_name, jati, atak, village, fala, panchayat, tehsil, district, kind, phone, created_at, updated_at
      FROM households WHERE dirty = 1 AND sync_error IS NULL ORDER BY updated_at, rowid LIMIT ?`, [limit - ledgers.length]);
   const events = await db.getAllAsync<EventRow>(
     `SELECT id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at,
@@ -123,13 +123,14 @@ export async function applyPage(db: Db, page: PullPage): Promise<void> {
       }
       for (const h of page.households) {
         await db.runAsync(
-          `INSERT INTO households (id, head_name, father_name, jati, atak, village, fala, phone, created_at, updated_at, dirty)
-           VALUES (?,?,?,?,?,?,?,?,?,?,0)
+          `INSERT INTO households (id, head_name, father_name, jati, atak, village, fala, panchayat, tehsil, district, kind, phone, created_at, updated_at, dirty)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)
            ON CONFLICT(id) DO UPDATE SET head_name=excluded.head_name, father_name=excluded.father_name, jati=excluded.jati,
-             atak=excluded.atak, village=excluded.village, fala=excluded.fala, phone=excluded.phone,
+             atak=excluded.atak, village=excluded.village, fala=excluded.fala, panchayat=excluded.panchayat, tehsil=excluded.tehsil,
+             district=excluded.district, kind=excluded.kind, phone=excluded.phone,
              updated_at=excluded.updated_at, dirty=0
            WHERE excluded.updated_at > households.updated_at`,
-          [h.id, h.headName, h.fatherName, h.jati, h.atak, h.village, h.fala, h.phone, h.createdAt, h.updatedAt],
+          [h.id, h.headName, h.fatherName, h.jati, h.atak ?? '', h.village, h.fala ?? '', h.panchayat ?? '', h.tehsil ?? '', h.district ?? '', h.kind === 'PERSON' ? 'PERSON' : 'FAMILY', h.phone, h.createdAt, h.updatedAt],
         );
       }
       for (const e of page.events) {

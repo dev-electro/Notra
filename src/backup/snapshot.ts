@@ -44,7 +44,7 @@ export async function buildSnapshot(db: Db, ledgerIds: readonly string[], now: D
          FROM entries WHERE ledger_id IN (${marks(ids.length)}) ORDER BY created_at, rowid`, ids)
     : [];
   const households = await db.getAllAsync<HouseholdRow>(
-    'SELECT id, head_name, father_name, jati, atak, village, fala, phone, created_at, updated_at FROM households ORDER BY created_at, rowid', []);
+    'SELECT id, head_name, father_name, jati, atak, village, fala, panchayat, tehsil, district, kind, phone, created_at, updated_at FROM households ORDER BY created_at, rowid', []);
   return {
     app: 'notra-diary', version: 1, exportedAt: now.toISOString(),
     ledgers: ledgers.map(ledgerToWire), households: households.map(householdToWire),
@@ -71,7 +71,7 @@ function okLedger(r: Obj): boolean {
   return idv(r.id) && txt(r.name, 100) && (r.name as string).trim() !== '' && oneOf(r.kind, ['HOUSEHOLD', 'PERSONAL']) && iso(r.createdAt) && iso(r.updatedAt);
 }
 function okHousehold(r: Obj): boolean {
-  return idv(r.id) && ['headName', 'fatherName', 'jati', 'atak', 'village', 'fala'].every((k) => txt(r[k], 200)) && optTxt(r.phone, 32) && iso(r.createdAt) && iso(r.updatedAt);
+  return idv(r.id) && ['headName', 'fatherName', 'jati', 'village'].every((k) => txt(r[k], 200)) && ['atak', 'fala', 'panchayat', 'tehsil', 'district'].every((k) => r[k] === undefined || txt(r[k], 200)) && (r.kind === undefined || oneOf(r.kind, ['FAMILY', 'PERSON'])) && optTxt(r.phone, 32) && iso(r.createdAt) && iso(r.updatedAt);
 }
 function okEvent(r: Obj): boolean {
   return idv(r.id) && idv(r.hostHouseholdId) && oneOf(r.occasion, OCCASIONS) && typeof r.date === 'string' && DAY.test(r.date)
@@ -185,13 +185,14 @@ export async function mergeSnapshot(db: Db, parsed: ParsedSnapshot): Promise<Mer
       for (const h of s.households) {
         rep.households[await kind('households', h.id, h.updatedAt)]++;
         await db.runAsync(
-          `INSERT INTO households (id, head_name, father_name, jati, atak, village, fala, phone, created_at, updated_at, dirty)
-           VALUES (?,?,?,?,?,?,?,?,?,?,1)
+          `INSERT INTO households (id, head_name, father_name, jati, atak, village, fala, panchayat, tehsil, district, kind, phone, created_at, updated_at, dirty)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
            ON CONFLICT(id) DO UPDATE SET head_name=excluded.head_name, father_name=excluded.father_name, jati=excluded.jati,
-             atak=excluded.atak, village=excluded.village, fala=excluded.fala, phone=excluded.phone,
+             atak=excluded.atak, village=excluded.village, fala=excluded.fala, panchayat=excluded.panchayat, tehsil=excluded.tehsil,
+             district=excluded.district, kind=excluded.kind, phone=excluded.phone,
              updated_at=excluded.updated_at, dirty=1, sync_error=NULL
            WHERE excluded.updated_at > households.updated_at`,
-          [h.id, h.headName, h.fatherName, h.jati, h.atak, h.village, h.fala, h.phone, h.createdAt, h.updatedAt],
+          [h.id, h.headName, h.fatherName, h.jati, h.atak ?? '', h.village, h.fala ?? '', h.panchayat ?? '', h.tehsil ?? '', h.district ?? '', h.kind === 'PERSON' ? 'PERSON' : 'FAMILY', h.phone, h.createdAt, h.updatedAt],
         );
         householdIds.add(h.id);
       }

@@ -45,17 +45,26 @@ option on an 8 GB M1. Details: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md), [`d
 The test APK is published by CI as a pre-release:
 `https://github.com/dev-electro/Notra/releases/download/test-ccr-c41967d5-5ii4w6/notra-book-test.apk`
 
-## 3. CI status and the last fix
+## 3. CI status (checked 2026-10-05 15:10 UTC, commit `71f3f50`)
 
-- **checks / server:** green.
-- **android-apk:** the build after the AdMob change failed. `play-services-ads` 25.4 ships Kotlin 2.3 metadata, but
-  the React Native toolchain uses Kotlin 2.1. Fixed in the final commit with
-  `plugins/withKotlinMetadataCompat.js` (it adds `-Xskip-metadata-version-check`). **Check that the next CI run is
-  green.** If it is still red, the alternative is `expo-build-properties` → `android.kotlinVersion` ≥ 2.2.
-- **E2E (Maestro on an emulator):** flow 01 (launch → onboarding → setup) passed on a device-like emulator before
-  the AdMob/auth changes. The other flows were rewritten to use testIDs but have **not had a green run yet**. Fix the
-  APK build first, then read the `e2e-screenshots` and `e2e-logcat` artifacts.
-- **ccache** now hits about 44%; builds take about 15–20 minutes.
+- **checks / server / admin:** green.
+- **android-apk:** the **PR run is green**
+  ([run 37324024776](https://github.com/dev-electro/Notra/actions/runs/37324024776)), so the Kotlin-metadata fix
+  (`plugins/withKotlinMetadataCompat.js`) works. The *push* run of the same commit failed in `android-apk`; its log
+  was unavailable and the same build passed in the PR run, so this looks like an infrastructure failure. The push run
+  is the one that publishes the test APK pre-release, so **re-run it from the Actions tab** (this session was not
+  allowed to: 403) or push any commit. That will update
+  `https://github.com/dev-electro/Notra/releases/download/test-ccr-c41967d5-5ii4w6/notra-book-test.apk`.
+  Until then, the APK from the PR run is under that run's **Artifacts → notra-book-apk**.
+- **E2E (Maestro): all 9 flows fail at the same point.** Flow 01 gets through the onboarding cards, the "बाद में" sign-in
+  skip and the setup form, taps **शुरू करें** (`btn-save`), and then Home (`btn-families`) never appears within 30 s.
+  Flows 02–09 fail because setup never completed.
+  - **Next step:** open [run 37322753192](https://github.com/dev-electro/Notra/actions/runs/37322753192) → Artifacts →
+    `e2e-screenshots` (look at `01-setup-filled` and the final screenshot) and `e2e-logcat`.
+  - **Likely causes, introduced by the AdMob, remote-config and Better Auth stages:** a dialog shown after setup (the UMP consent form, the
+    account-switch prompt, or the force-update/maintenance overlay when `/v1/config` is unreachable) covering Home, or
+    the setup save failing. Before those stages, flow 01 passed on the emulator.
+- **ccache:** about 41–44% hits. A warm APK build takes about 15–35 minutes depending on cache state.
 
 ## 4. Open decisions (owner)
 

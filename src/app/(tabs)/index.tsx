@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Easing, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
 import type { IconName } from '@/components/icons';
@@ -8,47 +8,61 @@ import { Calendar, type DayMarkers } from '@/components/calendar';
 import { Card, SectionTitle } from '@/components/card';
 import { Icon } from '@/components/icons';
 import { OccasionBadge } from '@/components/occasion';
+import { DotBorder, Toran } from '@/components/motifs';
 import { PressableScale } from '@/components/pressable-scale';
+import { SpeakerButton } from '@/components/speaker-button';
 import { Text } from '@/components/text';
 import { DEFAULT_LEDGER_ID, firstRunRoute, formatINR, LEGACY_EVENT_LABEL, longDateHi, monthRange, occasionName, todayIso, type Occasion } from '@/core';
 import { getMyHousehold, getMyHouseholdId, sqlEventCards, type EventCard } from '@/db';
-import { FEATURES } from '@/features';
 import { touchToday } from '@/features/rewards/store';
+import { isReduceMotion } from '@/hooks/use-reduce-motion';
 import { useActiveLedger } from '@/hooks/use-active-ledger';
 import { useLedgerTotals } from '@/hooks/use-ledger-totals';
 import { useLoad } from '@/hooks/use-load';
 import { go, replace } from '@/nav';
+import { HELP_HOME } from '@/onboarding/help';
 import { BORDER, colors, GUTTER, MIN_TOUCH, radius, spacing, type } from '@/theme';
 
-interface RowProps {
+interface TileProps {
   tone: 'received' | 'given';
   word: string;
   paired: string;
+  /** Spoken label (the app's older words, kept for screen readers and tests). */
+  spoken: string;
   amount: string;
 }
 
-/** One line of the summary: arrow in a tinted disc, the word, and the big amount. Arrow + word + colour, never colour alone. */
-function SummaryRow({ tone, word, paired, amount }: RowProps) {
+/** Big summary tile: arrow in a disc, the word, the amount. Arrow + word + colour + left bar, never colour alone. */
+function SummaryTile({ tone, word, paired, spoken, amount }: TileProps) {
   const received = tone === 'received';
   const ink = received ? colors.received : colors.given;
   return (
-    <View style={styles.sumRow} accessible accessibilityLabel={`${word}, ${amount}`}>
-      <View style={[styles.sumDisc, { backgroundColor: received ? colors.receivedTint : colors.givenTint }]}>
-        <Icon name={received ? 'arrowDown' : 'arrowUp'} size={28} color={ink} strokeWidth={2.5} />
+    <Card tint={tone} accent={tone} style={styles.sumTile} accessible accessibilityLabel={`${spoken}, ${amount}`}>
+      <View style={styles.sumHead}>
+        <View style={styles.sumDisc}>
+          <Icon name={received ? 'arrowDown' : 'arrowUp'} size={28} color={ink} strokeWidth={2.5} />
+        </View>
+        <View style={styles.flex}>
+          <Text style={[type.heading, { color: ink }]} numberOfLines={1}>{word}</Text>
+          <Text style={[type.caption, styles.muted]} numberOfLines={1}>{paired}</Text>
+        </View>
       </View>
-      <View style={styles.sumWords}>
-        <Text style={[type.heading, { color: ink }]} numberOfLines={1}>
-          {word}
-        </Text>
-        <Text style={[type.caption, styles.muted]} numberOfLines={1}>
-          {paired}
-        </Text>
-      </View>
-      <Text style={[type.amount, styles.sumAmount, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+      <Text style={[type.amount, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
         {amount}
       </Text>
-    </View>
+    </Card>
   );
+}
+
+/** Cheap one-shot fade + 12dp slide-up (native driver); off with "remove animations". */
+function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const [v] = useState(() => new Animated.Value(isReduceMotion() ? 1 : 0));
+  useEffect(() => {
+    if (isReduceMotion()) return;
+    Animated.timing(v, { toValue: 1, duration: 280, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [v, delay]);
+  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [spacing.sm + spacing.xs, 0] });
+  return <Animated.View style={{ opacity: v, transform: [{ translateY }] }}>{children}</Animated.View>;
 }
 
 interface MonthProgram extends EventCard {
@@ -71,6 +85,57 @@ function useMonthPrograms(month: { y: number; m: number }) {
     `${month.y}-${month.m}`,
   );
   return data;
+}
+
+/** The next few programs from today on (mine and others'), soonest first. */
+function useUpcoming() {
+  const { data } = useLoad(
+    async (db, ledgerId) => {
+      const from = todayIso();
+      const me = await getMyHouseholdId(db);
+      const [mine, theirs] = await Promise.all([
+        sqlEventCards(db, ledgerId, me, { mine: true, from, limit: 5 }),
+        sqlEventCards(db, ledgerId, me, { mine: false, from, limit: 5 }),
+      ]);
+      return [...mine.map((c) => ({ ...c, mine: true })), ...theirs.map((c) => ({ ...c, mine: false }))]
+        .sort((x, y) => x.event.date.localeCompare(y.event.date))
+        .slice(0, 5) as MonthProgram[];
+    },
+    [] as MonthProgram[],
+    todayIso(),
+  );
+  return data;
+}
+
+/** "आने वाले नोतरे": a sideways strip of the next programs. Hidden when there are none. */
+function UpcomingStrip({ items }: { items: MonthProgram[] }) {
+  if (items.length === 0) return null;
+  return (
+    <View style={styles.upWrap}>
+      <SectionTitle icon="events">आने वाले नोतरे</SectionTitle>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.upRow} style={styles.upScroll}>
+        {items.map((c) => {
+          const name = c.event.legacy ? LEGACY_EVENT_LABEL : occasionName(c.event.occasion, c.event.occasionLabel);
+          return (
+            <PressableScale
+              key={c.event.id}
+              testID={`upcoming-${c.event.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${name}, ${c.mine ? 'मेरा नोतरा' : c.host.headName}, ${longDateHi(c.event.date)}`}
+              accessibilityHint="नोतरे की जानकारी खोलें"
+              onPress={() => go(`/events/${c.event.id}`)}
+              style={styles.upCard}
+            >
+              <OccasionBadge occasion={c.event.occasion as Occasion} size={48} />
+              <Text style={[type.bodyBold, styles.ink]} numberOfLines={1}>{name}</Text>
+              <Text style={[type.caption, styles.muted]} numberOfLines={1}>{c.mine ? 'मेरा नोतरा' : c.host.headName}</Text>
+              <Text style={[type.captionBold, { color: c.mine ? colors.received : colors.given }]} numberOfLines={1}>{longDateHi(c.event.date)}</Text>
+            </PressableScale>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
 }
 
 /** Programs of the chosen day, one line each: picture, name, whose, and a tap to open. */
@@ -117,20 +182,6 @@ function QuickAction({ id, icon, label, hint, onPress }: { id: string; icon: Ico
   );
 }
 
-function DiscoverCard({ id, icon, title, sub, onPress }: { id: string; icon: IconName; title: string; sub: string; onPress: () => void }) {
-  return (
-    <PressableScale testID={id} accessibilityRole="button" accessibilityLabel={`${title}, ${sub}`} onPress={onPress} outerStyle={styles.qaOuter} style={styles.discover}>
-      <Icon name={icon} size={28} color={colors.muted} />
-      <Text style={[type.bodyBold, styles.ink]} numberOfLines={1} importantForAccessibility="no">
-        {title}
-      </Text>
-      <Text style={[type.caption, styles.muted]} numberOfLines={2} importantForAccessibility="no">
-        {sub}
-      </Text>
-    </PressableScale>
-  );
-}
-
 export default function Home() {
   const { loading, error, receivedPaise, givenPaise, setupDone, signinPrompted, onboardingSeen } = useLedgerTotals();
   const ledger = useActiveLedger();
@@ -140,6 +191,7 @@ export default function Home() {
   const [month, setMonth] = useState(() => ({ y: Number(todayIso().slice(0, 4)), m: Number(todayIso().slice(5, 7)) }));
   const [day, setDay] = useState(todayIso());
   const programs = useMonthPrograms(month);
+  const upcoming = useUpcoming();
   const onMonth = useCallback((y: number, m: number) => setMonth((c) => (c.y === y && c.m === m ? c : { y, m })), []);
   const markers = useMemo(() => {
     const out: DayMarkers = {};
@@ -160,68 +212,74 @@ export default function Home() {
     <View style={styles.page}>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.top}>
-            <View style={styles.flex}>
-              <Text style={[type.title, styles.ink]} numberOfLines={2} accessibilityRole="header">
-                {greeting}
-              </Text>
-              <Text style={[type.caption, styles.muted]}>{longDateHi(todayIso())}</Text>
+          <Toran />
+          <View style={styles.body}>
+            <View style={styles.band}>
+              <View style={styles.top}>
+                <View style={styles.flex}>
+                  <Text style={[type.title, styles.greeting]} accessibilityRole="header">
+                    {greeting}
+                  </Text>
+                  <Text style={[type.caption, styles.muted]}>{longDateHi(todayIso())}</Text>
+                </View>
+                <SpeakerButton text={HELP_HOME} />
+                <PressableScale
+                  accessibilityRole="button"
+                  testID="btn-settings"
+                  accessibilityLabel="सेटिंग"
+                  accessibilityHint="बैकअप, ताला और जानकारी"
+                  onPress={() => go('/settings')}
+                  outerStyle={styles.gearOuter}
+                  style={styles.gear}
+                >
+                  <Icon name="settings" size={28} color={colors.muted} />
+                </PressableScale>
+              </View>
+              <DotBorder />
             </View>
-            <PressableScale
-              accessibilityRole="button"
-              testID="btn-settings"
-              accessibilityLabel="सेटिंग"
-              accessibilityHint="बैकअप, ताला और जानकारी"
-              onPress={() => go('/settings')}
-              outerStyle={styles.gearOuter}
-              style={styles.gear}
-            >
-              <Icon name="settings" size={28} color={colors.muted} />
+
+            <NoticeBanners scope="home" />
+
+            {ledger.id !== DEFAULT_LEDGER_ID ? (
+              <BigButton icon="lock" label={`खाता: ${ledger.name}`} tone="plain" hint="दूसरा खाता खोलें" onPress={() => go('/ledgers')} />
+            ) : null}
+
+            <FadeIn>
+              <View style={styles.sumRow}>
+                <SummaryTile tone="received" word="कुल आया" paired="(मिला)" spoken="कुल मिला" amount={show(receivedPaise)} />
+                <SummaryTile tone="given" word="कुल गया" paired="(दिया)" spoken="कुल दिया" amount={show(givenPaise)} />
+              </View>
+            </FadeIn>
+
+            <View style={styles.row}>
+              <QuickAction id="qa-new" icon="write" label="नया नोतरा लिखें" hint="अपना नया नोतरा बनाएँ" onPress={() => go('/events/new')} />
+              <QuickAction id="qa-give" icon="moneyOut" label="दूसरों में दें" hint="किसी और के नोतरे में जो दिया वह लिखें" onPress={() => go('/others/new')} />
+            </View>
+
+            <FadeIn delay={80}>
+              <UpcomingStrip items={upcoming} />
+            </FadeIn>
+
+            <View style={styles.block}>
+              <SectionTitle icon="calendar">कैलेंडर</SectionTitle>
+              <Calendar value={day} onSelect={setDay} markers={markers} onMonthChange={onMonth} />
+              <DayPrograms day={day} items={dayItems} />
+            </View>
+
+            <PressableScale testID="btn-families" accessibilityRole="button" accessibilityLabel="परिवार" accessibilityHint="सब परिवारों की सूची और खोज" onPress={() => go('/households')} style={styles.link}>
+              <Icon name="families" size={28} color={colors.received} />
+              <Text style={[type.bodyBold, styles.flex, { color: colors.received }]} importantForAccessibility="no">
+                परिवार
+              </Text>
+              <Icon name="chevron" size={22} color={colors.muted} />
             </PressableScale>
-          </View>
-
-          <NoticeBanners scope="home" />
-
-          {ledger.id !== DEFAULT_LEDGER_ID ? (
-            <BigButton icon="lock" label={`खाता: ${ledger.name}`} tone="plain" hint="दूसरा खाता खोलें" onPress={() => go('/ledgers')} />
-          ) : null}
-
-          <Card style={styles.summary}>
-            <SummaryRow tone="received" word="कुल मिला" paired="(आया)" amount={show(receivedPaise)} />
-            <View style={styles.divider} />
-            <SummaryRow tone="given" word="कुल दिया" paired="(गया)" amount={show(givenPaise)} />
-          </Card>
-
-          <View style={styles.row}>
-            <QuickAction id="qa-new" icon="write" label="नया नोतरा लिखें" hint="अपना नया नोतरा बनाएँ" onPress={() => go('/events/new')} />
-            <QuickAction id="qa-give" icon="moneyOut" label="दूसरों में दें" hint="किसी और के नोतरे में जो दिया वह लिखें" onPress={() => go('/others/new')} />
-            <QuickAction id="qa-report" icon="doc" label="रिपोर्ट" hint="हिसाब और रिपोर्ट खोलें" onPress={() => go('/notra?seg=hisab')} />
-          </View>
-
-          <View style={styles.block}>
-            <SectionTitle icon="calendar">कैलेंडर</SectionTitle>
-            <Calendar value={day} onSelect={setDay} markers={markers} onMonthChange={onMonth} />
-            <DayPrograms day={day} items={dayItems} />
-          </View>
-
-          <PressableScale testID="btn-families" accessibilityRole="button" accessibilityLabel="परिवार" accessibilityHint="सब परिवारों की सूची और खोज" onPress={() => go('/households')} style={styles.link}>
-            <Icon name="families" size={28} color={colors.received} />
-            <Text style={[type.bodyBold, styles.flex, { color: colors.received }]} importantForAccessibility="no">
-              परिवार
-            </Text>
-            <Icon name="chevron" size={22} color={colors.muted} />
-          </PressableScale>
-
-          <View style={styles.row}>
-            {FEATURES.rishte ? <DiscoverCard id="discover-rishte" icon="rings" title="रिश्ते" sub="अपना बायोडाटा बनाएँ" onPress={() => go('/rishte')} /> : null}
-            <DiscoverCard id="discover-inaam" icon="trophy" title="इनाम" sub="अंक और उपलब्धियाँ" onPress={() => go('/inaam')} />
-          </View>
 
           {error ? (
             <Card tint="given">
               <Text style={[type.bodyBold, { color: colors.given }]}>डेटा नहीं खुल पाया। ऐप दोबारा खोलें।</Text>
             </Card>
           ) : null}
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -231,8 +289,33 @@ export default function Home() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.paper },
   safe: { flex: 1 },
-  content: { paddingHorizontal: GUTTER, paddingTop: spacing.md, paddingBottom: spacing.lg, gap: spacing.lg },
-  top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  content: { paddingBottom: spacing.lg },
+  body: { paddingHorizontal: GUTTER, gap: spacing.md, paddingTop: spacing.sm },
+  band: { backgroundColor: colors.haldiTint, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card, overflow: 'hidden' },
+  top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, paddingBottom: spacing.sm },
+  greeting: { flex: 1, color: colors.ink },
+  sumRow: { flexDirection: 'row', gap: spacing.sm },
+  sumTile: { flex: 1, gap: spacing.sm, paddingLeft: spacing.md + spacing.xs },
+  sumHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  sumDisc: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  upWrap: { gap: spacing.sm },
+  upScroll: { marginHorizontal: -GUTTER },
+  upRow: { paddingHorizontal: GUTTER, gap: spacing.sm },
+  upCard: {
+    width: 176, gap: spacing.xs, padding: spacing.md, backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
+  row: { flexDirection: 'row', gap: spacing.sm },
+  qaOuter: { flex: 1 },
+  qa: {
+    minHeight: 96, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, padding: spacing.sm,
+    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
+  qaText: { color: colors.ink, textAlign: 'center' },
+  link: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: MIN_TOUCH, paddingHorizontal: spacing.md,
+    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
+  block: { gap: spacing.sm },
   gearOuter: { width: MIN_TOUCH, height: MIN_TOUCH },
   gear: {
     width: MIN_TOUCH,
@@ -244,31 +327,9 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
     backgroundColor: colors.card,
   },
-  summary: { paddingVertical: spacing.sm, gap: 0 },
-  sumRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: MIN_TOUCH + spacing.sm },
-  sumDisc: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  sumWords: { flexShrink: 0 },
-  sumAmount: { flex: 1, textAlign: 'right' },
-  row: { flexDirection: 'row', gap: spacing.sm },
-  qaOuter: { flex: 1 },
-  qa: {
-    minHeight: 96, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, padding: spacing.sm,
-    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
-  },
-  qaText: { color: colors.ink, textAlign: 'center' },
-  discover: {
-    minHeight: 112, gap: spacing.xs, padding: spacing.md,
-    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
-  },
-  link: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: MIN_TOUCH, paddingHorizontal: spacing.md,
-    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
-  },
-  block: { gap: spacing.sm },
   muted: { color: colors.muted },
   ink: { color: colors.ink },
   flex: { flex: 1 },
-  divider: { height: BORDER, backgroundColor: colors.hairline },
   dayList: { gap: spacing.sm },
   dayRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: MIN_TOUCH + spacing.sm, paddingHorizontal: spacing.md,

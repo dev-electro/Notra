@@ -105,7 +105,8 @@
         }
       ],
       "./plugins/withReleaseSigning",
-      "./plugins/withKotlinMetadataCompat"
+      "./plugins/withKotlinMetadataCompat",
+      "./plugins/withFastTestBuild"
     ],
     "experiments": {
       "typedRoutes": true,

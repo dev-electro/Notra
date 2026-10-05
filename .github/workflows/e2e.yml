@@ -5,6 +5,7 @@ name: E2E
 on:
   push:
     branches: ['**']
+    paths-ignore: ['docs/**', '**/*.md', 'admin/**', 'server/**']
   workflow_dispatch:
 
 concurrency:
@@ -54,6 +55,7 @@ jobs:
           CI: '1'
           NOTRA_ADS_TEST: '1' # test builds never carry real AdMob ids (docs/ADS.md)
           NOTRA_ADS_E2E: '1'
+          NOTRA_FAST_TEST: '1'
 
       - name: Free runner disk space
         run: |
@@ -62,7 +64,7 @@ jobs:
 
       - name: Build x86_64 release APK (debug-signed unless upload key is provided)
         working-directory: android
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon --build-cache --parallel
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon --build-cache --parallel -Pandroid.enableProguardInReleaseBuilds=false -Pandroid.enableShrinkResourcesInReleaseBuilds=false
 
       - name: Locate APK
         run: |

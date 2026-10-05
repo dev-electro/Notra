@@ -175,14 +175,14 @@ describe('phone numbers', () => {
 });
 
 describe('search matching (reference for the SQL)', () => {
-  const h = { headName: 'Mohan', fatherName: 'सोहन', village: 'खेरवाड़ा', fala: 'ऊपला', phone: '+91 98765 43210' };
+  const h = { headName: 'Mohan', fatherName: 'सोहन', village: 'खेरवाड़ा', panchayat: 'ऊपला', tehsil: '', district: '', phone: '+91 98765 43210' };
   it('parses a phone-looking box as a phone query, other text into words', () => {
     expect(parseSearch('+91 98765 43210')).toEqual({ tokens: [], phone: '9876543210' });
     expect(parseSearch('  Mohan  खेरवाड़ा ')).toEqual({ tokens: ['mohan', 'खेरवाड़ा'], phone: null });
     expect(parseSearch('')).toEqual({ tokens: [], phone: null });
     expect(parseSearch('12')).toEqual({ tokens: ['12'], phone: null });
   });
-  it('matches name, father, village, fala and phone; every word must match', () => {
+  it('matches name, father, village, panchayat and phone; every word must match', () => {
     for (const q of ['moh', 'सोह', 'खेर', 'ऊप', '98765', '+91 9876543210', '09876543210', 'mohan खेरवाड़ा', 'sohan'.replace('sohan', 'सोहन') + ' mohan']) {
       expect(matchesSearch(h, q)).toBe(true);
     }

@@ -98,3 +98,7 @@ Found while reading the code for these docs. Items 1-4 break or endanger real fl
 
 Success metrics from the plan: **north star** = Notra events recorded per month; **health** = share of households opening the app outside a Notra event
 (personal-ledger use). Both are visible through the admin Reports.
+
+## Super-app modules (placeholders shipped)
+
+Registry, flags and "coming soon" pages exist for रिश्ते (matrimony), रोज़ हाज़िरी, इनाम (rewards wallet), दोस्त बुलाएँ and वीडियो देखें. Nothing is built yet. Before any of it: **rewards and matrimony need policy and legal review** (RBI rules for wallets and prepaid instruments, Google Play real-money-rewards and dating-app policies, KYC/payout and tax questions), and their data must live apart from the private ledger (separate tables or service, own consent, never in the Notra backup).

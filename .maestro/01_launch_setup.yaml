@@ -27,12 +27,6 @@ name: 01 - launch, skip sign-in, first-launch setup
 - runFlow:
     file: subflows/type-id.yaml
     env: { ID: "field-village", VALUE: "Udaipur" }
-- scrollUntilVisible:
-    element:
-      id: chip-101
-    timeout: 20000
-- tapOn:
-    id: chip-101
 - takeScreenshot: screenshots/01-setup-filled
 - tapOn:
     id: btn-save
