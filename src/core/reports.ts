@@ -13,8 +13,13 @@ export function personWise(
   households: readonly Household[] = [],
   increment: Increment = DEFAULT_INCREMENT,
 ): PersonRow[] {
+  return personRowsFromBalances(Object.values(balances(entries, increment)), households);
+}
+
+/** Same as personWise, from balances already aggregated elsewhere (e.g. by SQL). */
+export function personRowsFromBalances(bals: readonly Balance[], households: readonly Household[] = []): PersonRow[] {
   const byId = new Map(households.map((h) => [h.id, h]));
-  return Object.values(balances(entries, increment))
+  return bals
     .map((b) => ({ ...b, household: byId.get(b.householdId), net: b.totalReceived - b.totalGiven }))
     .sort((a, b) => {
       if (!a.household !== !b.household) return a.household ? -1 : 1;
@@ -84,8 +89,13 @@ export function pendingReturns(
   households: readonly Household[] = [],
   increment: Increment = DEFAULT_INCREMENT,
 ): PendingReturnRow[] {
+  return pendingFromBalances(Object.values(balances(entries, increment)), households);
+}
+
+/** Same as pendingReturns, from balances already aggregated elsewhere (e.g. by SQL). */
+export function pendingFromBalances(bals: readonly Balance[], households: readonly Household[] = []): PendingReturnRow[] {
   const byId = new Map(households.map((h) => [h.id, h]));
-  return Object.values(balances(entries, increment))
+  return bals
     .filter((b) => b.totalReceived > b.totalGiven)
     .map((b) => ({
       householdId: b.householdId,

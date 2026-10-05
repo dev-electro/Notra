@@ -74,3 +74,17 @@ Android: `RECORD_AUDIO` only (voice entry). `READ_CONTACTS`, `READ_SMS`, `READ_C
 permissions (and `SYSTEM_ALERT_WINDOW`) are removed via `blockedPermissions`. The app still declares `INTERNET`
 (added by default, needed for the dev server and the future sync). The SQLCipher key is generated once on the
 device and stored in the OS keystore via expo-secure-store.
+
+## Phase 1 screens (Stage 2)
+
+Home (मेरा नोतरा / दूसरों का नोतरा), first-launch setup (my household + village increment),
+household directory with photos, household detail with Lena–Dena balance and suggested return,
+add entry (number pad, shagun buttons, in-kind, voice entry, spoken read-back), Notra events,
+Lekhak mode, reports (person-wise, occasion-wise, self ledger, लौटाना बाकी, yearly calendar),
+and PDF export shared via the share sheet (WhatsApp).
+
+## Performance rules
+
+Totals and reports are computed in SQLite (`src/db/queries.ts`) with indexes; lists are
+virtualised and paginated; print/share/speech/camera modules load only when used;
+photos are resized to 512 px; Android builds only `armeabi-v7a` and `arm64-v8a`.

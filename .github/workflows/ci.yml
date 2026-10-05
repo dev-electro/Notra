@@ -39,7 +39,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
       - run: npm ci
       - name: Generate native Android project
@@ -54,3 +53,5 @@ jobs:
           name: notra-diary-apk
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+      - name: Report APK size
+        run: ls -lh android/app/build/outputs/apk/release/*.apk

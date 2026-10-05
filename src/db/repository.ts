@@ -164,3 +164,28 @@ export async function getIncrement(db: Db): Promise<Increment> {
 export async function setIncrement(db: Db, inc: Increment): Promise<void> {
   await setSetting(db, INCREMENT_KEY, JSON.stringify(inc));
 }
+
+export async function getEvent(db: Db, id: string): Promise<NotraEvent | null> {
+  const r = await db.getFirstAsync<EventRow>('SELECT * FROM events WHERE id = ?', [id]);
+  return r ? toEvent(r) : null;
+}
+
+const MY_HOUSEHOLD_KEY = 'my_household_id';
+
+export async function getMyHouseholdId(db: Db): Promise<string | null> {
+  return getSetting(db, MY_HOUSEHOLD_KEY);
+}
+
+export async function setMyHouseholdId(db: Db, id: string): Promise<void> {
+  await setSetting(db, MY_HOUSEHOLD_KEY, id);
+}
+
+export async function getMyHousehold(db: Db): Promise<Household | null> {
+  const id = await getMyHouseholdId(db);
+  return id ? getHousehold(db, id) : null;
+}
+
+export async function getEntry(db: Db, id: string): Promise<Entry | null> {
+  const r = await db.getFirstAsync<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
+  return r ? toEntry(r) : null;
+}

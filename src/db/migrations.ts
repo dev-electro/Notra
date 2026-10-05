@@ -69,6 +69,15 @@ export const MIGRATIONS: readonly string[] = [
     updated_at TEXT NOT NULL
   );
   `,
+  // v2: query performance. `active_entries` = entries not superseded by a correction (same rule as core activeEntries).
+  `
+  CREATE INDEX idx_entries_corrects ON entries(corrects_entry_id);
+  CREATE INDEX idx_entries_other_dir ON entries(other_household_id, direction, created_at);
+  CREATE INDEX idx_households_village ON households(village);
+  CREATE VIEW active_entries AS
+    SELECT e.rowid AS rid, e.* FROM entries e
+    WHERE NOT EXISTS (SELECT 1 FROM entries c WHERE c.corrects_entry_id = e.id);
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length;

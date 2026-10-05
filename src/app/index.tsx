@@ -1,25 +1,38 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BigButton } from '@/components/big-button';
 import { RuledPaper } from '@/components/ruled-paper';
 import { TotalCard } from '@/components/total-card';
 import { formatINR } from '@/core';
 import { useLedgerTotals } from '@/hooks/use-ledger-totals';
+import { go, replace } from '@/nav';
 import { colors, spacing, type } from '@/theme';
 
 export default function Home() {
-  const { loading, error, receivedPaise, givenPaise } = useLedgerTotals();
+  const { loading, error, receivedPaise, givenPaise, setupDone } = useLedgerTotals();
   const show = (p: number) => (loading ? '…' : formatINR(p));
+
+  useEffect(() => {
+    if (!loading && !error && !setupDone) replace('/setup');
+  }, [loading, error, setupDone]);
+
   return (
     <RuledPaper>
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.heading}>नोतरा डायरी</Text>
           <View style={styles.cards}>
-            {/* Stage 2 wires these to the received / given ledgers. */}
-            <TotalCard title="मेरा नोतरा" subtitle="जो मेरे यहाँ आया" amount={show(receivedPaise)} ink="blue" />
-            <TotalCard title="दूसरों का नोतरा" subtitle="जो मैंने दिया" amount={show(givenPaise)} ink="red" />
+            <TotalCard title="मेरा नोतरा" subtitle="जो मेरे यहाँ आया" amount={show(receivedPaise)} ink="blue" onPress={() => go('/ledger/aaya')} />
+            <TotalCard title="दूसरों का नोतरा" subtitle="जो मैंने दिया" amount={show(givenPaise)} ink="red" onPress={() => go('/ledger/gaya')} />
           </View>
+          <BigButton icon="✍️" label="नई एंट्री" onPress={() => go('/entry/new')} />
+          <BigButton icon="📒" label="लेखक मोड" tone="red" onPress={() => go('/lekhak')} />
+          <View style={styles.row}>
+            <BigButton compact icon="👪" label="परिवार" onPress={() => go('/households')} />
+            <BigButton compact icon="📊" label="रिपोर्ट" tone="red" onPress={() => go('/reports')} />
+          </View>
+          <BigButton icon="🎉" label="नोतरा कार्यक्रम" onPress={() => go('/events')} />
           {error ? <Text style={styles.note}>डेटा नहीं खुल पाया। ऐप दोबारा खोलें।</Text> : null}
         </ScrollView>
       </SafeAreaView>
@@ -29,8 +42,9 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  content: { padding: spacing.md, paddingLeft: 44, gap: spacing.lg },
+  content: { padding: spacing.md, paddingLeft: 44, gap: spacing.md, paddingBottom: spacing.xl },
   heading: { ...type.title, color: colors.inkBlue },
-  cards: { gap: spacing.lg },
+  cards: { gap: spacing.md },
+  row: { flexDirection: 'row', gap: spacing.md },
   note: { ...type.body, color: colors.textMuted },
 });
