@@ -142,7 +142,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) sections 2-5 for the full module tables. 
 ### 4.3 testIDs for Maestro
 
 Interactive elements carry `testID`s with fixed prefixes: `field-*` (inputs), `btn-*` (buttons), `tab-*` (bottom tabs: `tab-home`,
-`tab-mine`, `tab-others`, `tab-hisaab`), `chip-*` (amount/option chips), `key-*` (number pad), `kind-*`, `report-*`, `cal-*`,
+`tab-notra`, `tab-rishte`, `tab-inaam`; नोतरा segments `seg-mera`, `seg-doosre`, `seg-hisab`), `chip-*` (amount/option chips), `key-*` (number pad), `kind-*`, `report-*`, `cal-*`,
 `household-row-<name>`, `picker-search`, `ad-banner`. Flows select **by id**, not label (labels render twice: label text and the input's
 accessibility label). Hindi text is fine for assertions on static chrome; **typed values must be ASCII** (typing Devanagari through adb is
 unreliable).
@@ -209,7 +209,7 @@ Also update [DATA_MODEL.md](DATA_MODEL.md) and the Data Safety text if it stores
 2. Pure doc builder in `src/core/reportDocs.ts` (`xxxDoc(rows, totals, meta): ReportDoc`): ONE model feeds both the PDF HTML and the on-phone image sheet.
 3. Screen `src/app/reports/<id>.tsx` using `RangeFilter`, `ReportParts`, `ReportExport` (PDF via `expo-print`; images via `react-native-view-shot`, 25 rows per
    page, `MAX_IMAGE_ROWS = 500`).
-4. Add the card to `REPORTS` in `src/app/(tabs)/hisab.tsx`; add the id to `REPORT_IDS` in `src/analytics/events.ts` and call `useReportViewed(id)`.
+4. Add the card to `REPORTS` in `src/features/notra/HisabPane.tsx`; add the id to `REPORT_IDS` in `src/analytics/events.ts` and call `useReportViewed(id)`.
 5. Tests: SQL vs core on a seeded fixture; doc builder snapshot-style assertions. Add the screen to `.maestro/07_reports.yaml`.
 
 ### 5.4 A remote-config key

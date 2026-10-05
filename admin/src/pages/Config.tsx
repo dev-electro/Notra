@@ -201,8 +201,8 @@ function Ads({ entry, editable, onSaved }: { entry: ConfigEntry } & CardProps) {
         </div>
         {flag('first_day_ads_free', 'First day is ad-free for new users')}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Interstitial min. interval (sec)" hint="30 to 86400"><Input type="number" value={s.interstitial_min_interval_sec} disabled={!editable} onChange={(e) => setS({ ...s, interstitial_min_interval_sec: e.target.value })} /></Field>
-          <Field label="Native ad every N items" hint="2 to 50"><Input type="number" value={s.native_every_n_items} disabled={!editable} onChange={(e) => setS({ ...s, native_every_n_items: e.target.value })} /></Field>
+          <Field label="Interstitial min. interval (sec)" hint="60 to 86400"><Input type="number" value={s.interstitial_min_interval_sec} disabled={!editable} onChange={(e) => setS({ ...s, interstitial_min_interval_sec: e.target.value })} /></Field>
+          <Field label="Native ad every N items" hint="5 to 50"><Input type="number" value={s.native_every_n_items} disabled={!editable} onChange={(e) => setS({ ...s, native_every_n_items: e.target.value })} /></Field>
         </div>
         {err != null && <ErrorBox error={err} />}
         {ok && <Notice tone="good">Saved.</Notice>}
@@ -215,8 +215,8 @@ function Ads({ entry, editable, onSaved }: { entry: ConfigEntry } & CardProps) {
 
 function Features({ entry, editable, onSaved }: { entry: ConfigEntry } & CardProps) {
   const v = obj(entry.value);
-  const [s, setS] = useState({ web_app: !!v.web_app, ocr: !!v.ocr, invitation_cards: !!v.invitation_cards });
-  useEffect(() => setS({ web_app: !!v.web_app, ocr: !!v.ocr, invitation_cards: !!v.invitation_cards }), [entry]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [s, setS] = useState({ web_app: !!v.web_app, ocr: !!v.ocr, invitation_cards: !!v.invitation_cards, analytics: v.analytics !== false });
+  useEffect(() => setS({ web_app: !!v.web_app, ocr: !!v.ocr, invitation_cards: !!v.invitation_cards, analytics: v.analytics !== false }), [entry]); // eslint-disable-line react-hooks/exhaustive-deps
   const { err, ok, save, clear } = useSave('features', onSaved);
   return (
     <Card title="Feature flags">
@@ -224,6 +224,7 @@ function Features({ entry, editable, onSaved }: { entry: ConfigEntry } & CardPro
         <Toggle label="Web app" checked={s.web_app} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, web_app: x }); }} />
         <Toggle label="OCR (read from a photo)" checked={s.ocr} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, ocr: x }); }} />
         <Toggle label="Invitation cards" checked={s.invitation_cards} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, invitation_cards: x }); }} />
+        <Toggle label="Usage statistics (analytics)" checked={s.analytics} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, analytics: x }); }} />
         {err != null && <ErrorBox error={err} />}
         {ok && <Notice tone="good">Saved.</Notice>}
         <Can action="edit_config"><Button variant="primary" onClick={() => void save(s, null).catch(() => undefined)}>Save</Button></Can>

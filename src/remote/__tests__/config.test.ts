@@ -23,6 +23,11 @@ describe('parseConfig', () => {
     expect(c).toEqual({ ...DEFAULT_CONFIG, ads: { ...DEFAULT_CONFIG.ads, interstitial_min_interval_sec: 60 } });
     expect(c).not.toHaveProperty('surprise');
   });
+  it('ads are off by default and clamp like the server (60..86400 s, every 5..50 items)', () => {
+    expect(DEFAULT_CONFIG.ads).toMatchObject({ enabled: false, banner: false, native: false, interstitial: false, rewarded: false });
+    expect(parseConfig({ ads: { interstitial_min_interval_sec: 999_999, native_every_n_items: 999 } }).ads).toMatchObject({ interstitial_min_interval_sec: 86_400, native_every_n_items: 50 });
+  });
+
   it('features.analytics defaults to true and only an explicit boolean changes it', () => {
     expect(DEFAULT_CONFIG.features.analytics).toBe(true);
     expect(parseConfig({ features: { analytics: false } }).features.analytics).toBe(false);

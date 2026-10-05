@@ -19,7 +19,11 @@ const connect = (env: Env) => {
 export default {
   async fetch(req: Request, env: Env, ctx: Ctx): Promise<Response> {
     const sql = connect(env);
-    if (!sql) return Response.json({ error: 'server_misconfigured' }, { status: 500 });
+    if (!sql) {
+      // Deployed before the database secret exists: the health check still answers.
+      if (req.method === 'GET' && new URL(req.url).pathname === '/v1/health') return Response.json({ ok: true, db: 'unconfigured' });
+      return Response.json({ error: 'server_misconfigured' }, { status: 500 });
+    }
     try {
       const config = loadConfig(env);
       const app = createApp({

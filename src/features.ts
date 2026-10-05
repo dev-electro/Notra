@@ -8,6 +8,8 @@ import type { RemoteConfig } from '@/remote/config';
  */
 export const FEATURES = {
   diaryPhotoImport: false,
+  /** रिश्ते tab: private, on-phone marriage biodata builder. Nothing is uploaded. */
+  rishte: true,
 } as const;
 
 /** Default flag OR the server's features.ocr. */

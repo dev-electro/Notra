@@ -23,3 +23,5 @@ export * from './phone';
 export * from './search';
 export * from './reportDocs';
 export * from './filter';
+export * from './rewards';
+export * from './biodata';

@@ -19,7 +19,9 @@ name: 09 - screenshots of every main screen (for review, not assertions)
 
 # मेरा नोतरा and its event
 - tapOn:
-    id: tab-mine
+    id: tab-notra
+- tapOn:
+    id: seg-mera
 - extendedWaitUntil:
     visible:
       id: btn-new-event
@@ -37,7 +39,9 @@ name: 09 - screenshots of every main screen (for review, not assertions)
 
 # दूसरों का नोतरा
 - tapOn:
-    id: tab-others
+    id: tab-notra
+- tapOn:
+    id: seg-doosre
 - extendedWaitUntil:
     visible:
       id: btn-new-visit
@@ -88,7 +92,9 @@ name: 09 - screenshots of every main screen (for review, not assertions)
 
 # हिसाब hub and every report
 - tapOn:
-    id: tab-hisaab
+    id: tab-notra
+- tapOn:
+    id: seg-hisab
 - extendedWaitUntil:
     visible:
       id: report-given

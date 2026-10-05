@@ -8,26 +8,26 @@ import { PressableScale } from '@/components/pressable-scale';
 import { Text } from '@/components/text';
 import { BORDER, colors, MIN_TOUCH, radius, spacing, type } from '@/theme';
 
-/** The four tabs, in order: picture + plain Hindi word each. मेरा नोतरा = where I only receive, दूसरों का नोतरा = where I only give. */
+/** The four tabs, in order: picture + plain Hindi word each. Settings is not a tab (gear on घर). */
 export const TABS: Record<string, { label: string; icon: IconName; id: string }> = {
   index: { label: 'घर', icon: 'house', id: 'tab-home' },
-  mera: { label: 'मेरा नोतरा', icon: 'moneyIn', id: 'tab-mine' },
-  doosre: { label: 'दूसरों का नोतरा', icon: 'moneyOut', id: 'tab-others' },
-  hisab: { label: 'हिसाब', icon: 'hisaab', id: 'tab-hisaab' },
+  notra: { label: 'नोतरा', icon: 'events', id: 'tab-notra' },
+  rishte: { label: 'रिश्ते', icon: 'rings', id: 'tab-rishte' },
+  inaam: { label: 'इनाम', icon: 'trophy', id: 'tab-inaam' },
 };
 
-/** Real-app bottom bar: big (84dp) targets, icon above a bold word, the open tab in a haldi pill. Meaning is never colour alone. */
-export function BottomTabs({ state, navigation }: BottomTabBarProps) {
+/** Bottom bar: icon above a Hindi word; the open tab gets a soft haldi pill and indigo tint. Meaning is never colour alone. */
+export function BottomTabs({ state, navigation, descriptors }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const focusedName = state.routes[state.index]?.name;
-  const bannerScreen = focusedName === 'index' ? 'home' : focusedName === 'hisab' ? 'hisab' : null; // ads on these two tabs only
+  const bannerScreen = focusedName === 'index' ? 'home' : null; // the banner shows on घर only
   return (
     <View>
       {bannerScreen ? <AdBanner screen={bannerScreen} /> : null}
       <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, spacing.xs) }]} accessibilityRole="tablist">
         {state.routes.map((route, i) => {
           const t = TABS[route.name];
-          if (!t) return null;
+          if (!t || (descriptors[route.key]?.options as { href?: unknown } | undefined)?.href === null) return null; // hidden by a feature flag
           const focused = state.index === i;
           const ink = focused ? colors.received : colors.muted;
           return (
@@ -47,7 +47,7 @@ export function BottomTabs({ state, navigation }: BottomTabBarProps) {
               <View style={[styles.pill, focused && styles.pillOn]}>
                 <Icon name={t.icon} size={28} color={ink} strokeWidth={focused ? 2.5 : 2} />
               </View>
-              <Text style={[focused ? type.captionBold : type.caption, styles.label, { color: ink }]} numberOfLines={2} importantForAccessibility="no">
+              <Text style={[focused ? type.captionBold : type.caption, styles.label, { color: ink }]} numberOfLines={1} importantForAccessibility="no">
                 {t.label}
               </Text>
             </PressableScale>

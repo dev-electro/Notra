@@ -50,6 +50,21 @@ const SHAPES = {
     </>
   ),
 
+  // --- tab pictures: रिश्ते (two rings), इनाम (cup) ---
+  rings: (
+    <>
+      <Circle cx={9} cy={14} r={5.5} />
+      <Circle cx={15.5} cy={14} r={5.5} />
+      <Path d="M7.5 5.5L9 3.5l1.5 2" />
+    </>
+  ),
+  trophy: (
+    <>
+      <Path d="M7.5 4h9v5.5a4.5 4.5 0 0 1-9 0zM7.5 6H4.5c0 3 1 4.5 3.2 5M16.5 6h3c0 3-1 4.5-3.2 5" />
+      <Path d="M12 14v4M8.5 20.5h7M9.5 18h5" />
+    </>
+  ),
+
   // --- everyday controls ---
   back: <Path d="M19 12H5M11 6l-6 6 6 6" />,
   mic: (

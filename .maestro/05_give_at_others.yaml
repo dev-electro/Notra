@@ -4,7 +4,9 @@ name: 05 - दूसरों का नोतरा, go to another family's pro
 # Mohan gave 501 at my wedding (flow 04). Now I give 701 at HIS program: 501 repays, 200 is new.
 - runFlow: subflows/launch-home.yaml
 - tapOn:
-    id: tab-others
+    id: tab-notra
+- tapOn:
+    id: seg-doosre
 - extendedWaitUntil:
     visible:
       id: btn-new-visit
@@ -61,7 +63,9 @@ name: 05 - दूसरों का नोतरा, go to another family's pro
     id: btn-confirm
 # The program now shows under दूसरों का नोतरा
 - tapOn:
-    id: tab-others
+    id: tab-notra
+- tapOn:
+    id: seg-doosre
 - extendedWaitUntil:
     visible: "Mohan"
     timeout: 20000

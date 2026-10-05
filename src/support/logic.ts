@@ -9,6 +9,15 @@ export const CATEGORIES = [
 ] as const;
 export type SupportCategory = (typeof CATEGORIES)[number]['id'];
 
+/** The server's category names (server/src/support.ts TICKET_CATEGORIES); the server is the source of truth. */
+export const SERVER_CATEGORY: Record<SupportCategory, 'grievance' | 'bug' | 'feedback' | 'deletion' | 'other'> = {
+  complaint: 'grievance',
+  bug: 'bug',
+  suggestion: 'feedback',
+  delete_account: 'deletion',
+  other: 'other',
+};
+
 export const SUBJECT_MIN = 3;
 export const SUBJECT_MAX = 120;
 export const MESSAGE_MIN = 10;
@@ -86,6 +95,16 @@ export async function flushQueue(queue: QueuedTicket[], send: (t: QueuedTicket) 
 /** Which HTTP statuses mean "never going to work": a validation error (400/422). Everything else (offline, 401, 404, 429, 5xx) retries. */
 export const sendResultForStatus = (status: number): SendResult => (status === 400 || status === 422 ? 'drop' : 'retry');
 
+/** The POST /v1/support body: `body` (not `message`) and the server's category names. */
+export const ticketPayload = (t: QueuedTicket) => ({
+  client_id: t.clientId,
+  category: SERVER_CATEGORY[t.category] ?? 'other',
+  subject: t.subject,
+  body: t.message,
+  app_version: t.appVersion,
+  created_at: t.createdAt,
+});
+
 // ---- consented support access ----
 export const ACCESS_DAYS = [1, 3, 7] as const;
 export type AccessDays = (typeof ACCESS_DAYS)[number];
@@ -109,6 +128,10 @@ const safeJson = (s: string): unknown => {
 };
 
 export const grantActive = (g: AccessGrant | null, now: number): g is AccessGrant => !!g && Date.parse(g.expiresAt) > now;
+
+/** POST /v1/support/access bodies: the server counts hours (1..168, so 7 days at most). */
+export const grantBody = (days: AccessDays) => ({ action: 'grant' as const, hours: days * 24 });
+export const REVOKE_BODY = { action: 'revoke' as const };
 
 export const grantFromDays = (days: AccessDays, now: number): AccessGrant => ({ expiresAt: new Date(now + days * 86_400_000).toISOString() });
 

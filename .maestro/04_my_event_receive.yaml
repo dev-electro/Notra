@@ -3,7 +3,9 @@ name: 04 - मेरा नोतरा, make my event, record who came (receive
 ---
 - runFlow: subflows/launch-home.yaml
 - tapOn:
-    id: tab-mine
+    id: tab-notra
+- tapOn:
+    id: seg-mera
 - extendedWaitUntil:
     visible:
       id: btn-new-event

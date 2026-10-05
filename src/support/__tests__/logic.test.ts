@@ -1,4 +1,4 @@
-import { draftProblems, enqueue, expiryLabel, flushQueue, grantActive, grantFromDays, parseGrant, parseQueue, QUEUE_MAX, sendResultForStatus, type QueuedTicket } from '../logic';
+import { CATEGORIES, draftProblems, enqueue, expiryLabel, flushQueue, grantActive, grantFromDays, parseGrant, parseQueue, QUEUE_MAX, REVOKE_BODY, SERVER_CATEGORY, grantBody, sendResultForStatus, ticketPayload, type QueuedTicket } from '../logic';
 
 const t = (id: string, createdAt = '2026-10-05T00:00:00.000Z'): QueuedTicket => ({ clientId: id, category: 'bug', subject: 'विषय', message: 'यह एक संदेश है', createdAt, appVersion: '1.0.0' });
 
@@ -58,5 +58,21 @@ describe('support access grant', () => {
     expect(parseGrant({ expires_at: '2026-10-08T00:00:00Z' })).toEqual({ expiresAt: '2026-10-08T00:00:00Z' });
     expect(parseGrant('{"expiresAt":"2026-10-08T00:00:00Z"}')).toEqual({ expiresAt: '2026-10-08T00:00:00Z' });
     for (const bad of [null, '', {}, { expires_at: 'x' }, 7]) expect(parseGrant(bad)).toBeNull();
+  });
+});
+
+describe('server contract', () => {
+  it('maps the ticket to body + the server category names', () => {
+    const p = ticketPayload({ ...t('a'), category: 'complaint' });
+    expect(p).toEqual({ client_id: 'a', category: 'grievance', subject: 'विषय', body: 'यह एक संदेश है', app_version: '1.0.0', created_at: '2026-10-05T00:00:00.000Z' });
+    expect(p).not.toHaveProperty('message');
+    expect(SERVER_CATEGORY).toEqual({ complaint: 'grievance', bug: 'bug', suggestion: 'feedback', delete_account: 'deletion', other: 'other' });
+    for (const c of CATEGORIES) expect(['grievance', 'bug', 'feedback', 'deletion', 'other']).toContain(SERVER_CATEGORY[c.id]);
+  });
+
+  it('grant and revoke bodies use action + hours (7 days = 168 hours max)', () => {
+    expect(grantBody(1)).toEqual({ action: 'grant', hours: 24 });
+    expect(grantBody(7)).toEqual({ action: 'grant', hours: 168 });
+    expect(REVOKE_BODY).toEqual({ action: 'revoke' });
   });
 });

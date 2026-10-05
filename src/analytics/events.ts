@@ -25,7 +25,7 @@ const FORMATS = ['png', 'pdf'] as const;
 
 /** Route templates ("/events/[id]", never a real id). tests/analytics.test.ts checks this list against the files in src/app. */
 export const SCREENS = [
-  '/', '/mera', '/doosre', '/hisab',
+  '/', '/notra', '/rishte', '/inaam',
   '/account-delete', '/app-lock', '/backup', '/entry/new', '/events/[id]', '/events/[id]/ledger', '/events/new',
   '/households/[id]', '/households/edit', '/households', '/ledger/[direction]', '/ledgers', '/legal/[id]', '/old', '/onboarding',
   '/others/new', '/phone', '/reports/given', '/reports/guests', '/reports/notcome', '/reports/occasion', '/reports/pending',

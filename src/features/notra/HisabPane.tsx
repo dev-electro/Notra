@@ -3,7 +3,6 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { DirectionTag } from '@/components/direction';
 import { Icon, type IconName } from '@/components/icons';
 import { PressableScale } from '@/components/pressable-scale';
-import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { formatINR } from '@/core';
 import { sqlTotals } from '@/db';
@@ -50,15 +49,9 @@ function TotalRow({ aaya, amount, onPress }: { aaya: boolean; amount: string; on
   );
 }
 
-export default function Hisab() {
+export function HisabPane() {
   const { data: t } = useLoad((db, ledgerId) => sqlTotals(db, ledgerId), { receivedPaise: 0, givenPaise: 0 });
   return (
-    <Screen
-      tab
-      title="हिसाब"
-      scroll={false}
-      action={{ testID: 'btn-old', icon: 'doc', label: 'पुराना हिसाब जोड़ें', onPress: () => go('/old'), hint: 'पुरानी डायरी का हिसाब पिछली तारीख से लिखें' }}
-    >
       <ScrollView contentContainerStyle={styles.content}>
         <TotalRow aaya amount={formatINR(t.receivedPaise)} onPress={() => go('/ledger/aaya')} />
         <TotalRow aaya={false} amount={formatINR(t.givenPaise)} onPress={() => go('/ledger/gaya')} />
@@ -87,7 +80,6 @@ export default function Hisab() {
           </PressableScale>
         ))}
       </ScrollView>
-    </Screen>
   );
 }
 

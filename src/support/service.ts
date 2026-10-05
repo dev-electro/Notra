@@ -7,7 +7,7 @@ import { appVersion } from '@/remote/device';
 import { HttpError, SuspendedError } from '@/sync/http';
 import { api } from '@/sync/runtime';
 import {
-  enqueue, flushQueue, grantFromDays, parseGrant, parseQueue, sendResultForStatus, type AccessDays, type AccessGrant, type QueuedTicket, type SendResult, type SupportDraft,
+  enqueue, flushQueue, grantBody, grantFromDays, parseGrant, parseQueue, REVOKE_BODY, sendResultForStatus, ticketPayload, type AccessDays, type AccessGrant, type QueuedTicket, type SendResult, type SupportDraft,
 } from './logic';
 
 const QUEUE_KEY = 'support_queue_v1';
@@ -15,15 +15,20 @@ const GRANT_KEY = 'support_access_v1';
 const dbOf = async () => (await getDb()) as unknown as Db;
 export const SOON_HI = 'यह सुविधा जल्द आएगी';
 
+/** Tickets the server refused for good during this run; submitSupport reports them instead of saying "sent". */
+const rejected = new Set<string>();
+
 async function send(t: QueuedTicket): Promise<SendResult> {
   try {
     await api.request('POST', '/v1/support', {
       auth: true,
-      body: { client_id: t.clientId, category: t.category, subject: t.subject, message: t.message, app_version: t.appVersion, created_at: t.createdAt },
+      body: ticketPayload(t),
     });
     return 'sent';
   } catch (e) {
-    return e instanceof HttpError ? sendResultForStatus(e.status) : 'retry';
+    const r = e instanceof HttpError ? sendResultForStatus(e.status) : 'retry';
+    if (r === 'drop') rejected.add(t.clientId);
+    return r;
   }
 }
 
@@ -50,7 +55,9 @@ export async function submitSupport(d: SupportDraft): Promise<'sent' | 'queued'>
     appVersion: appVersion(),
   };
   await setSetting(db, QUEUE_KEY, JSON.stringify(enqueue(parseQueue(await getSetting(db, QUEUE_KEY)), t, Date.now())));
-  return (await flushSupport()) === 0 ? 'sent' : 'queued';
+  const left = await flushSupport();
+  if (rejected.delete(t.clientId)) throw new Error('rejected');
+  return left === 0 ? 'sent' : 'queued';
 }
 
 export const pendingSupport = async () => parseQueue(await getSetting(await dbOf(), QUEUE_KEY)).length;
@@ -78,13 +85,13 @@ export function accessErrorMessage(e: unknown): string {
 }
 
 export async function grantAccess(days: AccessDays): Promise<AccessGrant> {
-  const r = await api.request<unknown>('POST', '/v1/support/access', { auth: true, body: { days } });
+  const r = await api.request<unknown>('POST', '/v1/support/access', { auth: true, body: grantBody(days) });
   const g = parseGrant(r) ?? grantFromDays(days, Date.now());
   await setSetting(await dbOf(), GRANT_KEY, JSON.stringify(g));
   return g;
 }
 
 export async function revokeAccess(): Promise<void> {
-  await api.request('DELETE', '/v1/support/access', { auth: true });
+  await api.request('POST', '/v1/support/access', { auth: true, body: REVOKE_BODY });
   await setSetting(await dbOf(), GRANT_KEY, '');
 }

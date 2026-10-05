@@ -47,9 +47,9 @@ name: 01 - launch, skip sign-in, first-launch setup
 - assertVisible:
     id: tab-home
 - assertVisible:
-    id: tab-mine
+    id: tab-notra
 - assertVisible:
-    id: tab-others
+    id: tab-rishte
 - assertVisible:
-    id: tab-hisaab
+    id: tab-inaam
 - takeScreenshot: screenshots/01-home-after-setup

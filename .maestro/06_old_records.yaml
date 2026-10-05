@@ -3,6 +3,10 @@ name: 06 - पुराना हिसाब जोड़ें, past dates for
 ---
 - runFlow: subflows/launch-home.yaml
 - tapOn:
+    id: tab-notra
+- tapOn:
+    id: seg-hisab
+- tapOn:
     id: btn-old
 - extendedWaitUntil:
     visible: "पुराना हिसाब जोड़ें"
@@ -63,6 +67,10 @@ name: 06 - पुराना हिसाब जोड़ें, past dates for
 - tapOn:
     id: btn-confirm
 # (2) my own old Notra with a custom name: "नामकरण", then who came (₹101)
+- tapOn:
+    id: tab-notra
+- tapOn:
+    id: seg-hisab
 - tapOn:
     id: btn-old
 - extendedWaitUntil:

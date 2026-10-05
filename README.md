@@ -100,7 +100,7 @@ The `current_key` in `google-services.json` is **not a secret**; it ships inside
 
 ## Phase 1 screens (Stage 2)
 
-Home (toran, greeting, मिला/दिया summary, four tiles: नोतरा लिखें / कार्यक्रम / परिवार / हिसाब), first-launch setup (my household + village increment),
+Home (greeting + date, मिला/दिया summary, 3 quick actions, calendar, रिश्ते/इनाम cards), first-launch setup (my household + village increment),
 household directory with photos, household detail with Lena–Dena balance and suggested return,
 add entry (number pad, shagun buttons, in-kind, voice entry, spoken read-back), Notra events,
 Event ledger (खाता: the host opens an event and records each giver, saved instantly, undo = void), reports (person-wise, occasion-wise, self ledger, लौटाना बाकी, yearly calendar),
@@ -215,7 +215,7 @@ that data to the new account. A row the server rejects as invalid would retry fo
 
 For a first-time smartphone user who may not read well: picture-first, plain Hindi, very few choices per screen.
 
-- **Navigation.** Home has exactly four big tiles (नोतरा लिखें, कार्यक्रम, परिवार, हिसाब) and a small gear (settings). Every primary task is at most 2 taps from
+- **Navigation.** Four bottom tabs (घर, नोतरा, रिश्ते, इनाम); settings is the gear on घर. Every primary task is at most 2 taps from
   Home (write an entry: tile, then pick family; open an event ledger: कार्यक्रम, then the card's "खाता खोलें"). Every other screen has a big "वापस"
   button top-left, a clear title, and its one main action as a full-width haldi button at the bottom (`Screen action`).
 - **Words.** मिला (आया) = received, दिया (गया) = given; "हिसाब" for reports; "बैकअप" never "sync"; no English in the UI. Direction is always arrow + word + colour.
@@ -238,8 +238,8 @@ For a first-time smartphone user who may not read well: picture-first, plain Hin
   `entries_direction_rule`, migration v7) and on the **server** (`enforceDirections` in sync push: `invalid_payload:direction` / `eventId`). Voids and corrections that
   keep the target's event + direction are exempt. Old entries without an event are attached by the migration to an automatic "पुराना हिसाब" event (mine per ledger,
   one per family for given); ids are deterministic (`a1a1a1a1-…` / `b2b2b2b2-…`), so a restore from an old cloud copy or backup file maps the same way.
-- **Navigation.** Bottom tabs (4, 84 dp): घर (summary, calendar of all programs with occasion dots, परिवार, पुराना हिसाब जोड़ें, gear for settings) · मेरा नोतरा ·
-  दूसरों का नोतरा · हिसाब. The calendar sits on घर because a fifth tab would crowd the bar.
+- **Navigation.** Bottom tabs (exactly 4): घर (summary, quick actions, calendar of all programs, परिवार, gear for settings) · नोतरा (segments मेरा | दूसरों का | हिसाब) ·
+  रिश्ते (private biodata builder) · इनाम (points and badges, local only).
 - **Occasions.** शादी, गृहप्रवेश, मुंडन संस्कार, बीमारी, मकान, अन्य (never a death feast). "अन्य" has an editable name (`occasion_label`, 60 chars) and details
   (`occasion_note`, 500), shown everywhere the occasion name is shown (`occasionName()`), editable later on the event screen, with quick chips of recent names.
 - **Diary date.** `entries.occurred_on` (YYYY-MM-DD, default: date of created_at). Balances, उतार/चढ़ाव and reports order by `occurred_on, created_at, rowid`. Past dates

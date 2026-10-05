@@ -2,23 +2,22 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
+import type { IconName } from '@/components/icons';
 import { NoticeBanners } from '@/components/notice-banners';
 import { Calendar, type DayMarkers } from '@/components/calendar';
 import { Card, SectionTitle } from '@/components/card';
 import { Icon } from '@/components/icons';
 import { OccasionBadge } from '@/components/occasion';
-import { Toran } from '@/components/motifs';
 import { PressableScale } from '@/components/pressable-scale';
-import { SpeakerButton } from '@/components/speaker-button';
 import { Text } from '@/components/text';
-import { BottomBar } from '@/components/screen';
 import { DEFAULT_LEDGER_ID, firstRunRoute, formatINR, LEGACY_EVENT_LABEL, longDateHi, monthRange, occasionName, todayIso, type Occasion } from '@/core';
 import { getMyHousehold, getMyHouseholdId, sqlEventCards, type EventCard } from '@/db';
+import { FEATURES } from '@/features';
+import { touchToday } from '@/features/rewards/store';
 import { useActiveLedger } from '@/hooks/use-active-ledger';
 import { useLedgerTotals } from '@/hooks/use-ledger-totals';
 import { useLoad } from '@/hooks/use-load';
 import { go, replace } from '@/nav';
-import { HELP_HOME } from '@/onboarding/help';
 import { BORDER, colors, GUTTER, MIN_TOUCH, radius, spacing, type } from '@/theme';
 
 interface RowProps {
@@ -107,6 +106,31 @@ function DayPrograms({ day, items }: { day: string; items: MonthProgram[] }) {
   );
 }
 
+function QuickAction({ id, icon, label, hint, onPress }: { id: string; icon: IconName; label: string; hint: string; onPress: () => void }) {
+  return (
+    <PressableScale testID={id} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint} onPress={onPress} outerStyle={styles.qaOuter} style={styles.qa}>
+      <Icon name={icon} size={28} color={colors.received} />
+      <Text style={[type.captionBold, styles.qaText]} numberOfLines={2} importantForAccessibility="no">
+        {label}
+      </Text>
+    </PressableScale>
+  );
+}
+
+function DiscoverCard({ id, icon, title, sub, onPress }: { id: string; icon: IconName; title: string; sub: string; onPress: () => void }) {
+  return (
+    <PressableScale testID={id} accessibilityRole="button" accessibilityLabel={`${title}, ${sub}`} onPress={onPress} outerStyle={styles.qaOuter} style={styles.discover}>
+      <Icon name={icon} size={28} color={colors.muted} />
+      <Text style={[type.bodyBold, styles.ink]} numberOfLines={1} importantForAccessibility="no">
+        {title}
+      </Text>
+      <Text style={[type.caption, styles.muted]} numberOfLines={2} importantForAccessibility="no">
+        {sub}
+      </Text>
+    </PressableScale>
+  );
+}
+
 export default function Home() {
   const { loading, error, receivedPaise, givenPaise, setupDone, signinPrompted, onboardingSeen } = useLedgerTotals();
   const ledger = useActiveLedger();
@@ -129,59 +153,76 @@ export default function Home() {
     // First launch: picture cards, then the (skippable) sign-in so a new phone can restore its data, then setup.
     const next = firstRunRoute({ onboardingSeen, signinPrompted, setupDone });
     if (next) replace(next);
+    else void touchToday(); // daily-use streak for इनाम (on the phone only)
   }, [loading, error, setupDone, signinPrompted, onboardingSeen]);
 
   return (
     <View style={styles.page}>
       <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
-          <Toran />
-          <View style={styles.body}>
-            <View style={styles.top}>
-              <Text style={[type.title, styles.greeting]} accessibilityRole="header">
+          <View style={styles.top}>
+            <View style={styles.flex}>
+              <Text style={[type.title, styles.ink]} numberOfLines={2} accessibilityRole="header">
                 {greeting}
               </Text>
-              <SpeakerButton text={HELP_HOME} />
-              <PressableScale
-                accessibilityRole="button"
-                testID="btn-settings"
-                accessibilityLabel="सेटिंग"
-                accessibilityHint="बैकअप, ताला और जानकारी"
-                onPress={() => go('/settings')}
-                outerStyle={styles.gearOuter}
-                style={styles.gear}
-              >
-                <Icon name="settings" size={30} color={colors.muted} />
-              </PressableScale>
+              <Text style={[type.caption, styles.muted]}>{longDateHi(todayIso())}</Text>
             </View>
+            <PressableScale
+              accessibilityRole="button"
+              testID="btn-settings"
+              accessibilityLabel="सेटिंग"
+              accessibilityHint="बैकअप, ताला और जानकारी"
+              onPress={() => go('/settings')}
+              outerStyle={styles.gearOuter}
+              style={styles.gear}
+            >
+              <Icon name="settings" size={28} color={colors.muted} />
+            </PressableScale>
+          </View>
 
-            <NoticeBanners scope="home" />
+          <NoticeBanners scope="home" />
 
-            {ledger.id !== DEFAULT_LEDGER_ID ? (
-              <BigButton icon="lock" label={`खाता: ${ledger.name}`} tone="plain" hint="दूसरा खाता खोलें" onPress={() => go('/ledgers')} />
-            ) : null}
+          {ledger.id !== DEFAULT_LEDGER_ID ? (
+            <BigButton icon="lock" label={`खाता: ${ledger.name}`} tone="plain" hint="दूसरा खाता खोलें" onPress={() => go('/ledgers')} />
+          ) : null}
 
-            <Card style={styles.summary}>
-              <SummaryRow tone="received" word="कुल मिला" paired="(आया)" amount={show(receivedPaise)} />
-              <View style={styles.divider} />
-              <SummaryRow tone="given" word="कुल दिया" paired="(गया)" amount={show(givenPaise)} />
-            </Card>
+          <Card style={styles.summary}>
+            <SummaryRow tone="received" word="कुल मिला" paired="(आया)" amount={show(receivedPaise)} />
+            <View style={styles.divider} />
+            <SummaryRow tone="given" word="कुल दिया" paired="(गया)" amount={show(givenPaise)} />
+          </Card>
 
+          <View style={styles.row}>
+            <QuickAction id="qa-new" icon="write" label="नया नोतरा लिखें" hint="अपना नया नोतरा बनाएँ" onPress={() => go('/events/new')} />
+            <QuickAction id="qa-give" icon="moneyOut" label="दूसरों में दें" hint="किसी और के नोतरे में जो दिया वह लिखें" onPress={() => go('/others/new')} />
+            <QuickAction id="qa-report" icon="doc" label="रिपोर्ट" hint="हिसाब और रिपोर्ट खोलें" onPress={() => go('/notra?seg=hisab')} />
+          </View>
+
+          <View style={styles.block}>
             <SectionTitle icon="calendar">कैलेंडर</SectionTitle>
             <Calendar value={day} onSelect={setDay} markers={markers} onMonthChange={onMonth} />
             <DayPrograms day={day} items={dayItems} />
-
-            <BigButton testID="btn-families" icon="families" label="परिवार" tone="plain" hint="सब परिवारों की सूची और खोज" onPress={() => go('/households')} />
-            {error ? (
-              <Card tint="given">
-                <Text style={[type.bodyBold, { color: colors.given }]}>डेटा नहीं खुल पाया। ऐप दोबारा खोलें।</Text>
-              </Card>
-            ) : null}
           </View>
+
+          <PressableScale testID="btn-families" accessibilityRole="button" accessibilityLabel="परिवार" accessibilityHint="सब परिवारों की सूची और खोज" onPress={() => go('/households')} style={styles.link}>
+            <Icon name="families" size={28} color={colors.received} />
+            <Text style={[type.bodyBold, styles.flex, { color: colors.received }]} importantForAccessibility="no">
+              परिवार
+            </Text>
+            <Icon name="chevron" size={22} color={colors.muted} />
+          </PressableScale>
+
+          <View style={styles.row}>
+            {FEATURES.rishte ? <DiscoverCard id="discover-rishte" icon="rings" title="रिश्ते" sub="अपना बायोडाटा बनाएँ" onPress={() => go('/rishte')} /> : null}
+            <DiscoverCard id="discover-inaam" icon="trophy" title="इनाम" sub="अंक और उपलब्धियाँ" onPress={() => go('/inaam')} />
+          </View>
+
+          {error ? (
+            <Card tint="given">
+              <Text style={[type.bodyBold, { color: colors.given }]}>डेटा नहीं खुल पाया। ऐप दोबारा खोलें।</Text>
+            </Card>
+          ) : null}
         </ScrollView>
-        <BottomBar>
-          <BigButton testID="btn-old" tone="primary" icon="doc" label="पुराना हिसाब जोड़ें" hint="पुरानी डायरी का हिसाब पिछली तारीख से लिखें" onPress={() => go('/old')} />
-        </BottomBar>
       </SafeAreaView>
     </View>
   );
@@ -190,17 +231,15 @@ export default function Home() {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.paper },
   safe: { flex: 1 },
-  content: { paddingBottom: spacing.lg },
-  body: { paddingHorizontal: GUTTER, gap: spacing.md, paddingTop: spacing.sm },
+  content: { paddingHorizontal: GUTTER, paddingTop: spacing.md, paddingBottom: spacing.lg, gap: spacing.lg },
   top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  greeting: { flex: 1, color: colors.ink },
   gearOuter: { width: MIN_TOUCH, height: MIN_TOUCH },
   gear: {
     width: MIN_TOUCH,
     height: MIN_TOUCH,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radius.button,
+    borderRadius: radius.pill,
     borderWidth: BORDER,
     borderColor: colors.hairline,
     backgroundColor: colors.card,
@@ -210,6 +249,22 @@ const styles = StyleSheet.create({
   sumDisc: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   sumWords: { flexShrink: 0 },
   sumAmount: { flex: 1, textAlign: 'right' },
+  row: { flexDirection: 'row', gap: spacing.sm },
+  qaOuter: { flex: 1 },
+  qa: {
+    minHeight: 96, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, padding: spacing.sm,
+    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
+  qaText: { color: colors.ink, textAlign: 'center' },
+  discover: {
+    minHeight: 112, gap: spacing.xs, padding: spacing.md,
+    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
+  link: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: MIN_TOUCH, paddingHorizontal: spacing.md,
+    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
+  block: { gap: spacing.sm },
   muted: { color: colors.muted },
   ink: { color: colors.ink },
   flex: { flex: 1 },

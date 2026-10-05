@@ -81,7 +81,7 @@ describe('screens', () => {
     expect(screenFromSegments([])).toBe('/');
     expect(screenFromSegments(['(tabs)'])).toBe('/');
     expect(screenFromSegments(['(tabs)', 'index'])).toBe('/');
-    expect(screenFromSegments(['(tabs)', 'mera'])).toBe('/mera');
+    expect(screenFromSegments(['(tabs)', 'notra'])).toBe('/notra');
     expect(screenFromSegments(['events', '[id]'])).toBe('/events/[id]');
     expect(screenFromSegments(['events', '[id]', 'ledger'])).toBe('/events/[id]/ledger');
     expect(screenFromSegments(['reports', 'person'])).toBe('/reports/person');

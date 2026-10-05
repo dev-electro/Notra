@@ -72,13 +72,12 @@ export function createApp(deps: Deps): Hono<Vars> {
     }
   });
 
-  // Maintenance mode (remote config): sign-in and sync answer 503 with the message. Health, config and the admin API stay up.
+  // Maintenance mode (remote config): app sync answers 503 with the message. Health, config, the admin API and /api/auth/* (staff sign-in) stay up.
   const maintenance = async (_c: Context, next: () => Promise<void>) => {
     const m = await getMaintenance(deps.db);
     if (m.enabled) throw new ApiError(503, 'maintenance', { message_hi: m.message_hi, message_en: m.message_en, retryAfter: 300 });
     await next();
   };
-  app.use(`${AUTH_BASE_PATH}/*`, maintenance);
   app.use('/v1/sync/*', maintenance);
 
   if (deps.admin?.allowedOrigin) {
