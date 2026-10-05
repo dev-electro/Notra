@@ -1,0 +1,15 @@
+# Flows share app state (flow 01 does first-launch setup, later flows build on its data),
+# so they must run in this exact order. Without this Maestro runs them in arbitrary order.
+flows:
+  - "*"
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - "01 - launch, skip sign-in, first-launch setup"
+    - "02 - add a household"
+    - "03 - AAYA entry of 501 via number pad, read-back confirmed"
+    - "04 - home totals show 501"
+    - "05 - create event, open its ledger, 2 givers, summary total"
+    - "06 - report tabs"
+    - "07 - kill and relaunch, data persisted"
+    - "08 - screenshots of every main screen (for review, not assertions)"
