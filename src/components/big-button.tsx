@@ -28,6 +28,8 @@ interface Props {
   hint?: string;
   /** Override the spoken label (default: the visible label). */
   accessibilityLabel?: string;
+  /** Stable id for end-to-end tests (Android resource-id). */
+  testID?: string;
 }
 
 interface Look {
@@ -60,13 +62,14 @@ function look(tone: Tone, selected: boolean): Look {
 
 /** Big (>=64dp) rounded button with a line icon and one plain word or phrase. Flat: border and tint, no shadow. */
 export const BigButton = React.memo(function BigButton({
-  label, onPress, icon, tone = 'plain', selected = false, disabled, compact, third, hint, accessibilityLabel,
+  label, onPress, icon, tone = 'plain', selected = false, disabled, compact, third, hint, accessibilityLabel, testID,
 }: Props) {
   const l = look(tone, selected);
   // Chosen plain buttons get a check as well as the haldi fill; direction buttons keep their arrow (the filled look says chosen).
   const showCheck = selected && tone === 'plain';
   return (
     <PressableScale
+      testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityHint={hint}

@@ -12,10 +12,13 @@ import { NumberPad } from '@/components/number-pad';
 import { SaveCheck } from '@/components/save-check';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
-import { formatINR, displayDate, OCCASION_LABEL, readBack, SHAGUN_QUICK_RUPEES, STATUS_LABEL, type Household, type NotraEvent } from '@/core';
+import {
+  formatINR, displayDate, entryDateFor, occasionName, readBackWithSettlement, SHAGUN_QUICK_RUPEES, STATUS_LABEL, utarChadhavText,
+  type Household, type NotraEvent,
+} from '@/core';
 import {
   addEntry, getDb, getEvent, getHousehold, getMyHouseholdId, lastActiveEntryForEvent, listEntriesForEvent, listHouseholds, setEventStatus,
-  sqlEventTotals, voidEntry, type Db, type EventTotals,
+  sqlEntrySettlement, sqlEventTotals, voidEntry, type Db, type EventTotals,
 } from '@/db';
 import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { replace } from '@/nav';
@@ -32,18 +35,18 @@ const getDbTyped = async () => (await getDb()) as unknown as Db;
 const FLASH_MS = 2500;
 
 /**
- * Event ledger (खाता): the host records the Notra coming in. <=3 taps per giver (family -> shagun amount -> save). Every entry is written to SQLite the moment
+ * Event ledger (खाता) of MY program: the host records who came and what they gave (only receiving happens here). <=3 taps per giver (family -> shagun amount -> save). Every entry is written to SQLite the moment
  * it is saved, so an app kill loses nothing. "आखिरी हटाएँ" appends a void entry (append-only). "पूरा करें" only marks the
  * event HELD and shows the summary; running totals come from an indexed SQL query on the event.
  */
 export default function EventLedger() {
-  const { id: eventId } = useLocalSearchParams<{ id: string }>();
+  const { id: eventId, pad: padParam } = useLocalSearchParams<{ id: string; pad?: string }>();
   const ledgerId = useActiveLedgerId();
   const [step, setStep] = useState<Step>('pick');
   const [event, setEvent] = useState<NotraEvent | null>(null);
   const [who, setWho] = useState<Household | null>(null);
   const [digits, setDigits] = useState('');
-  const [pad, setPad] = useState(false);
+  const [pad, setPad] = useState(padParam === '1');
   const [totals, setTotals] = useState<EventTotals>(EMPTY);
   const [last, setLast] = useState<{ id: string; name: string; paise: number } | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -75,7 +78,6 @@ export default function EventLedger() {
   const onPick = useCallback((h: Household, amt?: number) => {
     setWho(h);
     setDigits(amt ? String(amt) : '');
-    setPad(false);
     setStep('amount');
   }, []);
 
@@ -86,15 +88,17 @@ export default function EventLedger() {
     try {
       const e = await guarded(async () => {
         const db = await getDbTyped();
-        return addEntry(db, {
+        const entry = await addEntry(db, {
           eventId, ledgerId, otherHouseholdId: who.id, direction: 'AAYA', cashPaise: cash, inKindValuePaise: 0,
           paymentMode: 'CASH', recordedBy: (await getMyHouseholdId(db)) ?? 'self',
+          occurredOn: event ? entryDateFor(event.date) : undefined,
         });
+        return { entry, settle: await sqlEntrySettlement(db, entry.id) };
       });
       if (!e) return; // a toast told the person; the amount stays on screen so they can press save again
       tapLight();
-      speak(readBack(e, who));
-      setFlash(`${who.headName} · ${formatINR(cash)}`);
+      speak(readBackWithSettlement(e.entry, who, e.settle.utarPaise, e.settle.chadhavPaise));
+      setFlash(`${who.headName} · ${formatINR(cash)}${utarChadhavText(e.settle.utarPaise, e.settle.chadhavPaise) ? ` — ${utarChadhavText(e.settle.utarPaise, e.settle.chadhavPaise)}` : ''}`);
       if (flashTimer.current) clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setFlash(null), FLASH_MS);
       setWho(null);
@@ -146,11 +150,11 @@ export default function EventLedger() {
     await shareEventLedger(event, (await getHousehold(db, event.hostHouseholdId)) ?? undefined, await listEntriesForEvent(db, eventId), await listHouseholds(db));
   };
 
-  const title = event ? `${OCCASION_LABEL[event.occasion]} का खाता` : 'नोतरा खाता';
+  const title = event ? `${occasionName(event.occasion, event.occasionLabel)} का खाता` : 'नोतरा खाता';
 
   if (step === 'summary') {
     return (
-      <Screen title="हो गया" noBack action={{ icon: 'events', label: 'कार्यक्रम देखें', onPress: () => replace(`/events/${eventId}`) }}>
+      <Screen title="हो गया" noBack action={{ testID: 'btn-open-event', icon: 'events', label: 'नोतरा देखें', onPress: () => replace(`/events/${eventId}`) }}>
         <SaveCheck />
         <View style={styles.center}>
           <Text style={[type.heading, styles.muted]}>कुल रकम</Text>
@@ -159,7 +163,7 @@ export default function EventLedger() {
           </Text>
           <Text style={[type.heading, styles.ink]}>{totals.giverCount} परिवार</Text>
         </View>
-        <BigButton icon="plus" label="और एंट्री लिखें" tone="plain" onPress={() => setStep('pick')} />
+        <BigButton testID="btn-more" icon="plus" label="और लोग लिखें" tone="plain" onPress={() => setStep('pick')} />
         <BigButton icon="share" label="बही भेजें" tone="plain" onPress={exportPdf} />
         <BigButton label="होम" tone="plain" onPress={() => replace('/')} />
       </Screen>
@@ -171,6 +175,7 @@ export default function EventLedger() {
       occasion={event.occasion}
       status={STATUS_LABEL[event.status]}
       subtitle={displayDate(event.date)}
+      label={event.occasionLabel}
       totalPaise={totals.totalPaise}
       giverCount={totals.giverCount}
       compact={step === 'amount'}
@@ -196,15 +201,15 @@ export default function EventLedger() {
             <Text style={[type.body, styles.last]} numberOfLines={2}>
               आखिरी: {last.name} · {formatINR(last.paise)}
             </Text>
-            <BigButton compact icon="undo" label="आखिरी हटाएँ" tone="plain" onPress={undo} disabled={busy} hint="आखिरी लिखी एंट्री हटाता है" />
+            <BigButton testID="btn-undo" compact icon="undo" label="आखिरी हटाएँ" tone="plain" onPress={undo} disabled={busy} hint="आखिरी लिखी एंट्री हटाता है" />
           </Card>
         ) : null}
-        {totals.entryCount > 0 ? <BigButton icon="check" label="पूरा करें" onPress={finish} disabled={busy} hint="कार्यक्रम का खाता पूरा करके कुल देखें" /> : null}
+        {totals.entryCount > 0 ? <BigButton testID="btn-finish" icon="check" label="पूरा करें" onPress={finish} disabled={busy} hint="कार्यक्रम का खाता पूरा करके कुल देखें" /> : null}
       </View>
     );
     return (
       <Screen title={title} scroll={false} speakText={HELP_EVENT_LEDGER}>
-        <HouseholdPicker onPick={onPick} top={top} />
+        <HouseholdPicker onPick={onPick} top={top} headline="कौन आया?" />
       </Screen>
     );
   }
@@ -213,7 +218,7 @@ export default function EventLedger() {
     <Screen
       title={title}
       speakText={HELP_EVENT_LEDGER}
-      action={{ icon: 'check', label: 'सेव', onPress: add, disabled: cash <= 0 || busy }}
+      action={{ testID: 'btn-next', icon: 'check', label: 'सेव और अगला', onPress: add, disabled: cash <= 0 || busy }}
     >
       {header}
       {who ? (
@@ -225,12 +230,12 @@ export default function EventLedger() {
       <AmountDisplay rupees={Number(digits || 0)} color={DIRECTION_INK.AAYA} />
       <View style={styles.row}>
         {SHAGUN_QUICK_RUPEES.map((r) => (
-          <BigButton key={r} compact label={formatINR(r * 100)} selected={digits === String(r)} onPress={() => setDigits(String(r))} />
+          <BigButton key={r} testID={`chip-${r}`} compact label={formatINR(r * 100)} selected={digits === String(r)} onPress={() => setDigits(String(r))} />
         ))}
-        <BigButton compact label="दूसरी रकम" selected={pad} onPress={() => setPad(!pad)} />
+        <BigButton testID="chip-other" compact label="दूसरी रकम" selected={pad} onPress={() => setPad(!pad)} />
       </View>
       {pad ? <NumberPad value={digits} onChange={setDigits} /> : null}
-      <BigButton label="दूसरा परिवार चुनें" tone="plain" onPress={() => setStep('pick')} />
+      <BigButton testID="btn-change-family" label="दूसरा परिवार चुनें" tone="plain" onPress={() => setStep('pick')} />
     </Screen>
   );
 }

@@ -1,13 +1,14 @@
-# Cold-start the app WITHOUT clearing data and land on the home screen.
-# Home is recognised by its first big tile, "नोतरा लिखें".
+# Cold-start the app WITHOUT clearing data and land on the Home tab.
+# Home is recognised by its "परिवार" button (id btn-families) and its "कुल मिला" summary.
 appId: app.notra.diary
 ---
 - launchApp:
     stopApp: true
 - extendedWaitUntil:
-    visible: ".*बाद में|नोतरा लिखें"
+    visible: ".*बाद में|कुल मिला"
     timeout: 90000
 - runFlow: skip-signin.yaml
 - extendedWaitUntil:
-    visible: "नोतरा लिखें"
+    visible:
+      id: btn-families
     timeout: 60000

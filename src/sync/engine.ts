@@ -1,3 +1,4 @@
+import { beginApplying, endApplying, ensureLegacyEvent } from '../db/legacy';
 import type { Db } from '../db/types';
 import { applyProfile, getLocalProfile } from './profile';
 import { getSyncState } from './state';
@@ -29,11 +30,12 @@ async function collectDirty(db: Db, limit: number): Promise<DirtyRows> {
     `SELECT id, head_name, father_name, jati, atak, village, fala, phone, created_at, updated_at
      FROM households WHERE dirty = 1 AND sync_error IS NULL ORDER BY updated_at, rowid LIMIT ?`, [limit - ledgers.length]);
   const events = await db.getAllAsync<EventRow>(
-    `SELECT id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at
+    `SELECT id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at,
+            occasion_label, occasion_note
      FROM events WHERE dirty = 1 AND sync_error IS NULL ORDER BY updated_at, rowid LIMIT ?`, [limit - ledgers.length - households.length]);
   const entries = await db.getAllAsync<EntryRow>(
     `SELECT id, event_id, other_household_id, direction, cash_paise, in_kind_item, in_kind_value_paise, payment_mode,
-            recorded_by, created_at, corrects_entry_id, is_void, ledger_id
+            recorded_by, created_at, corrects_entry_id, is_void, ledger_id, occurred_on
      FROM entries WHERE dirty = 1 AND sync_error IS NULL ORDER BY created_at, rowid LIMIT ?`,
     [limit - ledgers.length - households.length - events.length]);
   return { ledgers, households, events, entries };
@@ -109,6 +111,8 @@ export async function applyPage(db: Db, page: PullPage): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = OFF;');
   try {
     await db.withTransactionAsync(async () => {
+      await beginApplying(db); // the direction trigger stands aside while a page is applied (rows were checked where written)
+      if (page.profile) await applyProfile(db, page.profile); // first, so "my household" is known for old entries below
       for (const l of page.ledgers ?? []) {
         await db.runAsync(
           `INSERT INTO ledgers (id, name, kind, created_at, updated_at, dirty) VALUES (?,?,?,?,?,0)
@@ -130,25 +134,28 @@ export async function applyPage(db: Db, page: PullPage): Promise<void> {
       }
       for (const e of page.events) {
         await db.runAsync(
-          `INSERT INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at, dirty)
-           VALUES (?,?,?,?,?,?,?,?,?,?,0)
+          `INSERT INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at, occasion_label, occasion_note, dirty)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0)
            ON CONFLICT(id) DO UPDATE SET host_household_id=excluded.host_household_id, occasion=excluded.occasion, date=excluded.date,
              panch_approved=excluded.panch_approved, invitation_type=excluded.invitation_type, status=excluded.status,
+             occasion_label=excluded.occasion_label, occasion_note=excluded.occasion_note,
              updated_at=excluded.updated_at, dirty=0
            WHERE excluded.updated_at > events.updated_at`,
-          [e.id, e.hostHouseholdId, e.occasion, e.date, e.panchApproved ? 1 : 0, e.invitationType, e.status, e.ledgerId, e.createdAt, e.updatedAt],
+          [e.id, e.hostHouseholdId, e.occasion, e.date, e.panchApproved ? 1 : 0, e.invitationType, e.status, e.ledgerId, e.createdAt, e.updatedAt, e.occasionLabel ?? null, e.occasionNote ?? null],
         );
       }
       for (const e of page.entries) {
+        const occurredOn = e.occurredOn ?? e.createdAt.slice(0, 10);
+        const eventId = e.eventId ?? (await ensureLegacyEvent(db, { direction: e.direction as 'AAYA' | 'GAYA', ledgerId: e.ledgerId, otherHouseholdId: e.otherHouseholdId, occurredOn }));
         await db.runAsync(
           `INSERT OR IGNORE INTO entries (id, event_id, other_household_id, direction, cash_paise, in_kind_item, in_kind_value_paise,
-             payment_mode, recorded_by, created_at, corrects_entry_id, is_void, ledger_id, dirty)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0)`,
-          [e.id, e.eventId, e.otherHouseholdId, e.direction, e.cashPaise, e.inKindItem, e.inKindValuePaise, e.paymentMode,
-            e.recordedBy, e.createdAt, e.correctsEntryId, e.isVoid ? 1 : 0, e.ledgerId],
+             payment_mode, recorded_by, created_at, occurred_on, corrects_entry_id, is_void, ledger_id, dirty)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)`,
+          [e.id, eventId, e.otherHouseholdId, e.direction, e.cashPaise, e.inKindItem, e.inKindValuePaise, e.paymentMode,
+            e.recordedBy, e.createdAt, occurredOn, e.correctsEntryId, e.isVoid ? 1 : 0, e.ledgerId],
         );
       }
-      if (page.profile) await applyProfile(db, page.profile);
+      await endApplying(db);
       await db.runAsync('UPDATE sync_state SET cursor = ? WHERE id = 1', [page.nextCursor]);
     });
   } finally {

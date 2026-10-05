@@ -36,10 +36,10 @@ export default function Households() {
     <Screen
       title="परिवार"
       scroll={false}
-      action={{ icon: 'plus', label: empty ? 'पहला परिवार जोड़ें' : 'नया परिवार', onPress: () => go('/households/edit') }}
+      action={{ testID: 'btn-new-household', icon: 'plus', label: empty ? 'पहला परिवार जोड़ें' : 'नया परिवार', onPress: () => go('/households/edit') }}
     >
       <View style={styles.top}>
-        <Field label="खोजें (नाम, पिता, गाँव)" value={query} onChangeText={setQuery} />
+        <Field testID="family-search" label="खोजें (नाम, पिता, गाँव, मोबाइल)" value={query} onChangeText={setQuery} />
       </View>
       <FlatList
         data={data}

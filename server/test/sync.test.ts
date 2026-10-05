@@ -12,7 +12,7 @@ const ev = (n: number, host: number, status = 'PLANNED', upd = T(0)) => ({
   status, createdAt: T(0), updatedAt: upd,
 });
 const en = (n: number, house: number, extra: Record<string, unknown> = {}) => ({
-  id: id(n), eventId: null, otherHouseholdId: id(house), direction: 'AAYA', cashPaise: 50100, inKindItem: null, inKindValuePaise: 0,
+  id: id(n), eventId: id(900), otherHouseholdId: id(house), direction: 'AAYA', cashPaise: 50100, inKindItem: null, inKindValuePaise: 0,
   paymentMode: 'CASH', recordedBy: 'me', createdAt: T(n), correctsEntryId: null, isVoid: false, ...extra,
 });
 
@@ -32,8 +32,8 @@ describe('push', () => {
     const p = await pull(t, s.accessToken);
     expect(p.json.hasMore).toBe(false);
     expect(p.json.households).toEqual([hh(1)]);
-    expect(p.json.events).toEqual([{ ...ev(10, 1), ledgerId: DEFAULT }]);
-    expect(p.json.entries[0]).toMatchObject({ id: id(20), eventId: id(10), inKindItem: 'घी', cashPaise: 50100, isVoid: false, ledgerId: DEFAULT });
+    expect(p.json.events).toEqual([{ ...ev(10, 1), ledgerId: DEFAULT, occasionLabel: null, occasionNote: null }]);
+    expect(p.json.entries[0]).toMatchObject({ id: id(20), eventId: id(10), inKindItem: 'घी', cashPaise: 50100, isVoid: false, ledgerId: DEFAULT, occurredOn: T(20).slice(0, 10) });
     expect(p.json.nextCursor).toBeGreaterThan(0);
     expect((await pull(t, s.accessToken, `?since=${p.json.nextCursor}`)).json).toMatchObject({ ledgers: [], profile: null, households: [], events: [], entries: [], hasMore: false, nextCursor: p.json.nextCursor });
   });
@@ -237,5 +237,96 @@ describe('account isolation', () => {
     const p = (await pull(t, fresh.accessToken, '?since=0')).json;
     expect(p.households).toHaveLength(1);
     expect(p.entries).toHaveLength(1);
+  });
+});
+
+describe('stage 7: occasions, custom label, diary date, direction rule', () => {
+  const profile = (me: number, upd = T(0)) => ({ myHouseholdId: id(me), increment: null, updatedAt: upd });
+
+  it('accepts the two new occasions and rejects anything else, also at the database level', async () => {
+    const t = await setup();
+    const s = await signInWithPhone(t);
+    for (const [n, occasion] of [[10, 'GRIHAPRAVESH'], [11, 'MUNDAN']] as const) {
+      const r = await push(t, s.accessToken, { households: [hh(1)], events: [{ ...ev(n, 1), occasion }] });
+      expect(r.json.rejected).toEqual([]);
+    }
+    const p = await pull(t, s.accessToken);
+    expect(p.json.events.map((e: any) => e.occasion).sort()).toEqual(['GRIHAPRAVESH', 'MUNDAN']);
+    await expect(
+      t.pg.query(`UPDATE events SET occasion = 'MRITYU_BHOJ' WHERE id = $1`, [id(10)]),
+    ).rejects.toThrow();
+  });
+
+  it('stores a custom name and details for OTHER (trimmed), ignores them for other occasions, caps their length', async () => {
+    const t = await setup();
+    const s = await signInWithPhone(t);
+    const other = { ...ev(10, 1), occasion: 'OTHER', occasionLabel: '  नामकरण ', occasionNote: 'बेटी का' };
+    const shaadi = { ...ev(11, 1), occasionLabel: 'x', occasionNote: 'y' };
+    expect((await push(t, s.accessToken, { households: [hh(1)], events: [other, shaadi] })).json.rejected).toEqual([]);
+    const p = (await pull(t, s.accessToken)).json.events as any[];
+    expect(p.find((e) => e.id === id(10))).toMatchObject({ occasionLabel: 'नामकरण', occasionNote: 'बेटी का' });
+    expect(p.find((e) => e.id === id(11))).toMatchObject({ occasionLabel: null, occasionNote: null });
+    const long = await push(t, s.accessToken, { events: [{ ...other, id: id(12), occasionLabel: 'क'.repeat(61) }] });
+    expect(long.json.rejected).toEqual([{ table: 'events', id: id(12), index: 0, reason: 'invalid_payload:occasionLabel' }]);
+    const long2 = await push(t, s.accessToken, { events: [{ ...other, id: id(13), occasionNote: 'क'.repeat(501) }] });
+    expect(long2.json.rejected[0].reason).toBe('invalid_payload:occasionNote');
+    const edit = await push(t, s.accessToken, { events: [{ ...other, occasionLabel: 'मुंडन के बाद की पूजा', updatedAt: T(5) }] });
+    expect(edit.json.accepted.events).toBe(1); // events stay editable (last write wins)
+    expect(((await pull(t, s.accessToken)).json.events as any[]).find((e) => e.id === id(10)).occasionLabel).toBe('मुंडन के बाद की पूजा');
+  });
+
+  it('keeps the diary date (occurredOn); an older app without it gets the date part of createdAt; bad dates are rejected', async () => {
+    const t = await setup();
+    const s = await signInWithPhone(t);
+    const r = await push(t, s.accessToken, {
+      households: [hh(1)], events: [ev(10, 1)],
+      entries: [en(20, 1, { eventId: id(10), occurredOn: '2019-05-17' }), en(21, 1, { eventId: id(10) }), en(22, 1, { eventId: id(10), occurredOn: '17/05/2019' })],
+    });
+    expect(r.json.rejected).toEqual([{ table: 'entries', id: id(22), index: 2, reason: 'invalid_payload:occurredOn' }]);
+    const e = (await pull(t, s.accessToken)).json.entries as any[];
+    expect(e.find((x) => x.id === id(20)).occurredOn).toBe('2019-05-17');
+    expect(e.find((x) => x.id === id(21)).occurredOn).toBe(T(21).slice(0, 10));
+  });
+
+  it('every entry must name an event', async () => {
+    const t = await setup();
+    const s = await signInWithPhone(t);
+    const r = await push(t, s.accessToken, { households: [hh(1)], entries: [en(20, 1, { eventId: null }), { ...en(21, 1), eventId: undefined }] });
+    expect(r.json.rejected.map((x: any) => x.reason)).toEqual(['invalid_payload:eventId', 'invalid_payload:eventId']);
+  });
+
+  it('direction follows the host: my event = AAYA, another family event = GAYA (batch or stored events/profile)', async () => {
+    const t = await setup();
+    const s = await signInWithPhone(t);
+    // me = household 1; event 10 hosted by me, event 11 hosted by household 2
+    const first = await push(t, s.accessToken, {
+      households: [hh(1), hh(2), hh(3)], events: [ev(10, 1), ev(11, 2)], profile: profile(1),
+      entries: [
+        en(20, 3, { eventId: id(10), direction: 'AAYA' }), // ok
+        en(21, 3, { eventId: id(10), direction: 'GAYA' }), // given at my own event: refused
+        en(22, 2, { eventId: id(11), direction: 'GAYA' }), // ok
+        en(23, 2, { eventId: id(11), direction: 'AAYA' }), // received at someone else's event: refused
+      ],
+    });
+    expect(first.json.rejected).toEqual([
+      { table: 'entries', id: id(21), index: 1, reason: 'invalid_payload:direction' },
+      { table: 'entries', id: id(23), index: 3, reason: 'invalid_payload:direction' },
+    ]);
+    expect(first.json.accepted.entries).toBe(2);
+    // later batch: events and profile are read from storage
+    const later = await push(t, s.accessToken, { entries: [en(24, 3, { eventId: id(10), direction: 'GAYA' }), en(25, 3, { eventId: id(10), direction: 'AAYA' })] });
+    expect(later.json.rejected).toEqual([{ table: 'entries', id: id(24), index: 0, reason: 'invalid_payload:direction' }]);
+    // voids and corrections inherit their target's direction and are not re-checked
+    const exempt = await push(t, s.accessToken, {
+      entries: [en(26, 3, { eventId: id(10), direction: 'GAYA', isVoid: true, correctsEntryId: id(20), cashPaise: 0 })],
+    });
+    expect(exempt.json.rejected).toEqual([]);
+  });
+
+  it('without a profile the direction cannot be compared, so the entry is accepted', async () => {
+    const t = await setup();
+    const s = await signInWithPhone(t);
+    const r = await push(t, s.accessToken, { households: [hh(1)], events: [ev(10, 1)], entries: [en(20, 1, { eventId: id(10), direction: 'GAYA' })] });
+    expect(r.json.rejected).toEqual([]);
   });
 });

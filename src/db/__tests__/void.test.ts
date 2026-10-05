@@ -1,14 +1,14 @@
 /** Voids and void-of-correction chains: SQL (views/queries) must equal the pure core. */
+import { addE, memDb } from '../mem-db.testutil';
 import {
   activeEntries, balances, DEFAULT_LEDGER_ID as L, occasionWise, selfLedger, totals, type Increment,
 } from '../../core';
 import { migrate } from '../migrations';
-import { memDb } from '../mem-db.testutil';
 import {
   lastActiveEntryForEvent, listEntriesPage, sqlBalances, sqlEventSummaries, sqlEventTotals, sqlOccasionWise,
   sqlSelfLedgerPage, sqlTotals,
 } from '../queries';
-import { addEntry, correctEntry, createEvent, createHousehold, listEntries, listEvents, voidEntry } from '../repository';
+import { correctEntry, createEvent, createHousehold, listEntries, listEvents, voidEntry } from '../repository';
 
 const hh = (n: string) => ({ headName: n, fatherName: 'कालू', jati: 'भील', atak: 'डामोर', village: 'सरवन', fala: 'ऊपला' });
 const INC: Increment = { type: 'FIXED', rupees: 51 };
@@ -23,13 +23,13 @@ async function seed() {
   const ev = await createEvent(db, { hostHouseholdId: host.id, occasion: 'SHAADI', date: '2026-11-21', panchApproved: true, invitationType: 'KUMKUM', status: 'PLANNED' });
   let t = 0;
   const at = () => new Date(Date.UTC(2026, 0, 1, 0, 0, t++)).toISOString();
-  const e1 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, eventId: ev.id, createdAt: at() });
-  const e2 = await addEntry(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 25100, eventId: ev.id, createdAt: at() });
-  const e3 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 11100, eventId: ev.id, createdAt: at() });
+  const e1 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, eventId: ev.id, createdAt: at() });
+  const e2 = await addE(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 25100, eventId: ev.id, createdAt: at() });
+  const e3 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 11100, eventId: ev.id, createdAt: at() });
   await voidEntry(db, e2, at()); // plain void
   const c1 = await correctEntry(db, e1, { cashPaise: 60100, createdAt: at() });
   await voidEntry(db, c1, at()); // void of a correction: A <- B <- V leaves nothing for e1's line
-  const e4 = await addEntry(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 5100, eventId: ev.id, createdAt: at() });
+  const e4 = await addE(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 5100, eventId: ev.id, createdAt: at() });
   void e3;
   return { db, a, b, ev, e1, e2, e3, e4, c1 };
 }
@@ -83,9 +83,9 @@ describe('void entries', () => {
     const v = all.find((e) => e.isVoid)!;
     await expect(correctEntry(db, v, { cashPaise: 1 })).rejects.toThrow(/void/);
     await expect(
-      addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 5, isVoid: true, correctsEntryId: e2.id }),
+      addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 5, isVoid: true, correctsEntryId: e2.id }),
     ).rejects.toThrow(/void/);
-    await expect(addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 0, isVoid: true })).rejects.toThrow(/void/);
+    await expect(addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 0, isVoid: true })).rejects.toThrow(/void/);
   });
 
   it('voids stay append-only (no UPDATE/DELETE) but dirty can be cleared', async () => {

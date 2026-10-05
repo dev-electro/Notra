@@ -27,6 +27,7 @@ export const Keypad = React.memo(function Keypad({ keys, onKey, disabled }: Prop
         ) : (
           <PressableScale
             key={i}
+            testID={k === KEY_BACK ? 'key-back' : `key-${k}`}
             accessibilityRole="button"
             accessibilityLabel={k === KEY_BACK ? 'आख़िरी अंक मिटाएँ' : k}
             disabled={disabled}

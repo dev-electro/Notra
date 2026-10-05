@@ -211,3 +211,30 @@ For a first-time smartphone user who may not read well: picture-first, plain Hin
 - **Feel.** `PressableScale` (150 ms scale/fade, native driver), `expo-haptics` light tick on save and number-pad taps, an animated check on save; all animations are skipped
   when the phone's "remove animations" setting is on (`useReduceMotion`). `core/words.ts` writes the typed amount in Hindi words ("पाँच सौ एक रुपये").
 - **E2E.** `.maestro/08_screenshots.yaml` visits every main screen and saves `screenshots/<name>.png`; flows 01-07 use the new strings.
+
+## Stage 7: two separate worlds, उतार/चढ़ाव, reports
+
+- **Two worlds, never mixed.** *मेरा नोतरा* = programs my household hosts: here I only RECEIVE (open one, "+ कौन आया"). *दूसरों का नोतरा* = programs of other
+  families: here I only GIVE ("नए नोतरे में गए": family, occasion, date, amount). **Every entry belongs to an event and its direction is derived from the host**
+  (host = my household: AAYA, otherwise GAYA); nobody chooses it. Enforced in `core/eventRules.ts`, the repository, **SQLite triggers** (`entries_need_event`,
+  `entries_direction_rule`, migration v7) and on the **server** (`enforceDirections` in sync push: `invalid_payload:direction` / `eventId`). Voids and corrections that
+  keep the target's event + direction are exempt. Old entries without an event are attached by the migration to an automatic "पुराना हिसाब" event (mine per ledger,
+  one per family for given); ids are deterministic (`a1a1a1a1-…` / `b2b2b2b2-…`), so a restore from an old cloud copy or backup file maps the same way.
+- **Navigation.** Bottom tabs (4, 84 dp): घर (summary, calendar of all programs with occasion dots, परिवार, पुराना हिसाब जोड़ें, gear for settings) · मेरा नोतरा ·
+  दूसरों का नोतरा · हिसाब. The calendar sits on घर because a fifth tab would crowd the bar.
+- **Occasions.** शादी, गृहप्रवेश, मुंडन संस्कार, बीमारी, मकान, अन्य (never a death feast). "अन्य" has an editable name (`occasion_label`, 60 chars) and details
+  (`occasion_note`, 500), shown everywhere the occasion name is shown (`occasionName()`), editable later on the event screen, with quick chips of recent names.
+- **Diary date.** `entries.occurred_on` (YYYY-MM-DD, default: date of created_at). Balances, उतार/चढ़ाव and reports order by `occurred_on, created_at, rowid`. Past dates
+  are allowed everywhere (calendar picker). "पुराना हिसाब जोड़ें" = the same two flows with past dates.
+- **उतार / चढ़ाव** (`core/settlement.ts`, SQL view `entry_settlement` + a correlated query for pages): against the running balance with the same family, a gift that repays
+  what was owed is उतार, the rest is चढ़ाव (they gave 501, I give 701: ₹501 उतार, ₹200 चढ़ाव). Shown in the read-back, family history, event rows and reports.
+- **Search.** One box (families and pickers): name, father, village, fala, phone (digits, +91 / leading 0 / spaces ignored), words ANDed, names that start with the word first.
+- **Contact picker without READ_CONTACTS.** `modules/notra-contact-picker` (a ~80-line local Expo module): `ACTION_PICK` on `Phone.CONTENT_URI`; the system picker hands
+  back the ONE tapped row with a temporary read grant. READ_CONTACTS stays in `blockedPermissions`; the number is normalised to +91 E.164 (`core/phone.ts`).
+- **Reports** (हिसाब tab; each filterable by year or date range; each sent as PDF or as photos): किसको, किस दिन, कितना दिया · मेरे प्रोग्राम में कौन आया · साल भर का हिसाब ·
+  मेरे नोतरे में कौन नहीं आया (private) · किसका कितना · अवसर के हिसाब से · लौटाना बाकी · मेरा खाता. SQL in `src/db/reports.ts` (paged lists), docs built by pure
+  functions in `core/reportDocs.ts` (one model feeds both the PDF HTML and the image sheet). Photos: `react-native-view-shot` draws a print-style sheet off screen,
+  25 rows per page, 1080 px wide; the pages are listed to send one at a time. PDF: expo-print as before.
+- **Server.** Migration `004_stage7.sql` (occasion CHECK, label/note, `occurred_on`). Apply it before deploying this app version.
+- **E2E ids.** Interactive elements carry `testID`s (`field-*`, `btn-*`, `tab-*`, `key-*`, `chip-*`, `household-row-<name>`); the Maestro flows select by id.
+- **Not built yet.** Diary-photo import: only a "जल्द आ रहा है" card behind `FEATURES.diaryPhotoImport` (`src/features.ts`).

@@ -1,11 +1,11 @@
 /** Stage 5 sync features: profile sync, account switching safety, poison rows, ledgers on the wire. */
+import { addE, memDb } from '../../db/mem-db.testutil';
 import { DEFAULT_LEDGER_ID as L, hashPin } from '../../core';
 import { clearAllLocalData } from '../../db/maintenance';
-import { memDb } from '../../db/mem-db.testutil';
 import { migrate } from '../../db/migrations';
 import { createLedger, listLedgers, setLedgerPin } from '../../db/ledgers';
 import {
-  addEntry, createEvent, createHousehold, getIncrement, getMyHouseholdId, listEntries, listEvents, listHouseholds,
+  createEvent, createHousehold, getIncrement, getMyHouseholdId, listEntries, listEvents, listHouseholds,
   setIncrement, setMyHouseholdId, updateHousehold,
 } from '../../db/repository';
 import { sqlTotals } from '../../db/queries';
@@ -120,7 +120,7 @@ describe('account switching safety', () => {
     const srv = new FakeServer();
     const db = await phone();
     const h = await createHousehold(db, hh('रमेश'));
-    await addEntry(db, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 100 });
+    await addE(db, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 100 });
     const q = ask('cancel');
     expect(await bindAccount(db, 'u1', q.fn)).toEqual({ status: 'cancelled', choice: 'cancel' });
     expect(q.calls).toEqual([{ neverSynced: true }]);
@@ -134,7 +134,7 @@ describe('account switching safety', () => {
     const srv = new FakeServer();
     const db = await phone();
     const h = await createHousehold(db, hh('रमेश'));
-    await addEntry(db, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 100 });
+    await addE(db, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 100 });
     await bindAccount(db, 'u1', ask('merge').fn);
     await syncOnce(db, srv);
     expect(await pendingCount(db)).toBe(0);
@@ -143,7 +143,7 @@ describe('account switching safety', () => {
     expect(await bindAccount(db, 'u2', q.fn)).toMatchObject({ status: 'bound', choice: 'merge' });
     expect(q.calls).toEqual([{ neverSynced: false }]);
     expect((await getSyncState(db)).userId).toBe('u2');
-    expect(await pendingCount(db)).toBe(2); // household + entry will be uploaded to u2
+    expect(await pendingCount(db)).toBe(3); // household + program + entry will be uploaded to u2
     expect((await getSyncState(db)).cursor).toBe(0);
   });
 
@@ -199,16 +199,16 @@ describe('poison rows', () => {
     const db = await phone();
     const srv = new FakeServer();
     const a = await createHousehold(db, hh('रमेश'));
-    const e1 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, createdAt: '2026-01-01T00:00:01.000Z' });
-    const e2 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 10100, createdAt: '2026-01-01T00:00:02.000Z' });
-    const e3 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 20100, createdAt: '2026-01-01T00:00:03.000Z' });
+    const e1 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, createdAt: '2026-01-01T00:00:01.000Z' });
+    const e2 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 10100, createdAt: '2026-01-01T00:00:02.000Z' });
+    const e3 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 20100, createdAt: '2026-01-01T00:00:03.000Z' });
     return { db, srv, a, e1, e2, e3 };
   }
 
   it('a rejected row is marked sync_error, the rest of the batch still goes through, and it is not retried', async () => {
     const { db, srv, e2 } = await seed();
     srv.reject = (t, r) => (t === 'entries' && r.id === e2.id ? 'invalid_payload:cashPaise' : null);
-    expect(await pushDirty(db, srv)).toBe(3); // household + 2 good entries
+    expect(await pushDirty(db, srv)).toBe(4); // household + program + 2 good entries
     expect(srv.ens.size).toBe(2);
     expect(await countRejected(db)).toBe(1);
     expect(await pendingCount(db)).toBe(0); // nothing is "waiting" any more
@@ -230,7 +230,7 @@ describe('poison rows', () => {
     srv.reject = () => 'invalid_payload:x';
     await pushDirty(db, srv);
     expect(srv.pushes).toHaveLength(1);
-    expect(await countRejected(db)).toBe(4);
+    expect(await countRejected(db)).toBe(5);
   });
 
   it('editing a rejected household clears the error so it is sent again; "retry" clears the rest', async () => {
@@ -261,7 +261,7 @@ describe('poison rows', () => {
       await push(b);
       return undefined as never;
     };
-    await expect(pushDirty(db, srv)).resolves.toBe(4);
+    await expect(pushDirty(db, srv)).resolves.toBe(5);
     expect(await countRejected(db)).toBe(0);
   });
 
@@ -284,8 +284,8 @@ describe('ledgers on the wire', () => {
     const h = await createHousehold(a, hh('रमेश'));
     const sita = await createLedger(a, 'सीता', hashPin('4321', new Uint8Array(16).fill(5)));
     const ev = await createEvent(a, { hostHouseholdId: h.id, occasion: 'SHAADI', date: '2026-11-21', panchApproved: true, invitationType: 'KUMKUM', status: 'PLANNED', ledgerId: sita.id });
-    await addEntry(a, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 5100, ledgerId: sita.id, eventId: ev.id });
-    await addEntry(a, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 100 });
+    await addE(a, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 5100, ledgerId: sita.id, eventId: ev.id });
+    await addE(a, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 100 });
     await syncOnce(a, srv);
 
     const wire = JSON.stringify(srv.pushes);

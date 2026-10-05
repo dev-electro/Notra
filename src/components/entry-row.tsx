@@ -3,12 +3,12 @@ import { StyleSheet, View } from 'react-native';
 import { DIRECTION_INK, DirectionTag, DIRECTION_WORD } from '@/components/direction';
 import { PressableScale } from '@/components/pressable-scale';
 import { Text } from '@/components/text';
-import { displayDate, entryValuePaise, formatINR } from '@/core';
+import { displayDate, entryDate, entryValuePaise, formatINR, LEGACY_EVENT_LABEL, occasionName, utarChadhavText } from '@/core';
 import type { EntryWithState } from '@/db';
 import { BORDER, colors, MIN_TOUCH, radius, spacing, type } from '@/theme';
 
 const GAP = spacing.sm;
-export const ENTRY_ROW_HEIGHT = 128 + GAP;
+export const ENTRY_ROW_HEIGHT = 168 + GAP;
 
 interface Props {
   entry: EntryWithState;
@@ -23,14 +23,16 @@ interface Props {
 export const EntryRow = React.memo(function EntryRow({ entry: e, showWho, onPress, actionLabel, onAction }: Props) {
   const ink = e.direction === 'AAYA' ? colors.received : colors.given;
   const muted = e.superseded;
-  const detail = [displayDate(e.createdAt), e.inKindItem, e.correctsEntryId ? 'सुधारी हुई' : '', muted ? 'बदली गई' : '']
+  const program = e.program ? (e.program.legacy ? LEGACY_EVENT_LABEL : occasionName(e.program.occasion, e.program.label)) : '';
+  const detail = [displayDate(entryDate(e)), program, e.inKindItem, e.correctsEntryId ? 'सुधारी हुई' : '', muted ? 'बदली गई' : '']
     .filter(Boolean)
     .join(' · ');
+  const settle = e.utarPaise !== null && e.chadhavPaise !== null ? utarChadhavText(e.utarPaise, e.chadhavPaise) : '';
   return (
     <View style={styles.cell}>
       <PressableScale
         accessibilityRole={onPress ? 'button' : 'text'}
-        accessibilityLabel={`${DIRECTION_WORD[e.direction]}${showWho ? ` ${e.who.headName}` : ''}, ${formatINR(entryValuePaise(e))}${muted ? ', बदली गई' : ''}`}
+        accessibilityLabel={`${DIRECTION_WORD[e.direction]}${showWho ? ` ${e.who.headName}` : ''}, ${formatINR(entryValuePaise(e))}${muted ? ', बदली गई' : ''}${settle ? `, ${settle}` : ''}`}
         accessibilityHint={onPress ? 'इस परिवार का पूरा हिसाब खोलें' : undefined}
         disabled={!onPress}
         onPress={onPress ? () => onPress(e) : undefined}
@@ -46,10 +48,15 @@ export const EntryRow = React.memo(function EntryRow({ entry: e, showWho, onPres
               {e.who.headName}
             </Text>
           ) : null}
-          <Text style={[type.caption, styles.sub]} numberOfLines={showWho ? 2 : 1}>
+          <Text style={[type.caption, styles.sub]} numberOfLines={showWho ? 2 : 2}>
             {showWho ? `${[e.who.fatherName && `${e.who.fatherName} का`, e.who.village].filter(Boolean).join(' · ')} — ` : ''}
             {detail}
           </Text>
+          {settle ? (
+            <Text style={[type.captionBold, styles.settle]} numberOfLines={1}>
+              {settle}
+            </Text>
+          ) : null}
         </View>
         <View style={styles.side}>
           <Text style={[type.money, { color: muted ? colors.muted : ink }, muted && styles.struck]}>{formatINR(entryValuePaise(e))}</Text>
@@ -91,6 +98,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row' },
   who: { color: colors.ink },
   sub: { color: colors.muted },
+  settle: { color: colors.ink },
   side: { alignItems: 'flex-end' },
   struck: { textDecorationLine: 'line-through' },
   actionOuter: { minHeight: MIN_TOUCH - 16, minWidth: MIN_TOUCH, justifyContent: 'center' },

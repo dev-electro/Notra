@@ -1,16 +1,18 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
-import { Card } from '@/components/card';
-import { HomeTile } from '@/components/home-tile';
+import { Calendar, type DayMarkers } from '@/components/calendar';
+import { Card, SectionTitle } from '@/components/card';
 import { Icon } from '@/components/icons';
+import { OccasionBadge } from '@/components/occasion';
 import { Toran } from '@/components/motifs';
 import { PressableScale } from '@/components/pressable-scale';
 import { SpeakerButton } from '@/components/speaker-button';
 import { Text } from '@/components/text';
-import { DEFAULT_LEDGER_ID, firstRunRoute, formatINR } from '@/core';
-import { getMyHousehold } from '@/db';
+import { BottomBar } from '@/components/screen';
+import { DEFAULT_LEDGER_ID, firstRunRoute, formatINR, LEGACY_EVENT_LABEL, longDateHi, monthRange, occasionName, todayIso, type Occasion } from '@/core';
+import { getMyHousehold, getMyHouseholdId, sqlEventCards, type EventCard } from '@/db';
 import { useActiveLedger } from '@/hooks/use-active-ledger';
 import { useLedgerTotals } from '@/hooks/use-ledger-totals';
 import { useLoad } from '@/hooks/use-load';
@@ -49,12 +51,77 @@ function SummaryRow({ tone, word, paired, amount }: RowProps) {
   );
 }
 
+interface MonthProgram extends EventCard {
+  mine: boolean;
+}
+
+/** The programs (mine and other families') whose date falls in the visible month. */
+function useMonthPrograms(month: { y: number; m: number }) {
+  const { data } = useLoad(
+    async (db, ledgerId) => {
+      const { from, to } = monthRange(month.y, month.m);
+      const me = await getMyHouseholdId(db);
+      const [mine, theirs] = await Promise.all([
+        sqlEventCards(db, ledgerId, me, { mine: true, from, to }),
+        sqlEventCards(db, ledgerId, me, { mine: false, from, to }),
+      ]);
+      return [...mine.map((c) => ({ ...c, mine: true })), ...theirs.map((c) => ({ ...c, mine: false }))] as MonthProgram[];
+    },
+    [] as MonthProgram[],
+    `${month.y}-${month.m}`,
+  );
+  return data;
+}
+
+/** Programs of the chosen day, one line each: picture, name, whose, and a tap to open. */
+function DayPrograms({ day, items }: { day: string; items: MonthProgram[] }) {
+  return (
+    <View style={styles.dayList}>
+      <Text style={[type.bodyBold, styles.ink]} accessibilityRole="header">
+        {longDateHi(day)}
+      </Text>
+      {items.length === 0 ? <Text style={[type.body, styles.muted]}>इस दिन कोई नोतरा नहीं</Text> : null}
+      {items.map((c) => (
+        <PressableScale
+          key={c.event.id}
+          accessibilityRole="button"
+          accessibilityLabel={`${c.event.legacy ? LEGACY_EVENT_LABEL : occasionName(c.event.occasion, c.event.occasionLabel)}, ${c.host.headName}, ${c.mine ? 'मेरा नोतरा' : 'दूसरों का नोतरा'}`}
+          accessibilityHint="नोतरे की जानकारी खोलें"
+          onPress={() => go(`/events/${c.event.id}`)}
+          style={styles.dayRow}
+        >
+          <OccasionBadge occasion={c.event.occasion as Occasion} size={48} />
+          <View style={styles.flex}>
+            <Text style={[type.bodyBold, styles.ink]} numberOfLines={1}>
+              {c.event.legacy ? LEGACY_EVENT_LABEL : occasionName(c.event.occasion, c.event.occasionLabel)}
+            </Text>
+            <Text style={[type.caption, styles.muted]} numberOfLines={1}>
+              {c.mine ? 'मेरा नोतरा' : `${c.host.headName}${c.host.village ? ` · ${c.host.village}` : ''}`}
+            </Text>
+          </View>
+          <Icon name="chevron" size={22} color={colors.muted} />
+        </PressableScale>
+      ))}
+    </View>
+  );
+}
+
 export default function Home() {
   const { loading, error, receivedPaise, givenPaise, setupDone, signinPrompted, onboardingSeen } = useLedgerTotals();
   const ledger = useActiveLedger();
   const { data: family } = useLoad(async (db) => (await getMyHousehold(db))?.headName ?? '', '');
   const show = (p: number) => (loading ? '…' : formatINR(p));
   const greeting = family ? `राम राम, ${family} परिवार` : 'राम राम';
+  const [month, setMonth] = useState(() => ({ y: Number(todayIso().slice(0, 4)), m: Number(todayIso().slice(5, 7)) }));
+  const [day, setDay] = useState(todayIso());
+  const programs = useMonthPrograms(month);
+  const onMonth = useCallback((y: number, m: number) => setMonth((c) => (c.y === y && c.m === m ? c : { y, m })), []);
+  const markers = useMemo(() => {
+    const out: DayMarkers = {};
+    for (const p of programs) (out[p.event.date] ??= []).push(p.event.occasion as Occasion);
+    return out;
+  }, [programs]);
+  const dayItems = useMemo(() => programs.filter((p) => p.event.date === day), [programs, day]);
 
   useEffect(() => {
     if (loading || error) return;
@@ -65,7 +132,7 @@ export default function Home() {
 
   return (
     <View style={styles.page}>
-      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
         <ScrollView contentContainerStyle={styles.content}>
           <Toran />
           <View style={styles.body}>
@@ -76,6 +143,7 @@ export default function Home() {
               <SpeakerButton text={HELP_HOME} />
               <PressableScale
                 accessibilityRole="button"
+                testID="btn-settings"
                 accessibilityLabel="सेटिंग"
                 accessibilityHint="बैकअप, ताला और जानकारी"
                 onPress={() => go('/settings')}
@@ -96,12 +164,11 @@ export default function Home() {
               <SummaryRow tone="given" word="कुल दिया" paired="(गया)" amount={show(givenPaise)} />
             </Card>
 
-            <View style={styles.grid}>
-              <HomeTile icon="write" tone="haldi" word="नोतरा लिखें" sub="मिला या दिया" onPress={() => go('/entry/new')} />
-              <HomeTile icon="events" tone="given" word="कार्यक्रम" sub="अपने कार्यक्रम" onPress={() => go('/events')} />
-              <HomeTile icon="families" tone="received" word="परिवार" sub="सबके नाम" onPress={() => go('/households')} />
-              <HomeTile icon="hisaab" tone="success" word="हिसाब" sub="पूरा हिसाब" onPress={() => go('/reports')} />
-            </View>
+            <SectionTitle icon="calendar">कैलेंडर</SectionTitle>
+            <Calendar value={day} onSelect={setDay} markers={markers} onMonthChange={onMonth} />
+            <DayPrograms day={day} items={dayItems} />
+
+            <BigButton testID="btn-families" icon="families" label="परिवार" tone="plain" hint="सब परिवारों की सूची और खोज" onPress={() => go('/households')} />
             {error ? (
               <Card tint="given">
                 <Text style={[type.bodyBold, { color: colors.given }]}>डेटा नहीं खुल पाया। ऐप दोबारा खोलें।</Text>
@@ -109,6 +176,9 @@ export default function Home() {
             ) : null}
           </View>
         </ScrollView>
+        <BottomBar>
+          <BigButton testID="btn-old" tone="primary" icon="doc" label="पुराना हिसाब जोड़ें" hint="पुरानी डायरी का हिसाब पिछली तारीख से लिखें" onPress={() => go('/old')} />
+        </BottomBar>
       </SafeAreaView>
     </View>
   );
@@ -138,6 +208,12 @@ const styles = StyleSheet.create({
   sumWords: { flexShrink: 0 },
   sumAmount: { flex: 1, textAlign: 'right' },
   muted: { color: colors.muted },
+  ink: { color: colors.ink },
+  flex: { flex: 1 },
   divider: { height: BORDER, backgroundColor: colors.hairline },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
+  dayList: { gap: spacing.sm },
+  dayRow: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: MIN_TOUCH + spacing.sm, paddingHorizontal: spacing.md,
+    backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
 });

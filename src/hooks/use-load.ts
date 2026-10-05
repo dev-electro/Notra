@@ -13,9 +13,9 @@ export interface Loaded<T> {
 
 /**
  * Run a DB loader whenever the screen gains focus or the open ledger changes. The loader gets the active ledger id, so every
- * query is scoped to the ledger on screen. The DB is opened once and reused (getDb caches it).
+ * query is scoped to the ledger on screen. `key` re-runs the loader when a screen's own filter changes. The DB is opened once and reused (getDb caches it).
  */
-export function useLoad<T>(loader: (db: Db, ledgerId: string) => Promise<T>, initial: T): Loaded<T> {
+export function useLoad<T>(loader: (db: Db, ledgerId: string) => Promise<T>, initial: T, key = ''): Loaded<T> {
   const ledgerId = useActiveLedgerId();
   const [state, setState] = useState({ data: initial, loading: true, error: false });
   const loaderRef = useRef(loader);
@@ -34,7 +34,7 @@ export function useLoad<T>(loader: (db: Db, ledgerId: string) => Promise<T>, ini
     return () => {
       alive = false;
     };
-  }, [ledgerId]);
+  }, [ledgerId, key]); // eslint-disable-line react-hooks/exhaustive-deps -- `key`: a screen's own filter (month, year, ...): when it changes the loader runs again
   useFocusEffect(run);
   return { ...state, reload: run };
 }

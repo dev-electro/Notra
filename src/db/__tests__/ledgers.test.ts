@@ -1,4 +1,5 @@
 /** Ledger scoping: every query/report is per ledger, and SQL == core still holds inside each ledger. */
+import { addE, memDb } from '../mem-db.testutil';
 import {
   activeEntries, balances, DEFAULT_LEDGER_ID as L, entriesInLedger, eventsInLedger, hashPin, occasionWise, selfLedger,
   splitForBackup, totals, type Increment,
@@ -6,13 +7,12 @@ import {
 import {
   clearAppLock, createLedger, getLedger, isAppLockOn, listLedgers, setAppLockPin, setLedgerPin, verifyAppLockPin, verifyLedgerPin,
 } from '../ledgers';
-import { memDb } from '../mem-db.testutil';
 import { LATEST_VERSION, MIGRATIONS, migrate } from '../migrations';
 import {
   listEntriesPage, sqlBalances, sqlEventSummaries, sqlOccasionWise, sqlSelfLedgerPage, sqlTotals,
 } from '../queries';
 import {
-  addEntry, correctEntry, createEvent, createHousehold, listEntries, listEntriesForHousehold, listEvents, voidEntry,
+  correctEntry, createEvent, createHousehold, listEntries, listEntriesForHousehold, listEvents, voidEntry,
 } from '../repository';
 import type { Db } from '../types';
 
@@ -32,12 +32,12 @@ async function seed() {
   const evS = await createEvent(db, { hostHouseholdId: host.id, occasion: 'BIMARI', date: '2026-12-01', panchApproved: false, invitationType: 'CARD', status: 'PLANNED', ledgerId: sita.id });
   let t = 0;
   const at = () => new Date(Date.UTC(2026, 0, 1, 0, 0, t++)).toISOString();
-  const h1 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, eventId: evH.id, createdAt: at() });
-  await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 10100, createdAt: at() });
-  await addEntry(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 25100, createdAt: at() });
-  const s1 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 7100, ledgerId: sita.id, createdAt: at() });
-  await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 1100, ledgerId: sita.id, createdAt: at() });
-  const s3 = await addEntry(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 3100, ledgerId: sita.id, eventId: evS.id, createdAt: at() });
+  const h1 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, eventId: evH.id, createdAt: at() });
+  await addE(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 10100, createdAt: at() });
+  await addE(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 25100, createdAt: at() });
+  const s1 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 7100, ledgerId: sita.id, createdAt: at() });
+  await addE(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 1100, ledgerId: sita.id, createdAt: at() });
+  const s3 = await addE(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 3100, ledgerId: sita.id, eventId: evS.id, createdAt: at() });
   await correctEntry(db, h1, { cashPaise: 60100, createdAt: at() });
   await voidEntry(db, s3, at());
   return { db, sita, a, b, evH, evS, s1 };
@@ -52,8 +52,8 @@ describe('ledger scoping', () => {
     const mine = await listEntries(db, sita.id);
     expect(mine).toHaveLength(4); // 3 + the void of s3
     expect(mine.every((e) => e.ledgerId === sita.id)).toBe(true);
-    expect((await listEvents(db, L)).map((e) => e.occasion)).toEqual(['SHAADI']);
-    expect((await listEvents(db, sita.id)).map((e) => e.occasion)).toEqual(['BIMARI']);
+    expect((await listEvents(db, L)).filter((e) => e.occasion !== 'OTHER').map((e) => e.occasion)).toEqual(['SHAADI']);
+    expect((await listEvents(db, sita.id)).filter((e) => e.occasion !== 'OTHER').map((e) => e.occasion)).toEqual(['BIMARI']);
   });
 
   it('SQL == core inside each ledger (totals, balances, occasion, self ledger, event summaries)', async () => {
@@ -95,7 +95,7 @@ describe('ledger scoping', () => {
     expect(entriesInLedger(all, sita.id)).toEqual(await listEntries(db, sita.id));
     expect(entriesInLedger(all, L)).toHaveLength(4);
     const evs = [...(await listEvents(db, L)), ...(await listEvents(db, sita.id))];
-    expect(eventsInLedger(evs, sita.id)).toHaveLength(1);
+    expect(eventsInLedger(evs, sita.id).filter((e) => e.occasion !== 'OTHER')).toHaveLength(1);
     expect(entriesInLedger([{ ...all[0]!, ledgerId: undefined }], L)).toHaveLength(1); // absent id = household ledger
   });
 

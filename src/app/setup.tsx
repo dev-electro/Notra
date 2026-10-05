@@ -49,17 +49,17 @@ export default function Setup() {
   };
 
   return (
-    <Screen title="मेरा परिवार" noBack action={{ label: 'शुरू करें', icon: 'check', onPress: save, disabled: !f.name.trim() }}>
-      <Field label="नाम" value={f.name} onChangeText={set('name')} />
-      <Field label="पिता का नाम" value={f.father} onChangeText={set('father')} />
-      <Field label="जाति" value={f.jati} onChangeText={set('jati')} />
-      <Field label="गाँव" value={f.village} onChangeText={set('village')} />
-      <Field label="फला" value={f.fala} onChangeText={set('fala')} />
-      <Field label="अटक" value={f.atak} onChangeText={set('atak')} />
+    <Screen title="मेरा परिवार" noBack action={{ testID: 'btn-save', label: 'शुरू करें', icon: 'check', onPress: save, disabled: !f.name.trim() }}>
+      <Field testID="field-name" label="नाम" value={f.name} onChangeText={set('name')} />
+      <Field testID="field-father" label="पिता का नाम" value={f.father} onChangeText={set('father')} />
+      <Field testID="field-jati" label="जाति" value={f.jati} onChangeText={set('jati')} />
+      <Field testID="field-village" label="गाँव" value={f.village} onChangeText={set('village')} />
+      <Field testID="field-fala" label="फला" value={f.fala} onChangeText={set('fala')} />
+      <Field testID="field-atak" label="अटक" value={f.atak} onChangeText={set('atak')} />
       <Text style={[type.heading, styles.q]}>हमारे गाँव में लौटाते समय कितना ज़्यादा देते हैं?</Text>
       <View style={styles.row}>
         {CHOICES.map((c, i) => (
-          <BigButton key={c.label} third label={c.label} selected={inc === i} onPress={() => setInc(i)} />
+          <BigButton key={c.label} testID={`chip-${c.label.replace(/\W/g, '')}`} third label={c.label} selected={inc === i} onPress={() => setInc(i)} />
         ))}
       </View>
     </Screen>

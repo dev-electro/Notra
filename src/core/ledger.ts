@@ -17,11 +17,22 @@ export function entryValuePaise(e: Pick<Entry, 'cashPaise' | 'inKindValuePaise'>
   return (e.cashPaise || 0) + (e.inKindValuePaise || 0);
 }
 
-/** Chronological order by createdAt, ties broken by original order. */
-export function sortChronological<T extends { createdAt: string }>(items: readonly T[]): T[] {
+/** The diary date of an entry: occurredOn, or the date part of createdAt when it was never set. */
+export function entryDate(e: { createdAt: string; occurredOn?: string }): string {
+  return e.occurredOn ?? e.createdAt.slice(0, 10);
+}
+
+/**
+ * Chronological order: diary date (occurredOn), then createdAt, ties broken by original order. Balances, उतार/चढ़ाव and every
+ * report use this one order; the SQL side orders by (occurred_on, created_at, rowid).
+ */
+export function sortChronological<T extends { createdAt: string; occurredOn?: string }>(items: readonly T[]): T[] {
   return items
-    .map((item, i) => ({ item, i }))
-    .sort((a, b) => (a.item.createdAt < b.item.createdAt ? -1 : a.item.createdAt > b.item.createdAt ? 1 : a.i - b.i))
+    .map((item, i) => ({ item, d: entryDate(item), i }))
+    .sort((a, b) =>
+      a.d !== b.d ? (a.d < b.d ? -1 : 1)
+      : a.item.createdAt !== b.item.createdAt ? (a.item.createdAt < b.item.createdAt ? -1 : 1)
+      : a.i - b.i)
     .map((x) => x.item);
 }
 

@@ -1,5 +1,5 @@
 import { activeEntries, entryValuePaise, sortChronological } from './ledger';
-import { INVITATION_LABEL, OCCASION_LABEL, DIRECTION_LABEL, STATUS_LABEL } from './labels';
+import { INVITATION_LABEL, occasionName, DIRECTION_LABEL, STATUS_LABEL } from './labels';
 import { displayDate } from './date';
 import { formatINR } from './money';
 import type { Entry, Household, NotraEvent } from './types';
@@ -52,7 +52,7 @@ export function eventLedgerHtml(event: NotraEvent, host: Household | undefined, 
   const givers = new Set(rows.map((e) => e.otherHouseholdId)).size;
   return wrap(
     'नोतरा बही',
-    `<h1>${OCCASION_LABEL[event.occasion]} का नोतरा</h1>
+    `<h1>${escapeHtml(occasionName(event.occasion, event.occasionLabel))} का नोतरा</h1>
 <p class="sub">${escapeHtml(host?.headName ?? '')} · ${displayDate(event.date)} · ${INVITATION_LABEL[event.invitationType]} · ${STATUS_LABEL[event.status]}</p>
 <table><tr><th>#</th><th>नाम / पिता / गाँव</th><th class="n">रकम</th></tr>${body}</table>
 <div class="total blue">कुल: ${formatINR(total)} (${givers} परिवार)</div>`,

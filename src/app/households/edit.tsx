@@ -9,6 +9,8 @@ import type { Household } from '@/core';
 import { createHousehold, getDb, getHousehold, updateHousehold, type Db } from '@/db';
 import { back } from '@/nav';
 import { guarded } from '@/services/guard';
+import { canPickContact, pickContactPhone } from '@/services/contact-picker';
+import { showToast } from '@/services/toast';
 import { pickPhoto } from '@/services/photo';
 import { spacing } from '@/theme';
 
@@ -28,6 +30,20 @@ export default function HouseholdEdit() {
     })();
   }, [id]);
 
+  const [canPick, setCanPick] = useState(false);
+  useEffect(() => {
+    (async () => setCanPick(await canPickContact()))();
+  }, []);
+  /** The system contact picker: ONE contact comes back (name + number). No READ_CONTACTS permission. */
+  const pickContact = async () => {
+    const c = await pickContactPhone();
+    if (!c) return;
+    if (!c.phone) {
+      showToast('यह नंबर मोबाइल नंबर जैसा नहीं है। खुद लिख लें।');
+      return;
+    }
+    setF((s) => ({ ...s, phone: c.phone!, headName: s.headName.trim() ? s.headName : c.name }));
+  };
   const set = (k: keyof typeof EMPTY) => (v: string) => setF((s) => ({ ...s, [k]: v }));
   const photo = async (source: 'camera' | 'gallery') => {
     const uri = await pickPhoto(source);
@@ -49,21 +65,22 @@ export default function HouseholdEdit() {
   };
 
   return (
-    <Screen title={id ? 'परिवार बदलें' : 'नया परिवार'} action={{ icon: 'check', label: 'सेव करें', onPress: save, disabled: !f.headName.trim() }}>
+    <Screen title={id ? 'परिवार बदलें' : 'नया परिवार'} action={{ testID: 'btn-save', icon: 'check', label: 'सेव करें', onPress: save, disabled: !f.headName.trim() }}>
       <View style={styles.photoRow}>
         <Avatar name={f.headName} photoUri={f.photoUri || undefined} size={96} />
         <View style={styles.photoBtns}>
-          <BigButton compact icon="camera" label="कैमरा" onPress={() => photo('camera')} />
+          <BigButton testID="btn-camera" compact icon="camera" label="कैमरा" onPress={() => photo('camera')} />
           <BigButton compact icon="image" label="गैलरी" onPress={() => photo('gallery')} />
         </View>
       </View>
-      <Field label="नाम" value={f.headName} onChangeText={set('headName')} />
-      <Field label="पिता का नाम" value={f.fatherName} onChangeText={set('fatherName')} />
-      <Field label="जाति" value={f.jati} onChangeText={set('jati')} />
-      <Field label="गाँव" value={f.village} onChangeText={set('village')} />
-      <Field label="फला" value={f.fala} onChangeText={set('fala')} />
-      <Field label="अटक" value={f.atak} onChangeText={set('atak')} />
-      <Field label="फ़ोन (ज़रूरी नहीं)" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
+      <Field testID="field-name" label="नाम" value={f.headName} onChangeText={set('headName')} />
+      <Field testID="field-father" label="पिता का नाम" value={f.fatherName} onChangeText={set('fatherName')} />
+      <Field testID="field-jati" label="जाति" value={f.jati} onChangeText={set('jati')} />
+      <Field testID="field-village" label="गाँव" value={f.village} onChangeText={set('village')} />
+      <Field testID="field-fala" label="फला" value={f.fala} onChangeText={set('fala')} />
+      <Field testID="field-atak" label="अटक" value={f.atak} onChangeText={set('atak')} />
+      <Field testID="field-phone" label="फ़ोन (ज़रूरी नहीं)" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
+      {canPick ? <BigButton testID="btn-pick-contact" icon="phone" label="फ़ोन से नंबर चुनें" tone="plain" hint="फ़ोन की संपर्क सूची खुलेगी; आप एक नाम चुनेंगे और सिर्फ़ वही नंबर आएगा" onPress={pickContact} /> : null}
     </Screen>
   );
 }

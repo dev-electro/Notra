@@ -26,6 +26,7 @@ export const HouseholdRow = React.memo(function HouseholdRow({ household: h, onP
   return (
     <View style={styles.cell}>
       <PressableScale
+        testID={`household-row-${h.headName}`}
         accessibilityRole="button"
         accessibilityLabel={[h.headName, h.fatherName && `${h.fatherName} का`, h.village, right ?? rightLabel].filter(Boolean).join(', ')}
         accessibilityHint="इस परिवार को चुनें या खोलें"

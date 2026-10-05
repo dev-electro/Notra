@@ -27,7 +27,7 @@ it('the postgres driver adapter: sign-in, push, pull, refresh rotation', async (
   expect(v.s).toBe(200);
   const id = '00000000-0000-4000-8000-000000000001';
   const T = '2026-01-01T00:00:00.000Z';
-  const p = await call('POST', '/v1/sync/push', { households: [{ id, headName: 'a', fatherName: 'b', jati: 'c', atak: 'd', village: 'e', fala: 'f', phone: null, createdAt: T, updatedAt: T }], entries: [{ id: id.replace(/1$/, '2'), eventId: null, otherHouseholdId: id, direction: 'AAYA', cashPaise: 100, inKindItem: null, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'x', createdAt: T, correctsEntryId: null, isVoid: false }] }, v.j.accessToken);
+  const p = await call('POST', '/v1/sync/push', { households: [{ id, headName: 'a', fatherName: 'b', jati: 'c', atak: 'd', village: 'e', fala: 'f', phone: null, createdAt: T, updatedAt: T }], entries: [{ id: id.replace(/1$/, '2'), eventId: id.replace(/1$/, '3'), otherHouseholdId: id, direction: 'AAYA', cashPaise: 100, inKindItem: null, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'x', createdAt: T, correctsEntryId: null, isVoid: false }] }, v.j.accessToken);
   expect(p.j.accepted).toEqual({ ledgers: 0, households: 1, events: 0, entries: 1, profile: 0 });
   expect(p.j.rejected).toEqual([]);
   const pl = await call('GET', '/v1/sync/pull?since=0', undefined, v.j.accessToken);

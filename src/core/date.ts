@@ -32,3 +32,13 @@ export function displayDate(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split('-');
   return `${d}/${m}/${y}`;
 }
+
+/** The diary date for a new entry of an event: the event's date, but never a day in the future. */
+export function entryDateFor(eventDate: string, today: string = todayIso()): string {
+  return eventDate <= today ? eventDate : today;
+}
+
+/** First and last day of a year, as ISO dates. */
+export function yearRange(year: number): { from: string; to: string } {
+  return { from: `${year}-01-01`, to: `${year}-12-31` };
+}

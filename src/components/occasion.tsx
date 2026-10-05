@@ -7,13 +7,17 @@ import type { Occasion } from '@/core';
 
 export const OCCASION_ICON_NAME: Record<Occasion, IconName> = {
   SHAADI: 'kalash',
+  GRIHAPRAVESH: 'grihapravesh',
+  MUNDAN: 'mundan',
   BIMARI: 'medical',
   MAKAAN: 'house',
   OTHER: 'star',
 };
 
-const TONE: Record<Occasion, { bg: string; fg: string }> = {
+export const OCCASION_TONE: Record<Occasion, { bg: string; fg: string }> = {
   SHAADI: { bg: colors.haldiTint, fg: colors.given },
+  GRIHAPRAVESH: { bg: colors.receivedTint, fg: colors.received },
+  MUNDAN: { bg: colors.givenTint, fg: colors.given },
   BIMARI: { bg: colors.successTint, fg: colors.successInk },
   MAKAAN: { bg: colors.receivedTint, fg: colors.received },
   OTHER: { bg: colors.haldiTint, fg: colors.ink },
@@ -21,7 +25,7 @@ const TONE: Record<Occasion, { bg: string; fg: string }> = {
 
 /** Round picture of the occasion; the wedding one is sprinkled with yellow rice. */
 export const OccasionBadge = React.memo(function OccasionBadge({ occasion, size = 64 }: { occasion: Occasion; size?: number }) {
-  const t = TONE[occasion];
+  const t = OCCASION_TONE[occasion];
   return (
     <View style={[styles.disc, { width: size, height: size, borderRadius: size / 2, backgroundColor: t.bg }]} accessible={false} importantForAccessibility="no-hide-descendants">
       {occasion === 'SHAADI' ? (

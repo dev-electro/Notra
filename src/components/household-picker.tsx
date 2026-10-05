@@ -96,7 +96,7 @@ export function HouseholdPicker({ onPick, headline, top }: Props) {
       <View style={styles.header}>
         {top}
         {headline ? <Text style={[type.heading, styles.headline]}>{headline}</Text> : null}
-        <Field label="खोजें (नाम, पिता, गाँव)" value={query} onChangeText={onSearch} />
+        <Field testID="picker-search" label="खोजें (नाम, पिता, गाँव, मोबाइल)" value={query} onChangeText={onSearch} />
         <VoiceButton onTranscript={onTranscript} />
         {voice ? (
           <Card tint="haldi" style={styles.voiceBox}>
@@ -111,9 +111,9 @@ export function HouseholdPicker({ onPick, headline, top }: Props) {
         ) : null}
         {adding ? (
           <Card style={styles.addBox}>
-            <Field label="नाम" value={draft.name} onChangeText={(name) => setDraft((d) => ({ ...d, name }))} />
-            <Field label="पिता का नाम" value={draft.father} onChangeText={(father) => setDraft((d) => ({ ...d, father }))} />
-            <Field label="गाँव" value={draft.village} onChangeText={(village) => setDraft((d) => ({ ...d, village }))} />
+            <Field testID="picker-new-name" label="नाम" value={draft.name} onChangeText={(name) => setDraft((d) => ({ ...d, name }))} />
+            <Field testID="picker-new-father" label="पिता का नाम" value={draft.father} onChangeText={(father) => setDraft((d) => ({ ...d, father }))} />
+            <Field testID="picker-new-village" label="गाँव" value={draft.village} onChangeText={(village) => setDraft((d) => ({ ...d, village }))} />
             <BigButton label="रहने दें" tone="plain" onPress={() => setAdding(false)} />
           </Card>
         ) : null}
@@ -142,9 +142,9 @@ export function HouseholdPicker({ onPick, headline, top }: Props) {
       />
       <BottomBar>
         {adding ? (
-          <BigButton tone="primary" icon="check" label="जोड़ें" onPress={saveNew} disabled={!draft.name.trim()} />
+          <BigButton testID="btn-save" tone="primary" icon="check" label="जोड़ें" onPress={saveNew} disabled={!draft.name.trim()} />
         ) : (
-          <BigButton tone="primary" icon="plus" label={rows.length || query ? 'नया परिवार' : 'पहला परिवार जोड़ें'} onPress={() => setAdding(true)} />
+          <BigButton testID="btn-new-household" tone="primary" icon="plus" label={rows.length || query ? 'नया परिवार' : 'पहला परिवार जोड़ें'} onPress={() => setAdding(true)} />
         )}
       </BottomBar>
     </View>

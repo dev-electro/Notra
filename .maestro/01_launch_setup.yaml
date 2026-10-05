@@ -19,30 +19,37 @@ name: 01 - launch, skip sign-in, first-launch setup
     timeout: 60000
 - takeScreenshot: screenshots/01-setup-empty
 - runFlow:
-    file: subflows/type-field.yaml
-    env: { LABEL: "नाम", VALUE: "Ramesh" }
+    file: subflows/type-id.yaml
+    env: { ID: "field-name", VALUE: "Ramesh" }
 - runFlow:
-    file: subflows/type-field.yaml
-    env: { LABEL: "पिता का नाम", VALUE: "Gopal" }
+    file: subflows/type-id.yaml
+    env: { ID: "field-father", VALUE: "Gopal" }
 - runFlow:
-    file: subflows/type-field.yaml
-    env: { LABEL: "गाँव", VALUE: "Udaipur" }
+    file: subflows/type-id.yaml
+    env: { ID: "field-village", VALUE: "Udaipur" }
 - scrollUntilVisible:
-    element: "₹101"
+    element:
+      id: chip-101
     timeout: 20000
-- tapOn: "₹101"
+- tapOn:
+    id: chip-101
 - takeScreenshot: screenshots/01-setup-filled
-- scrollUntilVisible:
-    element: ".*शुरू करें"
-    timeout: 20000
-- tapOn: ".*शुरू करें"
-# Home: greeting, the summary strip (कुल मिला / कुल दिया) and the four tiles.
+- tapOn:
+    id: btn-save
+# Home: greeting, the summary strip (कुल मिला / कुल दिया), the calendar, and the four tabs.
 - extendedWaitUntil:
-    visible: "नोतरा लिखें"
+    visible:
+      id: btn-families
     timeout: 30000
 - assertVisible: ".*कुल मिला.*"
 - assertVisible: ".*कुल दिया.*"
-- assertVisible: "कार्यक्रम"
-- assertVisible: "परिवार"
-- assertVisible: "हिसाब"
+- assertVisible: "कैलेंडर"
+- assertVisible:
+    id: tab-home
+- assertVisible:
+    id: tab-mine
+- assertVisible:
+    id: tab-others
+- assertVisible:
+    id: tab-hisaab
 - takeScreenshot: screenshots/01-home-after-setup

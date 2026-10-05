@@ -1,18 +1,15 @@
+import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BigButton } from '@/components/big-button';
-import { Card, SectionTitle } from '@/components/card';
-import { DateStepper } from '@/components/date-stepper';
-import { HouseholdPicker } from '@/components/household-picker';
-import { OCCASION_ICON_NAME } from '@/components/occasion';
+import { SectionTitle } from '@/components/card';
+import { DatePickerField } from '@/components/calendar';
+import { OccasionPicker } from '@/components/occasion-picker';
 import { SaveCheck } from '@/components/save-check';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
-import {
-  INVITATION_LABEL, OCCASION_LABEL, OCCASIONS, todayIso,
-  type Household, type InvitationType, type Occasion,
-} from '@/core';
-import { createEvent, getDb, getMyHousehold, type Db } from '@/db';
+import { INVITATION_LABEL, todayIso, type InvitationType, type Occasion } from '@/core';
+import { createEvent, getDb, getMyHouseholdId, type Db } from '@/db';
 import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { replace } from '@/nav';
 import { guarded } from '@/services/guard';
@@ -21,10 +18,17 @@ import { colors, spacing, type } from '@/theme';
 
 const INVITES: InvitationType[] = ['YELLOW_RICE', 'KUMKUM', 'CARD'];
 
+/**
+ * नया नोतरा: one of MY programs (I am the host, so here I only receive). With ?old=1 it is the "पुराना हिसाब" version: the same
+ * form, a past date, and it goes straight on to writing who came.
+ */
 export default function NewEvent() {
-  const [host, setHost] = useState<Household | null>(null);
-  const [picking, setPicking] = useState(false);
+  const { old } = useLocalSearchParams<{ old?: string }>();
+  const isOld = old === '1';
+  const [hostId, setHostId] = useState<string | null>(null);
   const [occasion, setOccasion] = useState<Occasion>('SHAADI');
+  const [label, setLabel] = useState('');
+  const [note, setNote] = useState('');
   const [date, setDate] = useState(todayIso());
   const [panch, setPanch] = useState(false);
   const [invite, setInvite] = useState<InvitationType>('YELLOW_RICE');
@@ -32,43 +36,30 @@ export default function NewEvent() {
   const ledgerId = useActiveLedgerId();
 
   useEffect(() => {
-    (async () => setHost(await getMyHousehold((await getDb()) as unknown as Db)))();
+    (async () => setHostId(await getMyHouseholdId((await getDb()) as unknown as Db)))();
   }, []);
-
-  if (picking) {
-    return (
-      <Screen title="कार्यक्रम किसका?" scroll={false} onBack={() => setPicking(false)}>
-        <HouseholdPicker
-          onPick={(h) => {
-            setHost(h);
-            setPicking(false);
-          }}
-        />
-      </Screen>
-    );
-  }
 
   if (created) {
     return (
       <Screen
-        title="कार्यक्रम बन गया"
+        title="नोतरा बन गया"
         noBack
-        action={{ icon: 'hisaab', label: 'खाता खोलें', onPress: () => replace(`/events/${created}/ledger`) }}
+        action={{ testID: 'btn-who-came', icon: 'plus', label: '+ कौन आया', onPress: () => replace(`/events/${created}/ledger${isOld ? '?pad=1' : ''}`) }}
       >
         <SaveCheck />
-        <Text style={[type.heading, styles.center]}>अभी खाता खोलकर नोतरा लिखना शुरू करें?</Text>
-        <BigButton label="बाद में" tone="plain" onPress={() => replace(`/events/${created}`)} />
+        <Text style={[type.heading, styles.center]}>अभी लिखना शुरू करें कि कौन आया और कितना दिया?</Text>
+        <BigButton testID="btn-later" label="बाद में" tone="plain" onPress={() => replace(`/events/${created}`)} />
       </Screen>
     );
   }
 
   const save = async () => {
-    if (!host) return;
+    if (!hostId) return;
     const e = await guarded(async () => {
       const db = (await getDb()) as unknown as Db;
       return createEvent(db, {
-        hostHouseholdId: host.id, occasion, date, panchApproved: panch, invitationType: invite,
-        status: 'PLANNED', ledgerId,
+        hostHouseholdId: hostId, occasion, occasionLabel: label, occasionNote: note, date, panchApproved: panch,
+        invitationType: invite, status: date < todayIso() ? 'HELD' : 'PLANNED', ledgerId,
       });
     });
     if (e) {
@@ -78,22 +69,15 @@ export default function NewEvent() {
   };
 
   return (
-    <Screen title="नया कार्यक्रम" action={{ icon: 'check', label: 'सेव करें', onPress: save, disabled: !host }}>
-      <SectionTitle icon="house">किसके यहाँ?</SectionTitle>
-      <Card style={styles.hostRow}>
-        <Text style={[type.bodyBold, styles.host]} numberOfLines={2}>
-          {host ? `${host.headName} · ${host.village}` : '—'}
-        </Text>
-        <BigButton compact label="बदलें" tone="plain" onPress={() => setPicking(true)} />
-      </Card>
+    <Screen
+      title={isOld ? 'पुराना नोतरा (मेरा)' : 'नया नोतरा'}
+      action={{ testID: 'btn-save', icon: 'check', label: 'सेव करें', onPress: save, disabled: !hostId || (occasion === 'OTHER' && !label.trim()) }}
+    >
+      {isOld ? <Text style={[type.body, styles.muted]}>पुरानी डायरी का अपना नोतरा। तारीख पिछली चुन सकते हैं।</Text> : null}
       <SectionTitle icon="star">अवसर</SectionTitle>
-      <View style={styles.row}>
-        {OCCASIONS.map((o) => (
-          <BigButton key={o} compact icon={OCCASION_ICON_NAME[o]} label={OCCASION_LABEL[o]} selected={occasion === o} onPress={() => setOccasion(o)} />
-        ))}
-      </View>
+      <OccasionPicker occasion={occasion} onOccasion={setOccasion} label={label} onLabel={setLabel} note={note} onNote={setNote} />
       <SectionTitle icon="calendar">तारीख</SectionTitle>
-      <DateStepper value={date} onChange={setDate} />
+      <DatePickerField testID="field-date" label="नोतरे की तारीख" value={date} onChange={setDate} />
       <BigButton icon="check" label="पंच की मंज़ूरी" selected={panch} onPress={() => setPanch(!panch)} />
       <SectionTitle icon="doc">न्योता</SectionTitle>
       <View style={styles.row}>
@@ -107,7 +91,6 @@ export default function NewEvent() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  hostRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  host: { flex: 1, color: colors.ink },
   center: { color: colors.ink, textAlign: 'center' },
+  muted: { color: colors.muted },
 });

@@ -1,11 +1,11 @@
+import { addE, memDb } from '../../db/mem-db.testutil';
 import { randomBytes } from 'node:crypto';
 import { DEFAULT_LEDGER_ID as L, hashPin, totals } from '../../core';
 import { createLedger, listLedgers } from '../../db/ledgers';
-import { memDb } from '../../db/mem-db.testutil';
 import { migrate } from '../../db/migrations';
 import { sqlTotals } from '../../db/queries';
 import {
-  addEntry, correctEntry, createEvent, createHousehold, getIncrement, getMyHouseholdId, listEntries, listEvents, listHouseholds,
+  correctEntry, createEvent, createHousehold, getIncrement, getMyHouseholdId, listEntries, listEvents, listHouseholds,
   setIncrement, setMyHouseholdId, updateHousehold, voidEntry,
 } from '../../db/repository';
 import type { Db } from '../../db/types';
@@ -34,11 +34,12 @@ async function seed(db: Db) {
   const a = await createHousehold(db, { ...hh('रमेश'), photoUri: 'file:///secret.jpg', phone: '9876543210' });
   const sita = await createLedger(db, 'सीता', hashPin('4321', new Uint8Array(16).fill(1)));
   const ev = await createEvent(db, { hostHouseholdId: me.id, occasion: 'SHAADI', date: '2026-11-21', panchApproved: true, invitationType: 'KUMKUM', status: 'HELD' });
-  const e1 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, eventId: ev.id, inKindItem: 'घी', createdAt: '2026-01-01T00:00:01.000Z' });
+  const e1 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, eventId: ev.id, inKindItem: 'घी', createdAt: '2026-01-01T00:00:01.000Z' });
   await correctEntry(db, e1, { cashPaise: 60100, createdAt: '2026-01-01T00:00:02.000Z' });
-  const e3 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 10100, createdAt: '2026-01-01T00:00:03.000Z' });
+  const e3 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 10100, createdAt: '2026-01-01T00:00:03.000Z' });
   await voidEntry(db, e3, '2026-01-01T00:00:04.000Z');
-  await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 7100, ledgerId: sita.id, createdAt: '2026-01-01T00:00:05.000Z' });
+  const evS = await createEvent(db, { hostHouseholdId: me.id, occasion: 'MUNDAN', date: '2026-02-01', panchApproved: false, invitationType: 'CARD', status: 'HELD', ledgerId: sita.id });
+  await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 7100, ledgerId: sita.id, eventId: evS.id, createdAt: '2026-01-01T00:00:05.000Z' });
   return { me, a, sita, ev };
 }
 
@@ -140,7 +141,7 @@ describe('snapshot round trip', () => {
     expect(await sqlTotals(dst, sita.id)).toEqual({ receivedPaise: 7100, givenPaise: 0 });
     expect(totals(await listEntries(dst, L))).toEqual(await sqlTotals(dst, L));
     expect((await listLedgers(dst)).map((l) => l.name)).toEqual(['घर का खाता', 'सीता']);
-    expect((await listEvents(dst, L)).map((e) => e.date)).toEqual(['2026-11-21']);
+    expect((await listEvents(dst, L)).filter((e) => e.occasion === 'SHAADI').map((e) => e.date)).toEqual(['2026-11-21']);
     expect(await getMyHouseholdId(dst)).toBe(await getMyHouseholdId(src));
     expect(await getIncrement(dst)).toEqual({ type: 'FIXED', rupees: 101 });
     // restored rows are marked for cloud sync
@@ -190,7 +191,7 @@ describe('snapshot round trip', () => {
     // b edits the family later and records a new entry
     await new Promise((r) => setTimeout(r, 5));
     await updateHousehold(b, { ...(await listHouseholds(b)).find((h) => h.id === fam.id)!, village: 'खेरवाड़ा' });
-    const local = await addEntry(b, { ...base, otherHouseholdId: fam.id, direction: 'AAYA', cashPaise: 999 });
+    const local = await addE(b, { ...base, otherHouseholdId: fam.id, direction: 'GAYA', cashPaise: 999 });
     // b restores a's (older) backup again: its newer edit and its own entry are untouched
     const rep = await restoreBackup(b, file, PW);
     expect(rep.households.same).toBeGreaterThan(0);

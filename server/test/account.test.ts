@@ -6,7 +6,7 @@ const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')
 const T = (s: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, s)).toISOString();
 const hh = (n: number) => ({ id: id(n), headName: `H${n}`, fatherName: 'कालू', jati: 'भील', atak: 'डामोर', village: 'सरवन', fala: 'ऊपला', phone: null, createdAt: T(0), updatedAt: T(1) });
 const en = (n: number, house: number, extra: Record<string, unknown> = {}) => ({
-  id: id(n), eventId: null, otherHouseholdId: id(house), direction: 'AAYA', cashPaise: 50100, inKindItem: null, inKindValuePaise: 0,
+  id: id(n), eventId: id(900), otherHouseholdId: id(house), direction: 'AAYA', cashPaise: 50100, inKindItem: null, inKindValuePaise: 0,
   paymentMode: 'CASH', recordedBy: 'me', createdAt: T(n), correctsEntryId: null, isVoid: false, ...extra,
 });
 const ev = (n: number, host: number) => ({ id: id(n), hostHouseholdId: id(host), occasion: 'SHAADI', date: '2026-11-21', panchApproved: true, invitationType: 'KUMKUM', status: 'PLANNED', createdAt: T(0), updatedAt: T(1) });

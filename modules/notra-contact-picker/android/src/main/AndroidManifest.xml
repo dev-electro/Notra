@@ -1,0 +1,2 @@
+<!-- Deliberately empty: this module declares NO permissions. The system contact picker grants read access to the ONE row the person taps. -->
+<manifest />

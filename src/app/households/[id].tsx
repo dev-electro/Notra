@@ -1,21 +1,22 @@
 import { useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { Avatar } from '@/components/avatar';
 import { BigButton } from '@/components/big-button';
 import { Card, SectionTitle } from '@/components/card';
 import { DirectionTag } from '@/components/direction';
 import { EntryRow } from '@/components/entry-row';
+import { ExportBar } from '@/components/report-export';
 import { listContent, Screen } from '@/components/screen';
 import { Text } from '@/components/text';
-import { explainSuggestion, formatINR, type Balance, type Household, type Increment, DEFAULT_INCREMENT } from '@/core';
+import { explainSuggestion, formatINR, householdLedgerDoc, type Balance, type Household, type Increment, DEFAULT_INCREMENT } from '@/core';
 import {
-  getDb, getHousehold, getIncrement, listEntriesForHousehold, listEntriesPage, sqlBalances, type Db, type EntryWithState,
+  getDb, getHousehold, getIncrement, listEntriesPage, sqlBalances, sqlHouseholdLedger, type Db, type EntryWithState,
 } from '@/db';
 import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { useLoad } from '@/hooks/use-load';
 import { go } from '@/nav';
-import { sharePersonLedger } from '@/services/export';
+import { reportMeta } from '@/services/report-meta';
 import { colors, spacing, type } from '@/theme';
 
 const PAGE = 20;
@@ -34,7 +35,6 @@ export default function HouseholdDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const limit = useRef(PAGE);
   const ledgerId = useActiveLedgerId();
-  const [busy, setBusy] = useState(false);
 
   const { data, reload } = useLoad<Data>(async (db, ledgerId) => {
     const increment = await getIncrement(db);
@@ -51,22 +51,20 @@ export default function HouseholdDetail() {
     limit.current += PAGE;
     reload();
   }, [reload]);
-  const correct = useCallback((e: EntryWithState) => go(`/entry/new?correctId=${e.id}&householdId=${e.otherHouseholdId}`), []);
+  const correct = useCallback((e: EntryWithState) => go(`/entry/new?correctId=${e.id}&eventId=${e.eventId ?? ''}&householdId=${e.otherHouseholdId}`), []);
   const renderItem = useCallback(
     ({ item }: { item: EntryWithState }) => <EntryRow entry={item} actionLabel="सुधारें" onAction={correct} />,
     [correct],
   );
 
-  const exportPdf = async () => {
-    if (!h || busy) return;
-    setBusy(true);
-    try {
-      const db = (await getDb()) as unknown as Db;
-      await sharePersonLedger(h, await listEntriesForHousehold(db, h.id, ledgerId));
-    } finally {
-      setBusy(false);
-    }
-  };
+  /** The whole two-sided ledger of this family (every मिला and दिया, with उतार/चढ़ाव) for PDF / photo. */
+  const build = useCallback(async () => {
+    const db = (await getDb()) as unknown as Db;
+    const rows = await sqlHouseholdLedger(db, ledgerId, id);
+    return householdLedgerDoc(
+      { name: h?.headName ?? '', father: h?.fatherName ?? '', village: h?.village ?? '' }, rows, await reportMeta(db, ['पूरा हिसाब']),
+    );
+  }, [ledgerId, id, h]);
 
   const given = b?.totalGiven ?? 0;
   const received = b?.totalReceived ?? 0;
@@ -111,10 +109,8 @@ export default function HouseholdDetail() {
         </Text>
         <Text style={[type.caption, styles.sub]}>{explainSuggestion(b?.lastReceived ?? 0, b?.suggestedNext ?? null, increment)}</Text>
       </Card>
-      <View style={styles.row}>
-        <BigButton compact icon="write" label="बदलें" onPress={() => go(`/households/edit?id=${id}`)} />
-        <BigButton compact icon="share" label="हिसाब भेजें" onPress={exportPdf} disabled={busy} />
-      </View>
+      <BigButton testID="btn-edit-household" icon="write" label="परिवार की जानकारी बदलें" onPress={() => go(`/households/edit?id=${id}`)} />
+      <ExportBar build={build} disabled={!h} />
       <SectionTitle icon="hisaab">पूरा हिसाब</SectionTitle>
     </View>
   );
@@ -123,7 +119,7 @@ export default function HouseholdDetail() {
     <Screen
       title={h?.headName ?? 'परिवार'}
       scroll={false}
-      action={{ icon: 'write', label: 'नोतरा लिखें', onPress: () => go(`/entry/new?householdId=${id}`) }}
+      action={{ testID: 'btn-visit', icon: 'moneyOut', label: 'इनके नोतरे में गए', onPress: () => go(`/others/new?householdId=${id}`), hint: 'इस परिवार के नोतरे में जो दिया वह लिखें' }}
     >
       <FlatList
         data={entries}

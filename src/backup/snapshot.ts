@@ -6,6 +6,8 @@ import {
 } from '../sync/wire';
 import type { Db } from '../db/types';
 import { BackupError } from './crypto';
+import { OCCASIONS } from '../core/types';
+import { beginApplying, endApplying, ensureLegacyEvent } from '../db/legacy';
 
 /**
  * What goes into a backup file: the chosen ledgers (with their events and entries), the shared family directory and the
@@ -31,13 +33,14 @@ export async function buildSnapshot(db: Db, ledgerIds: readonly string[], now: D
     : [];
   const events = ids.length
     ? await db.getAllAsync<EventRow>(
-        `SELECT id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at
+        `SELECT id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at,
+                occasion_label, occasion_note
          FROM events WHERE ledger_id IN (${marks(ids.length)}) ORDER BY created_at, rowid`, ids)
     : [];
   const entries = ids.length
     ? await db.getAllAsync<EntryRow>(
         `SELECT id, event_id, other_household_id, direction, cash_paise, in_kind_item, in_kind_value_paise, payment_mode,
-                recorded_by, created_at, corrects_entry_id, is_void, ledger_id
+                recorded_by, created_at, corrects_entry_id, is_void, ledger_id, occurred_on
          FROM entries WHERE ledger_id IN (${marks(ids.length)}) ORDER BY created_at, rowid`, ids)
     : [];
   const households = await db.getAllAsync<HouseholdRow>(
@@ -71,15 +74,16 @@ function okHousehold(r: Obj): boolean {
   return idv(r.id) && ['headName', 'fatherName', 'jati', 'atak', 'village', 'fala'].every((k) => txt(r[k], 200)) && optTxt(r.phone, 32) && iso(r.createdAt) && iso(r.updatedAt);
 }
 function okEvent(r: Obj): boolean {
-  return idv(r.id) && idv(r.hostHouseholdId) && oneOf(r.occasion, ['SHAADI', 'BIMARI', 'MAKAAN', 'OTHER']) && typeof r.date === 'string' && DAY.test(r.date)
+  return idv(r.id) && idv(r.hostHouseholdId) && oneOf(r.occasion, OCCASIONS) && typeof r.date === 'string' && DAY.test(r.date)
     && typeof r.panchApproved === 'boolean' && oneOf(r.invitationType, ['YELLOW_RICE', 'KUMKUM', 'CARD']) && oneOf(r.status, ['PLANNED', 'HELD', 'SETTLED'])
-    && idv(r.ledgerId) && iso(r.createdAt) && iso(r.updatedAt);
+    && idv(r.ledgerId) && iso(r.createdAt) && iso(r.updatedAt)
+    && optTxt(r.occasionLabel, 60) && optTxt(r.occasionNote, 500);
 }
 function okEntry(r: Obj): boolean {
   const isVoid = r.isVoid === true;
   return idv(r.id) && optId(r.eventId) && idv(r.otherHouseholdId) && oneOf(r.direction, ['AAYA', 'GAYA']) && paise(r.cashPaise) && optTxt(r.inKindItem)
     && paise(r.inKindValuePaise) && oneOf(r.paymentMode, ['CASH', 'UPI']) && txt(r.recordedBy, 200) && iso(r.createdAt) && optId(r.correctsEntryId)
-    && idv(r.ledgerId) && (r.isVoid === undefined || typeof r.isVoid === 'boolean')
+    && idv(r.ledgerId) && (r.occurredOn === undefined || (typeof r.occurredOn === 'string' && DAY.test(r.occurredOn))) && (r.isVoid === undefined || typeof r.isVoid === 'boolean')
     && (!isVoid || (!!r.correctsEntryId && r.cashPaise === 0 && r.inKindValuePaise === 0));
 }
 function okProfile(p: unknown): p is WireProfile {
@@ -164,6 +168,8 @@ export async function mergeSnapshot(db: Db, parsed: ParsedSnapshot): Promise<Mer
   await db.execAsync('PRAGMA foreign_keys = OFF;');
   try {
     await db.withTransactionAsync(async () => {
+      await beginApplying(db);
+      if (s.profile) rep.profileApplied = await applyProfile(db, s.profile); // first: old entries need to know who "me" is
       const ledgerIds = await localIds('ledgers');
       const householdIds = await localIds('households');
       for (const l of s.ledgers) {
@@ -196,13 +202,14 @@ export async function mergeSnapshot(db: Db, parsed: ParsedSnapshot): Promise<Mer
         }
         rep.events[await kind('events', e.id, e.updatedAt)]++;
         await db.runAsync(
-          `INSERT INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at, dirty)
-           VALUES (?,?,?,?,?,?,?,?,?,?,1)
+          `INSERT INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at, occasion_label, occasion_note, dirty)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1)
            ON CONFLICT(id) DO UPDATE SET host_household_id=excluded.host_household_id, occasion=excluded.occasion, date=excluded.date,
              panch_approved=excluded.panch_approved, invitation_type=excluded.invitation_type, status=excluded.status,
+             occasion_label=excluded.occasion_label, occasion_note=excluded.occasion_note,
              updated_at=excluded.updated_at, dirty=1, sync_error=NULL
            WHERE excluded.updated_at > events.updated_at`,
-          [e.id, e.hostHouseholdId, e.occasion, e.date, e.panchApproved ? 1 : 0, e.invitationType, e.status, e.ledgerId, e.createdAt, e.updatedAt],
+          [e.id, e.hostHouseholdId, e.occasion, e.date, e.panchApproved ? 1 : 0, e.invitationType, e.status, e.ledgerId, e.createdAt, e.updatedAt, e.occasionLabel ?? null, e.occasionNote ?? null],
         );
       }
       for (const e of s.entries) {
@@ -214,16 +221,18 @@ export async function mergeSnapshot(db: Db, parsed: ParsedSnapshot): Promise<Mer
           rep.entries.same++;
           continue;
         }
+        const occurredOn = e.occurredOn ?? e.createdAt.slice(0, 10);
+        const eventId = e.eventId ?? (await ensureLegacyEvent(db, { direction: e.direction as 'AAYA' | 'GAYA', ledgerId: e.ledgerId, otherHouseholdId: e.otherHouseholdId, occurredOn }));
         await db.runAsync(
           `INSERT INTO entries (id, event_id, other_household_id, direction, cash_paise, in_kind_item, in_kind_value_paise,
-             payment_mode, recorded_by, created_at, corrects_entry_id, is_void, ledger_id, dirty)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
-          [e.id, e.eventId, e.otherHouseholdId, e.direction, e.cashPaise, e.inKindItem, e.inKindValuePaise, e.paymentMode,
-            e.recordedBy, e.createdAt, e.correctsEntryId, e.isVoid ? 1 : 0, e.ledgerId],
+             payment_mode, recorded_by, created_at, occurred_on, corrects_entry_id, is_void, ledger_id, dirty)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)`,
+          [e.id, eventId, e.otherHouseholdId, e.direction, e.cashPaise, e.inKindItem, e.inKindValuePaise, e.paymentMode,
+            e.recordedBy, e.createdAt, occurredOn, e.correctsEntryId, e.isVoid ? 1 : 0, e.ledgerId],
         );
         rep.entries.added++;
       }
-      if (s.profile) rep.profileApplied = await applyProfile(db, s.profile);
+      await endApplying(db);
     });
   } finally {
     await db.execAsync('PRAGMA foreign_keys = ON;');

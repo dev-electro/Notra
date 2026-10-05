@@ -162,6 +162,25 @@ const SHAPES = {
       <Path d="M10 19.5v-5h4v5" />
     </>
   ),
+  grihapravesh: (
+    // new house with a lit diya flame at the door
+    <>
+      <Path d="M3.5 11.5L12 4l8.5 7.5M6 10v9.5h12V10" />
+      <Path d="M10 19.5v-3.5a2 2 0 0 1 4 0v3.5" />
+      <Path d="M12 7.4c.9 1 1.4 1.8 1.4 2.5a1.4 1.4 0 0 1-2.8 0c0-.7.5-1.5 1.4-2.5z" />
+    </>
+  ),
+  mundan: (
+    // a child's face with the small tuft (choti) kept at the top
+    <>
+      <Circle cx={12} cy={13.5} r={6.5} />
+      <Path d="M12 7V4.6c0-1 1.1-1.7 2-1" />
+      <Path d="M9.8 15.8c.9 1 3.5 1 4.4 0" />
+      <Path d="M5.5 13.5H4M20 13.5h-1.5" />
+      {dot(9.6, 12.4)}
+      {dot(14.4, 12.4)}
+    </>
+  ),
   kalash: (
     // wedding pot with mango leaves and a coconut
     <>

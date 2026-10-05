@@ -1,0 +1,90 @@
+appId: app.notra.diary
+name: 04 - मेरा नोतरा, make my event, record who came (receive only), summary total
+---
+- runFlow: subflows/launch-home.yaml
+- tapOn:
+    id: tab-mine
+- extendedWaitUntil:
+    visible:
+      id: btn-new-event
+    timeout: 20000
+- takeScreenshot: screenshots/04-mine-empty
+- tapOn:
+    id: btn-new-event
+- extendedWaitUntil:
+    visible: "अवसर"
+    timeout: 20000
+- takeScreenshot: screenshots/04-new-event
+- tapOn:
+    id: btn-save
+- extendedWaitUntil:
+    visible: "नोतरा बन गया"
+    timeout: 20000
+- tapOn:
+    id: btn-who-came
+# Giver 1: Mohan, 501
+- extendedWaitUntil:
+    visible:
+      id: picker-search
+    timeout: 20000
+- tapOn:
+    id: picker-search
+- inputText: "Kherwa"
+- hideKeyboard
+- extendedWaitUntil:
+    visible:
+      id: household-row-Mohan
+    timeout: 20000
+- tapOn:
+    id: household-row-Mohan
+- extendedWaitUntil:
+    visible:
+      id: chip-501
+    timeout: 20000
+- tapOn:
+    id: chip-501
+- assertVisible: ".*₹501.*"
+- tapOn:
+    id: btn-next
+- extendedWaitUntil:
+    visible: ".*लिख लिया.*Mohan.*"
+    timeout: 20000
+- takeScreenshot: screenshots/04-after-giver-1
+# Giver 2: Ramesh (my own household is a valid giver here), 251
+- extendedWaitUntil:
+    visible:
+      id: household-row-Ramesh
+    timeout: 20000
+- tapOn:
+    id: household-row-Ramesh
+- extendedWaitUntil:
+    visible:
+      id: chip-251
+    timeout: 20000
+- tapOn:
+    id: chip-251
+- tapOn:
+    id: btn-next
+- extendedWaitUntil:
+    visible:
+      id: btn-finish
+    timeout: 20000
+# The header total updates a moment after the list returns.
+- extendedWaitUntil:
+    visible: "2 परिवार"
+    timeout: 20000
+- takeScreenshot: screenshots/04-two-givers
+- tapOn:
+    id: btn-finish
+- extendedWaitUntil:
+    visible: "हो गया"
+    timeout: 30000
+- assertVisible: "₹752"
+- assertVisible: "2 परिवार"
+- takeScreenshot: screenshots/04-summary
+- tapOn:
+    id: btn-open-event
+- extendedWaitUntil:
+    visible: "₹752"
+    timeout: 20000
+- takeScreenshot: screenshots/04-event-detail

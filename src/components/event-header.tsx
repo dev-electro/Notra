@@ -1,14 +1,16 @@
 import React from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { DirectionTag } from '@/components/direction';
+import { DIRECTION_INK, DirectionTag } from '@/components/direction';
 import { OccasionBadge } from '@/components/occasion';
 import { RiceGrains } from '@/components/motifs';
 import { Text } from '@/components/text';
-import { formatINR, OCCASION_LABEL, type Occasion } from '@/core';
+import { formatINR, occasionName, type Direction, type Occasion } from '@/core';
 import { BORDER, colors, GUTTER, radius, spacing, type } from '@/theme';
 
 const TINT: Record<Occasion, string> = {
   SHAADI: colors.haldiTint,
+  GRIHAPRAVESH: colors.receivedTint,
+  MUNDAN: colors.givenTint,
   BIMARI: colors.successTint,
   MAKAAN: colors.receivedTint,
   OTHER: colors.haldiTint,
@@ -16,6 +18,10 @@ const TINT: Record<Occasion, string> = {
 
 interface Props {
   occasion: Occasion;
+  /** The custom name of an "अन्य" program. */
+  label?: string;
+  /** AAYA (default): the total I received at my own program. GAYA: what I gave at another family's program. */
+  direction?: Direction;
   /** Small line under the occasion name (date, host...). */
   subtitle?: string;
   /** Status word such as "तय हुआ". */
@@ -27,7 +33,7 @@ interface Props {
 }
 
 /** Festive top of an event: occasion picture (yellow rice for a wedding), the huge running total and how many families gave. */
-export const EventHeader = React.memo(function EventHeader({ occasion, subtitle, status, totalPaise, giverCount, compact }: Props) {
+export const EventHeader = React.memo(function EventHeader({ occasion, label, direction = 'AAYA', subtitle, status, totalPaise, giverCount, compact }: Props) {
   const { width } = useWindowDimensions();
   const w = width - GUTTER * 2;
   return (
@@ -37,7 +43,7 @@ export const EventHeader = React.memo(function EventHeader({ occasion, subtitle,
         <OccasionBadge occasion={occasion} size={compact ? 48 : 64} />
         <View style={styles.flex}>
           <Text style={[type.title, styles.name]} numberOfLines={1}>
-            {OCCASION_LABEL[occasion]}
+            {occasionName(occasion, label)}
           </Text>
           {subtitle ? (
             <Text style={[type.caption, styles.sub]} numberOfLines={2}>
@@ -52,11 +58,11 @@ export const EventHeader = React.memo(function EventHeader({ occasion, subtitle,
         ) : null}
       </View>
       <View style={styles.sum}>
-        <DirectionTag direction="AAYA" paired />
-        <Text style={[compact ? type.amount : type.amountXL, styles.total]} adjustsFontSizeToFit numberOfLines={1}>
+        <DirectionTag direction={direction} paired />
+        <Text style={[compact ? type.amount : type.amountXL, { color: DIRECTION_INK[direction] }]} adjustsFontSizeToFit numberOfLines={1}>
           {formatINR(totalPaise)}
         </Text>
-        <Text style={[type.heading, styles.count]}>{giverCount} परिवार</Text>
+        {direction === 'AAYA' ? <Text style={[type.heading, styles.count]}>{giverCount} परिवार</Text> : null}
       </View>
     </View>
   );

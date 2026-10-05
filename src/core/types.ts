@@ -1,7 +1,7 @@
 /** Money is always integer paise. 1 rupee = 100 paise. Timestamps are ISO-8601 strings. */
 
-export type Occasion = 'SHAADI' | 'BIMARI' | 'MAKAAN' | 'OTHER'; // never a death-feast category
-export const OCCASIONS: readonly Occasion[] = ['SHAADI', 'BIMARI', 'MAKAAN', 'OTHER'];
+export type Occasion = 'SHAADI' | 'GRIHAPRAVESH' | 'MUNDAN' | 'BIMARI' | 'MAKAAN' | 'OTHER'; // never a death-feast category
+export const OCCASIONS: readonly Occasion[] = ['SHAADI', 'GRIHAPRAVESH', 'MUNDAN', 'BIMARI', 'MAKAAN', 'OTHER'];
 
 export type InvitationType = 'YELLOW_RICE' | 'KUMKUM' | 'CARD';
 export type EventStatus = 'PLANNED' | 'HELD' | 'SETTLED';
@@ -26,6 +26,10 @@ export interface NotraEvent {
   id: string;
   hostHouseholdId: string;
   occasion: Occasion;
+  /** For OTHER ("अन्य"): the person's own name for the occasion, e.g. "नामकरण". Shown wherever the occasion name is shown. */
+  occasionLabel?: string;
+  /** For OTHER: optional details (विवरण). */
+  occasionNote?: string;
   /** ISO date, e.g. 2026-11-21 */
   date: string;
   panchApproved: boolean;
@@ -40,6 +44,7 @@ export interface NotraEvent {
 /** Immutable ledger line. A correction is a NEW entry whose correctsEntryId points at the old one. */
 export interface Entry {
   id: string;
+  /** Every new entry belongs to an event; its direction follows from who hosts it (see eventRules.ts). Legacy rows may lack it. */
   eventId?: string;
   otherHouseholdId: string;
   direction: Direction;
@@ -50,6 +55,11 @@ export interface Entry {
   recordedBy: string;
   voiceNoteUri?: string;
   createdAt: string;
+  /**
+   * The real (diary) date of the gift, ISO YYYY-MM-DD. Distinct from createdAt (when it was typed in), so old paper-diary
+   * records can be added later. Absent = the date part of createdAt. Balances and reports order by this, then createdAt.
+   */
+  occurredOn?: string;
   correctsEntryId?: string;
   /** A void cancels `correctsEntryId` and counts as nothing itself (zero amounts). */
   isVoid?: boolean;

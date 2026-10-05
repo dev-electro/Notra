@@ -1,0 +1,124 @@
+appId: app.notra.diary
+name: 07 - हिसाब tab, open each report, send a report as photos
+---
+- runFlow: subflows/launch-home.yaml
+- tapOn:
+    id: tab-hisaab
+- extendedWaitUntil:
+    visible:
+      id: report-given
+    timeout: 20000
+- assertVisible: ".*कुल मिला.*"
+- assertVisible: ".*कुल दिया.*"
+- takeScreenshot: screenshots/07-hisab-hub
+# a. किसको, किस दिन, कितना दिया
+- tapOn:
+    id: report-given
+- extendedWaitUntil:
+    visible: ".*कुल दिया \\(.*"
+    timeout: 20000
+- assertVisible: "PDF भेजें"
+- assertVisible: "फ़ोटो भेजें"
+- takeScreenshot: screenshots/07-report-given
+# the image export: draws the print sheet off screen, photographs it, lists the pages
+- tapOn: "फ़ोटो भेजें"
+- extendedWaitUntil:
+    visible: "फ़ोटो तैयार हैं"
+    timeout: 90000
+- takeScreenshot: screenshots/07-report-photos
+- tapOn: "बंद करें"
+- tapOn:
+    id: btn-back
+# b. मेरे प्रोग्राम में कौन आया
+- extendedWaitUntil:
+    visible:
+      id: report-guests
+    timeout: 20000
+- tapOn:
+    id: report-guests
+- extendedWaitUntil:
+    visible:
+      id: btn-pick-event
+    timeout: 20000
+- takeScreenshot: screenshots/07-report-guests-pick
+- tapOn:
+    id: btn-pick-event
+- extendedWaitUntil:
+    visible: ".*कुल मिला \\(.*परिवार\\).*"
+    timeout: 20000
+- assertVisible: "PDF भेजें"
+- takeScreenshot: screenshots/07-report-guests
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: btn-back
+# c. साल भर का हिसाब
+- extendedWaitUntil:
+    visible:
+      id: report-year
+    timeout: 20000
+- tapOn:
+    id: report-year
+- extendedWaitUntil:
+    visible: ".*कुल उतार.*"
+    timeout: 20000
+- assertVisible: "महीने के हिसाब से"
+- takeScreenshot: screenshots/07-report-year
+- tapOn:
+    id: btn-back
+# d. मेरे नोतरे में कौन नहीं आया (private)
+- extendedWaitUntil:
+    visible:
+      id: report-notcome
+    timeout: 20000
+- tapOn:
+    id: report-notcome
+- extendedWaitUntil:
+    visible:
+      id: btn-pick-event
+    timeout: 20000
+- tapOn:
+    id: btn-pick-event
+- extendedWaitUntil:
+    visible: ".*सिर्फ़ आपके लिए.*"
+    timeout: 20000
+- takeScreenshot: screenshots/07-report-notcome
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: btn-back
+# e. किसका कितना, अवसर, लौटाना बाकी, मेरा खाता
+- extendedWaitUntil:
+    visible:
+      id: report-person
+    timeout: 20000
+- tapOn:
+    id: report-person
+- extendedWaitUntil:
+    visible: "किसके साथ कितना मिला, कितना दिया"
+    timeout: 20000
+- takeScreenshot: screenshots/07-report-person
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: report-occasion
+- extendedWaitUntil:
+    visible: ".*शादी.*"
+    timeout: 20000
+- takeScreenshot: screenshots/07-report-occasion
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: report-pending
+- extendedWaitUntil:
+    visible: "इनका नोतरा आया है, लौटाना बाकी है"
+    timeout: 20000
+- takeScreenshot: screenshots/07-report-pending
+- tapOn:
+    id: btn-back
+- tapOn:
+    id: report-self
+- extendedWaitUntil:
+    visible: "नया ऊपर। जोड़ में अब तक का हिसाब।"
+    timeout: 20000
+- takeScreenshot: screenshots/07-report-self

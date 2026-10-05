@@ -1,14 +1,14 @@
 /** SQL aggregates must equal the pure core functions (the tested reference). */
+import { addE, memDb } from '../mem-db.testutil';
 import {
   activeEntries, balances, occasionWise, pendingFromBalances, pendingReturns, personRowsFromBalances, personWise,
   DEFAULT_LEDGER_ID as L, selfLedger, totals, type Increment,
 } from '../../core';
 import { migrate } from '../migrations';
-import { memDb } from '../mem-db.testutil';
 import {
   listEntriesPage, sqlBalances, sqlEventSummaries, sqlOccasionWise, sqlSelfLedgerPage, sqlTotals, searchHouseholds,
 } from '../queries';
-import { addEntry, correctEntry, createEvent, createHousehold, listEntries, listEvents, listHouseholds } from '../repository';
+import { correctEntry, createEvent, createHousehold, listEntries, listEvents, listHouseholds } from '../repository';
 
 const hh = (n: string, v = 'सरवन') => ({ headName: n, fatherName: 'कालू', jati: 'भील', atak: 'डामोर', village: v, fala: 'ऊपला' });
 
@@ -24,13 +24,13 @@ async function seed() {
   let t = 0;
   const at = () => new Date(Date.UTC(2026, 0, 1, 0, 0, t++)).toISOString();
   const base = { inKindValuePaise: 0, paymentMode: 'CASH' as const, recordedBy: 'me' };
-  const e1 = await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, eventId: shaadi.id, createdAt: at() });
-  await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 10100, createdAt: at() });
-  const e3 = await addEntry(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 25100, inKindItem: 'घी', inKindValuePaise: 100000, eventId: shaadi.id, createdAt: at() });
-  await addEntry(db, { ...base, otherHouseholdId: c.id, direction: 'GAYA', cashPaise: 10100, eventId: bimari.id, createdAt: at() });
+  const e1 = await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 50100, eventId: shaadi.id, createdAt: at() });
+  await addE(db, { ...base, otherHouseholdId: a.id, direction: 'GAYA', cashPaise: 10100, createdAt: at() });
+  const e3 = await addE(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 25100, inKindItem: 'घी', inKindValuePaise: 100000, eventId: shaadi.id, createdAt: at() });
+  await addE(db, { ...base, otherHouseholdId: c.id, direction: 'GAYA', cashPaise: 10100, eventId: bimari.id, createdAt: at() });
   const e5 = await correctEntry(db, e1, { cashPaise: 60100, createdAt: at() });
   await correctEntry(db, e5, { cashPaise: 70100, createdAt: at() }); // chain
-  await addEntry(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 11100, createdAt: at() });
+  await addE(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 11100, createdAt: at() });
   void e3;
   return { db, a, b, c, shaadi, bimari };
 }

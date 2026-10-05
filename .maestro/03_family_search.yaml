@@ -1,0 +1,37 @@
+appId: app.notra.diary
+name: 03 - one search box finds a family by name, father, village, fala and phone
+---
+- runFlow: subflows/launch-home.yaml
+- tapOn:
+    id: btn-families
+- extendedWaitUntil:
+    visible:
+      id: family-search
+    timeout: 20000
+# father's name
+- tapOn:
+    id: family-search
+- inputText: "Sohan"
+- extendedWaitUntil:
+    visible: "Mohan"
+    timeout: 10000
+- takeScreenshot: screenshots/03-search-father
+- eraseText: 20
+# village
+- inputText: "Kherwa"
+- assertVisible: "Mohan"
+- eraseText: 20
+# fala
+- inputText: "Upla"
+- assertVisible: "Mohan"
+- eraseText: 20
+# phone, typed with +91 and spaces
+- inputText: "+91 98765 43210"
+- assertVisible: "Mohan"
+- takeScreenshot: screenshots/03-search-phone
+- eraseText: 30
+# a name that does not exist
+- inputText: "Zzzz"
+- assertNotVisible: "Mohan"
+- eraseText: 20
+- hideKeyboard

@@ -12,6 +12,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_MS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/; // updated_at: fixed width so text order == time order
 const ISO_ANY = /^\d{4}-\d{2}-\d{2}T[\d:.]{5,16}Z$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+export const OCCASIONS = ['SHAADI', 'GRIHAPRAVESH', 'MUNDAN', 'BIMARI', 'MAKAAN', 'OTHER'] as const;
+export const OCCASION_LABEL_MAX = 60;
+export const OCCASION_NOTE_MAX = 500;
 export const DEFAULT_LEDGER_ID = '00000000-0000-4000-8000-000000000001';
 
 const bad = (path: string): never => {
@@ -66,11 +69,12 @@ export interface HouseholdRow {
 export interface EventRow {
   id: string; host_household_id: string; occasion: string; date: string; panch_approved: boolean; invitation_type: string;
   status: string; ledger_id: string; created_at: string; updated_at: string;
+  occasion_label: string | null; occasion_note: string | null;
 }
 export interface EntryRow {
   id: string; event_id: string | null; other_household_id: string; direction: string; cash_paise: number;
   in_kind_item: string | null; in_kind_value_paise: number; payment_mode: string; recorded_by: string;
-  created_at: string; corrects_entry_id: string | null; is_void: boolean; ledger_id: string;
+  created_at: string; corrects_entry_id: string | null; is_void: boolean; ledger_id: string; occurred_on: string;
 }
 export interface ProfileRow {
   my_household_id: string | null;
@@ -82,6 +86,8 @@ export interface PushBatch {
   households: HouseholdRow[];
   events: EventRow[];
   entries: EntryRow[];
+  /** position of each entry in the array the client sent (for per-row rejections found after validation) */
+  entryIndex: number[];
   profile: ProfileRow | null;
 }
 export type RejectTable = 'ledgers' | 'households' | 'events' | 'entries' | 'profile';
@@ -145,9 +151,13 @@ function validateEvent(raw: unknown, p: string): EventRow {
   const date = str(raw, 'date', p, 10);
   if (!DAY.test(date)) bad(`${p}.date`);
   if (typeof raw.panchApproved !== 'boolean') bad(`${p}.panchApproved`);
+  const occasion = oneOf(raw, 'occasion', p, OCCASIONS);
+  // the custom name and details belong to OTHER only; too long is a bad row, not silently cut
+  const label = optStr(raw, 'occasionLabel', p, OCCASION_LABEL_MAX)?.trim() || null;
+  const note = optStr(raw, 'occasionNote', p, OCCASION_NOTE_MAX)?.trim() || null;
   return {
     id: uuid(raw, 'id', p), host_household_id: uuid(raw, 'hostHouseholdId', p),
-    occasion: oneOf(raw, 'occasion', p, ['SHAADI', 'BIMARI', 'MAKAAN', 'OTHER']), date,
+    occasion, date, occasion_label: occasion === 'OTHER' ? label : null, occasion_note: occasion === 'OTHER' ? note : null,
     panch_approved: raw.panchApproved as boolean,
     invitation_type: oneOf(raw, 'invitationType', p, ['YELLOW_RICE', 'KUMKUM', 'CARD']),
     status: oneOf(raw, 'status', p, ['PLANNED', 'HELD', 'SETTLED']),
@@ -160,12 +170,17 @@ function validateEntry(raw: unknown, p: string): EntryRow {
   const id = uuid(raw, 'id', p);
   const isVoid = raw.isVoid === undefined ? false : raw.isVoid;
   if (typeof isVoid !== 'boolean') return bad(`${p}.isVoid`);
+  const createdAt = iso(raw, 'createdAt', p, ISO_ANY);
+  const occurredOn = raw.occurredOn === undefined || raw.occurredOn === null ? createdAt.slice(0, 10) : iso(raw, 'occurredOn', p, DAY);
   const row: EntryRow = {
-    id, event_id: optUuid(raw, 'eventId', p), other_household_id: uuid(raw, 'otherHouseholdId', p),
+    id,
+    // every entry belongs to an event (entries from older apps had none: the phone now attaches them to a "पुराना हिसाब" event)
+    event_id: uuid(raw, 'eventId', p),
+    other_household_id: uuid(raw, 'otherHouseholdId', p),
     direction: oneOf(raw, 'direction', p, ['AAYA', 'GAYA']), cash_paise: paise(raw, 'cashPaise', p),
     in_kind_item: optStr(raw, 'inKindItem', p, 500), in_kind_value_paise: paise(raw, 'inKindValuePaise', p),
     payment_mode: oneOf(raw, 'paymentMode', p, ['CASH', 'UPI']), recorded_by: str(raw, 'recordedBy', p),
-    created_at: iso(raw, 'createdAt', p, ISO_ANY), corrects_entry_id: optUuid(raw, 'correctsEntryId', p), is_void: isVoid,
+    created_at: createdAt, occurred_on: occurredOn, corrects_entry_id: optUuid(raw, 'correctsEntryId', p), is_void: isVoid,
     ledger_id: raw.ledgerId === undefined || raw.ledgerId === null ? DEFAULT_LEDGER_ID : uuid(raw, 'ledgerId', p),
   };
   if (isVoid && (!row.corrects_entry_id || row.cash_paise !== 0 || row.in_kind_value_paise !== 0)) bad(`${p}.isVoid`);
@@ -196,24 +211,33 @@ export function validatePush(body: unknown): { batch: PushBatch; rejected: Rejec
   if (ls.length + hs.length + evs.length + ens.length > MAX_BATCH) throw new ApiError(400, 'batch_too_large', { max: MAX_BATCH });
 
   const rejected: Rejection[] = [];
-  function rows<T>(table: Exclude<RejectTable, 'profile'>, raws: unknown[], one: (raw: unknown, p: string) => T): T[] {
+  function rowsAt<T>(table: Exclude<RejectTable, 'profile'>, raws: unknown[], one: (raw: unknown, p: string) => T): { rows: T[]; index: number[] } {
     const out: T[] = [];
-    raws.forEach((raw, index) => {
+    const index: number[] = [];
+    raws.forEach((raw, i) => {
       try {
-        out.push(one(raw, `${table}[${index}]`));
+        out.push(one(raw, `${table}[${i}]`));
+        index.push(i);
       } catch (e) {
-        rejected.push({ table, id: rawId(raw), index, reason: reasonOf(e) });
+        rejected.push({ table, id: rawId(raw), index: i, reason: reasonOf(e) });
       }
     });
-    return out;
+    return { rows: out, index };
   }
+  const rows = <T,>(table: Exclude<RejectTable, 'profile'>, raws: unknown[], one: (raw: unknown, p: string) => T): T[] => rowsAt(table, raws, one).rows;
 
   const ledgers = rows('ledgers', ls, validateLedger);
   const households = rows('households', hs, validateHousehold);
   const events = rows('events', evs, validateEvent);
-  const allEntries = rows('entries', ens, validateEntry);
+  const allEntries = rowsAt('entries', ens, validateEntry);
   const seen = new Set<string>();
-  const entries = allEntries.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true))); // immutable: first copy wins
+  const entryIndex: number[] = [];
+  const entries = allEntries.rows.filter((e, i) => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id); // immutable: first copy wins
+    entryIndex.push(allEntries.index[i]!);
+    return true;
+  });
 
   let profile: ProfileRow | null = null;
   if (body.profile !== undefined && body.profile !== null) {
@@ -223,7 +247,7 @@ export function validatePush(body: unknown): { batch: PushBatch; rejected: Rejec
       rejected.push({ table: 'profile', id: null, index: 0, reason: reasonOf(e) });
     }
   }
-  return { batch: { ledgers: dedupeLww(ledgers), households: dedupeLww(households), events: dedupeLww(events), entries, profile }, rejected };
+  return { batch: { ledgers: dedupeLww(ledgers), households: dedupeLww(households), events: dedupeLww(events), entries, entryIndex, profile }, rejected };
 }
 
 export function parsePull(q: { since?: string; limit?: string }): { since: number; limit: number } {

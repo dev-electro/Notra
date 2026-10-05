@@ -2,10 +2,11 @@
  * Runs the real migrations and repository SQL against Node's built-in SQLite (a stand-in for expo-sqlite).
  * Encryption (SQLCipher) is not exercised here; it needs a native dev build.
  */
+import { addE } from '../mem-db.testutil';
 import { balances, activeEntries, DEFAULT_LEDGER_ID as L } from '../../core';
 import { LATEST_VERSION, migrate } from '../migrations';
 import {
-  addEntry, correctEntry, createEvent, createHousehold, getHousehold, getIncrement, listEntries,
+  correctEntry, createEvent, createHousehold, getHousehold, getIncrement, listEntries,
   listEntriesForEvent, listEntriesForHousehold, listEvents, listHouseholds, setEventStatus, setIncrement,
 } from '../repository';
 import type { Db } from '../types';
@@ -49,7 +50,7 @@ describe('db', () => {
     await setEventStatus(db, ev.id, 'HELD');
     expect((await listEvents(db, L))[0]).toMatchObject({ status: 'HELD', panchApproved: true});
 
-    const e = await addEntry(db, { eventId: ev.id, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 50100, inKindItem: '10 किलो गेहूं', inKindValuePaise: 30000, paymentMode: 'CASH', recordedBy: 'Mangu' });
+    const e = await addE(db, { eventId: ev.id, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 50100, inKindItem: '10 किलो गेहूं', inKindValuePaise: 30000, paymentMode: 'CASH', recordedBy: 'Mangu' });
     expect((await listEntriesForEvent(db, ev.id))[0]).toEqual(e);
     expect(await listEntriesForHousehold(db, h.id, L)).toHaveLength(1);
   });
@@ -58,7 +59,7 @@ describe('db', () => {
     const db = memDb();
     await migrate(db);
     const h = await createHousehold(db, hh('Suresh'));
-    const e1 = await addEntry(db, { otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 50000, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'me', createdAt: '2026-01-01T00:00:00Z' });
+    const e1 = await addE(db, { otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 50000, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'me', createdAt: '2026-01-01T00:00:00Z' });
     const e2 = await correctEntry(db, e1, { cashPaise: 50100, createdAt: '2026-01-02T00:00:00Z' });
     expect(e2.correctsEntryId).toBe(e1.id);
     const all = await listEntries(db, L);
@@ -71,7 +72,7 @@ describe('db', () => {
     const db = memDb();
     await migrate(db);
     const h = await createHousehold(db, hh('Suresh'));
-    const e = await addEntry(db, { otherHouseholdId: h.id, direction: 'GAYA', cashPaise: 100, inKindValuePaise: 0, paymentMode: 'UPI', recordedBy: 'me' });
+    const e = await addE(db, { otherHouseholdId: h.id, direction: 'GAYA', cashPaise: 100, inKindValuePaise: 0, paymentMode: 'UPI', recordedBy: 'me' });
     await expect(db.runAsync('UPDATE entries SET cash_paise = 1 WHERE id = ?', [e.id])).rejects.toThrow(/immutable/);
     await expect(db.runAsync('DELETE FROM entries WHERE id = ?', [e.id])).rejects.toThrow(/append-only/);
   });

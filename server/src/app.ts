@@ -10,7 +10,7 @@ import type { Db } from './db';
 import { deleteAccount } from './account';
 import { ApiError } from './errors';
 import { PAGE_HEADERS, renderPage } from './pages';
-import { pullRows, pushRows } from './sync';
+import { enforceDirections, pullRows, pushRows } from './sync';
 import { findOrCreateUser, getUser, linkIdentity, publicUser, type UserRow } from './users';
 import { parsePull, validatePush } from './validate';
 
@@ -140,9 +140,11 @@ export function createApp(deps: Deps): Hono<Vars> {
 
   // ---- sync (every query is scoped by the token's user id) ----
   app.post('/v1/sync/push', requireAuth, async (c) => {
-    const { batch, rejected } = validatePush(await body(c));
+    const validated = validatePush(await body(c));
+    const userId = c.get('userId');
     // Bad rows are reported one by one (`rejected`) and the good rows are stored: one poison row never blocks the batch.
-    return c.json({ ok: true, accepted: await pushRows(deps.db, c.get('userId'), batch), rejected });
+    const { batch, rejected: wrongDirection } = await enforceDirections(deps.db, userId, validated.batch);
+    return c.json({ ok: true, accepted: await pushRows(deps.db, userId, batch), rejected: [...validated.rejected, ...wrongDirection] });
   });
 
   app.get('/v1/sync/pull', requireAuth, async (c) => {

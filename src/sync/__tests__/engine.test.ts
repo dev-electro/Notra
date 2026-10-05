@@ -1,9 +1,9 @@
+import { addE, memDb } from '../../db/mem-db.testutil';
 import { DEFAULT_LEDGER_ID as L } from '../../core';
 import { sqlTotals } from '../../db/queries';
 import { migrate } from '../../db/migrations';
-import { memDb } from '../../db/mem-db.testutil';
 import { clearAllLocalData } from '../../db/maintenance';
-import { addEntry, correctEntry, createEvent, createHousehold, listEntries, listHouseholds, updateHousehold, voidEntry } from '../../db/repository';
+import { correctEntry, createEvent, createHousehold, listEntries, listHouseholds, updateHousehold, voidEntry } from '../../db/repository';
 import type { Db } from '../../db/types';
 import { applyPage, pullAll, pushDirty, syncOnce } from '../engine';
 import { bindAccount } from '../account';
@@ -25,8 +25,8 @@ async function seed(db: Db) {
   const a = await createHousehold(db, hh('रमेश'));
   const b = await createHousehold(db, hh('सुरेश'));
   const ev = await createEvent(db, { hostHouseholdId: a.id, occasion: 'SHAADI', date: '2026-11-21', panchApproved: true, invitationType: 'KUMKUM', status: 'PLANNED' });
-  const e1 = await addEntry(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 50100, eventId: ev.id, createdAt: '2026-01-01T00:00:01.000Z' });
-  const e2 = await addEntry(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 11100, eventId: ev.id, createdAt: '2026-01-01T00:00:02.000Z' });
+  const e1 = await addE(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 50100, eventId: ev.id, createdAt: '2026-01-01T00:00:01.000Z' });
+  const e2 = await addE(db, { ...base, otherHouseholdId: b.id, direction: 'AAYA', cashPaise: 11100, eventId: ev.id, createdAt: '2026-01-01T00:00:02.000Z' });
   const c = await correctEntry(db, e1, { cashPaise: 60100, createdAt: '2026-01-01T00:00:03.000Z' });
   await voidEntry(db, e2, '2026-01-01T00:00:04.000Z');
   void c;
@@ -82,10 +82,10 @@ describe('push', () => {
     const srv = new FakeServer();
     const a = await createHousehold(db, hh('रमेश'));
     await db.withTransactionAsync(async () => {
-      for (let i = 0; i < 1200; i++) await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 100 + i });
+      for (let i = 0; i < 1200; i++) await addE(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 100 + i });
     });
     await pushDirty(db, srv);
-    expect(srv.pushes.map((p) => p.ledgers.length + p.households.length + p.events.length + p.entries.length)).toEqual([500, 500, 201]);
+    expect(srv.pushes.map((p) => p.ledgers.length + p.households.length + p.events.length + p.entries.length)).toEqual([500, 500, 202]); // 1200 entries + 1 family + 1 program
     expect(await pendingCount(db)).toBe(0);
   });
 
@@ -138,12 +138,12 @@ describe('pull / restore', () => {
     const a = await phone();
     const h = await createHousehold(a, hh('रमेश'));
     await a.withTransactionAsync(async () => {
-      for (let i = 0; i < 1000; i++) await addEntry(a, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 100 });
+      for (let i = 0; i < 1000; i++) await addE(a, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 100 });
     });
     await syncOnce(a, srv);
     const b = await phone();
     srv.pulls = [];
-    expect(await pullAll(b, srv)).toBe(1001);
+    expect(await pullAll(b, srv)).toBe(1002); // 1000 entries + family + program
     expect(srv.pulls).toHaveLength(3);
     expect((await sqlTotals(b, L)).receivedPaise).toBe(100_000);
   });
@@ -242,7 +242,7 @@ describe('state', () => {
     expect(await listHouseholds(db)).toHaveLength(0);
     expect(await getSyncState(db)).toMatchObject({ cursor: 0, userId: null, enabled: false });
     const h = await createHousehold(db, hh('नया'));
-    const e = await addEntry(db, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 1 });
+    const e = await addE(db, { ...base, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 1 });
     await expect(db.runAsync('DELETE FROM entries WHERE id = ?', [e.id])).rejects.toThrow(/append-only/);
     void b;
   });

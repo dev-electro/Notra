@@ -19,6 +19,8 @@ export interface ScreenAction {
   hint?: string;
   /** 'danger' (kumkum outline) for things that cannot be undone. Default: haldi. */
   tone?: 'primary' | 'danger';
+  /** Stable id for end-to-end tests, e.g. btn-save. */
+  testID?: string;
 }
 
 interface Props {
@@ -30,6 +32,8 @@ interface Props {
   onBack?: () => void;
   /** Plain-Hindi sentence about what this screen is for; adds a speaker button that reads it aloud. */
   speakText?: string;
+  /** Screen is a bottom-tab page: the tab bar already covers the bottom edge (safe area) and there is no back button. */
+  tab?: boolean;
   /** The ONE main thing to do here: a full-width haldi button pinned to the bottom, where the thumb rests. */
   action?: ScreenAction;
 }
@@ -43,10 +47,11 @@ export function BottomBar({ children }: { children: React.ReactNode }) {
 }
 
 /** Paper page: big labelled back button top-left, clear title, a dot-border strip, content, and the bottom action. */
-export function Screen({ title, children, scroll = true, noBack, onBack, speakText, action }: Props) {
+export function Screen({ title, children, scroll = true, noBack: noBackProp, onBack, speakText, action, tab }: Props) {
+  const noBack = noBackProp || tab;
   return (
     <View style={styles.page}>
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={tab ? ['top', 'left', 'right'] : undefined}>
         <View style={styles.header}>
           {noBack && !speakText ? null : (
             <View style={styles.topRow}>
@@ -54,6 +59,7 @@ export function Screen({ title, children, scroll = true, noBack, onBack, speakTe
                 <View />
               ) : (
                 <PressableScale
+                  testID="btn-back"
                   accessibilityRole="button"
                   accessibilityLabel="वापस"
                   accessibilityHint="पिछली स्क्रीन पर जाएँ"
@@ -83,7 +89,7 @@ export function Screen({ title, children, scroll = true, noBack, onBack, speakTe
         )}
         {action ? (
           <BottomBar>
-            <BigButton tone={action.tone ?? 'primary'} icon={action.icon} label={action.label} onPress={action.onPress} disabled={action.disabled} hint={action.hint} />
+            <BigButton testID={action.testID} tone={action.tone ?? 'primary'} icon={action.icon} label={action.label} onPress={action.onPress} disabled={action.disabled} hint={action.hint} />
           </BottomBar>
         ) : null}
       </SafeAreaView>
