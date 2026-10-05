@@ -10,6 +10,7 @@ import { showToast } from '@/services/toast';
 import { ACCESS_DAYS, expiryLabel, grantActive, type AccessDays, type AccessGrant } from '@/support/logic';
 import { accessErrorMessage, getAccessGrant, grantAccess, revokeAccess } from '@/support/service';
 import { colors, spacing, type } from '@/theme';
+import { track } from '@/analytics';
 
 /**
  * सहायता को मेरा डेटा दिखाएं: the person lets support SEE their diary, read-only, for 1, 3 or 7 days. Off by default; "अभी बंद करें"
@@ -45,6 +46,7 @@ export default function SupportAccess() {
     setMsg('');
     try {
       setGrant(await grantAccess(days));
+      if (days === 1 || days === 3 || days === 7) track('support_access_granted', { days });
       showToast('सहायता अब आपका हिसाब देख सकती है');
     } catch (e) {
       setMsg(accessErrorMessage(e));

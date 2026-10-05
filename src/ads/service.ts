@@ -7,6 +7,7 @@
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { AppState, InteractionManager, Platform } from 'react-native';
+import { track } from '@/analytics';
 import { getDb } from '@/db/database';
 import { getSetting, setSetting } from '@/db/repository';
 import type { Db } from '@/db/types';
@@ -87,6 +88,7 @@ export function initAds(): Promise<void> {
       patchAds({
         privacyOptions: info.privacyOptionsRequirementStatus === 'REQUIRED',
         consentResolved: info.status === 'OBTAINED' || info.status === 'NOT_REQUIRED',
+        consentBlocked: info.status === 'REQUIRED',
       });
       if (!info.canRequestAds) throw new Error('consent');
       await mobileAds().initialize();
@@ -205,7 +207,10 @@ export async function watchRewardedAd(loadTimeoutMs = 10_000): Promise<boolean> 
         clearTimeout(timer);
         void ad.show().catch(() => done(false));
       }));
-      offs.push(ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => void (earned = true)));
+      offs.push(ad.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+        earned = true;
+        track('ad_reward_earned');
+      }));
       offs.push(ad.addAdEventListener(AdEventType.CLOSED, () => done(earned)));
       offs.push(ad.addAdEventListener(AdEventType.ERROR, () => done(false)));
       ad.load();

@@ -29,6 +29,7 @@ import { guarded } from '@/services/guard';
 import { tapLight } from '@/services/haptics';
 import { speak } from '@/services/speech';
 import { colors, spacing, type } from '@/theme';
+import { track } from '@/analytics';
 
 /**
  * ONE entry, always inside a program (?eventId=). The direction is never chosen: my program = "कौन आया" (received from the family
@@ -121,6 +122,8 @@ export default function NewEntry() {
       return { entry, settle: await sqlEntrySettlement(db, entry.id) };
     });
     if (!done) return;
+    if (correctOf) track('entry_corrected');
+    else track('entry_saved', { side: direction === 'AAYA' ? 'mine_receive' : 'others_give', has_in_kind: !!item, payment_mode: mode });
     tapLight();
     const text = readBackWithSettlement(done.entry, household, done.settle.utarPaise, done.settle.chadhavPaise);
     setSaved({ entry: done.entry, text, settle: utarChadhavText(done.settle.utarPaise, done.settle.chadhavPaise) });

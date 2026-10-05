@@ -28,6 +28,7 @@ import { guarded } from '@/services/guard';
 import { tapLight } from '@/services/haptics';
 import { speak } from '@/services/speech';
 import { colors, spacing, type } from '@/theme';
+import { track } from '@/analytics';
 
 type Step = 'pick' | 'amount' | 'summary';
 const EMPTY: EventTotals = { cashPaise: 0, inKindValuePaise: 0, totalPaise: 0, giverCount: 0, entryCount: 0 };
@@ -96,6 +97,7 @@ export default function EventLedger() {
         return { entry, settle: await sqlEntrySettlement(db, entry.id) };
       });
       if (!e) return; // a toast told the person; the amount stays on screen so they can press save again
+      track('entry_saved', { side: 'mine_receive', has_in_kind: false, payment_mode: 'CASH' });
       tapLight();
       speak(readBackWithSettlement(e.entry, who, e.settle.utarPaise, e.settle.chadhavPaise));
       setFlash(`${who.headName} · ${formatINR(cash)}${utarChadhavText(e.settle.utarPaise, e.settle.chadhavPaise) ? ` — ${utarChadhavText(e.settle.utarPaise, e.settle.chadhavPaise)}` : ''}`);
@@ -118,6 +120,7 @@ export default function EventLedger() {
         const e = await lastActiveEntryForEvent(db, eventId);
         if (e) {
           await voidEntry(db, e);
+          track('entry_voided');
           speak('आखिरी एंट्री हटा दी');
         }
       });

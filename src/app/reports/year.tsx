@@ -11,6 +11,7 @@ import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { useLoad } from '@/hooks/use-load';
 import { reportMeta } from '@/services/report-meta';
 import { colors, type } from '@/theme';
+import { useReportViewed } from '@/analytics/use-analytics';
 
 const EMPTY: YearSummary = {
   year: 0, givenPaise: 0, receivedPaise: 0, hosted: 0, attended: 0, months: [], givenUtar: 0, givenChadhav: 0, receivedUtar: 0, receivedChadhav: 0,
@@ -19,6 +20,7 @@ const keyOf = (r: MonthRow) => String(r.month);
 
 /** साल भर का हिसाब: total दिया and मिला of a year, programs hosted and attended, month by month, उतार/चढ़ाव totals. */
 export default function YearReport() {
+  useReportViewed('year');
   const [year, setYear] = useState(Number(todayIso().slice(0, 4)));
   const ledgerId = useActiveLedgerId();
   const { data: s, loading } = useLoad(async (db, l) => sqlYearSummary(db, l, await getMyHouseholdId(db), year), EMPTY, String(year));
@@ -59,7 +61,7 @@ export default function YearReport() {
             { label: 'दिया: उतार / चढ़ाव', value: `${formatINR(s.givenUtar)} / ${formatINR(s.givenChadhav)}`, tone: 'given' },
             { label: 'मिला: उतार / चढ़ाव', value: `${formatINR(s.receivedUtar)} / ${formatINR(s.receivedChadhav)}`, tone: 'received' },
           ]} />
-          <ExportBar build={build} />
+          <ExportBar reportId="year" build={build} />
           <Text style={[type.bodyBold, styles.ink]}>महीने के हिसाब से</Text>
         </>
       }

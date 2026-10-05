@@ -9,6 +9,7 @@ import { createHousehold, getDb, getMyHouseholdId, setIncrement, setMyHouseholdI
 import { replace } from '@/nav';
 import { guarded } from '@/services/guard';
 import { colors, spacing, type } from '@/theme';
+import { track } from '@/analytics';
 
 const CHOICES: { label: string; value: Increment }[] = [
   { label: '₹51', value: { type: 'FIXED', rupees: 51 } },
@@ -45,7 +46,10 @@ export default function Setup() {
       await setIncrement(db, CHOICES[inc].value);
       return true;
     });
-    if (ok) replace('/');
+    if (ok) {
+      track('setup_complete');
+      replace('/');
+    }
   };
 
   return (

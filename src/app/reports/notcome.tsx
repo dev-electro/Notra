@@ -14,6 +14,7 @@ import { useLoad } from '@/hooks/use-load';
 import { usePaged } from '@/hooks/use-paged';
 import { reportMeta } from '@/services/report-meta';
 import { colors, type } from '@/theme';
+import { useReportViewed } from '@/analytics/use-analytics';
 
 const keyOf = (_: NotComeRow, i: number) => String(i);
 const eventLabel = (e: NotraEvent) => `${isLegacyEventId(e.id) ? LEGACY_EVENT_LABEL : occasionName(e.occasion, e.occasionLabel)} · ${displayDate(e.date)}`;
@@ -23,6 +24,7 @@ const eventLabel = (e: NotraEvent) => `${isLegacyEventId(e.id) ? LEGACY_EVENT_LA
  * Neutral words, and private: it is only for me.
  */
 export default function NotComeReport() {
+  useReportViewed('notcome');
   const { eventId: param } = useLocalSearchParams<{ eventId?: string }>();
   const [eventId, setEventId] = useState<string | null>(param ?? null);
   if (!eventId) return <EventPicker title="किसके नोतरे की सूची?" onPick={(c) => setEventId(c.event.id)} />;
@@ -61,7 +63,7 @@ function Report({ eventId, onChange }: { eventId: string; onChange: () => void }
           </Card>
           <BigButton testID="btn-other-event" compact icon="events" label="दूसरा नोतरा चुनें" tone="plain" onPress={onChange} />
           <SummaryCard lines={[{ label: `कुल लौटाना बाकी (${t.count} परिवार)`, value: formatINR(t.pendingPaise), tone: 'given' }]} />
-          <ExportBar build={build} disabled={t.count === 0} />
+          <ExportBar reportId="notcome" build={build} disabled={t.count === 0} />
         </>
       }
       data={rows} loading={loading} keyOf={keyOf} renderItem={render} onEnd={more} emptyIcon="families" emptyText="कोई नहीं। सबकी एंट्री है या किसी का लौटाना बाकी नहीं।"

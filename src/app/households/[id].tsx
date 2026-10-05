@@ -18,6 +18,7 @@ import { useLoad } from '@/hooks/use-load';
 import { go } from '@/nav';
 import { reportMeta } from '@/services/report-meta';
 import { colors, spacing, type } from '@/theme';
+import { useReportViewed } from '@/analytics/use-analytics';
 
 const PAGE = 20;
 const keyOf = (e: EntryWithState) => e.id;
@@ -32,6 +33,7 @@ interface Data {
 const INITIAL: Data = { household: null, balance: null, increment: DEFAULT_INCREMENT, entries: [], hasMore: false };
 
 export default function HouseholdDetail() {
+  useReportViewed('household');
   const { id } = useLocalSearchParams<{ id: string }>();
   const limit = useRef(PAGE);
   const ledgerId = useActiveLedgerId();
@@ -110,7 +112,7 @@ export default function HouseholdDetail() {
         <Text style={[type.caption, styles.sub]}>{explainSuggestion(b?.lastReceived ?? 0, b?.suggestedNext ?? null, increment)}</Text>
       </Card>
       <BigButton testID="btn-edit-household" icon="write" label="परिवार की जानकारी बदलें" onPress={() => go(`/households/edit?id=${id}`)} />
-      <ExportBar build={build} disabled={!h} />
+      <ExportBar reportId={'household'} build={build} disabled={!h} />
       <SectionTitle icon="hisaab">पूरा हिसाब</SectionTitle>
     </View>
   );

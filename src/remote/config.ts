@@ -21,7 +21,7 @@ export interface RemoteConfig {
     native_every_n_items: number;
     first_day_ads_free: boolean;
   };
-  features: { web_app: boolean; ocr: boolean; invitation_cards: boolean };
+  features: { web_app: boolean; ocr: boolean; invitation_cards: boolean; /** usage statistics (Google Analytics for Firebase); the server can switch it off for everyone */ analytics: boolean };
 }
 
 export const DEFAULT_CONFIG: RemoteConfig = {
@@ -40,7 +40,7 @@ export const DEFAULT_CONFIG: RemoteConfig = {
     native_every_n_items: 8,
     first_day_ads_free: true,
   },
-  features: { web_app: false, ocr: false, invitation_cards: false },
+  features: { web_app: false, ocr: false, invitation_cards: false, analytics: true },
 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -81,7 +81,7 @@ export function parseConfig(raw: unknown, base: RemoteConfig = DEFAULT_CONFIG): 
       native_every_n_items: int(ad.native_every_n_items, base.ads.native_every_n_items, 5, 50),
       first_day_ads_free: bool(ad.first_day_ads_free, base.ads.first_day_ads_free),
     },
-    features: { web_app: bool(f.web_app, base.features.web_app), ocr: bool(f.ocr, base.features.ocr), invitation_cards: bool(f.invitation_cards, base.features.invitation_cards) },
+    features: { web_app: bool(f.web_app, base.features.web_app), ocr: bool(f.ocr, base.features.ocr), invitation_cards: bool(f.invitation_cards, base.features.invitation_cards), analytics: bool(f.analytics, base.features.analytics) },
   };
 }
 

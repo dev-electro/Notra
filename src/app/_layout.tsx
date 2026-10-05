@@ -5,6 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, StyleSheet, View } from 'react-native';
 import { startAds } from '@/ads/service';
+import { startAnalytics } from '@/analytics';
+import { useScreenTracking } from '@/analytics/use-analytics';
 import { BigButton } from '@/components/big-button';
 import { ForceUpdate } from '@/components/force-update';
 import { LockScreen } from '@/components/lock-screen';
@@ -83,6 +85,8 @@ export default function RootLayout() {
   useEffect(() => startSync(), []);
   useEffect(() => startRemoteConfig(), []); // GET /v1/config: cached copy first, then the network (silent if there is no server)
   useEffect(() => startAds(), []); // arms ads ~3 s after the first render; nothing native loads before a screen asks
+  useEffect(() => startAnalytics(), []); // ~0.5 s after mount; a silent no-op without the native module
+  useScreenTracking();
   const [locked, setLocked] = useAppLock();
   if (!ready) return null;
   return (

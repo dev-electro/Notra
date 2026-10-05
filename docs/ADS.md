@@ -36,6 +36,16 @@ Never any ad on: event ledger screens, entry/edit forms, keypad, PIN/lock, onboa
 
 `not-ready`, `disabled` (ads.enabled), `placement-off` (ads.banner/native/interstitial/rewarded), `offline`, `screen` (allow-list per placement), `first-day` (first 24 h: banner/native/rewarded when `first_day_ads_free`; interstitial always), `data-entry`, `interval`, `daily-cap`, `too-few-items`, `first-item`.
 
+## Link AdMob to Firebase (Analytics)
+
+Firebase project `notra-pp` (Android app `app.notra.book`) already collects usage statistics (`src/analytics/`, README "Firebase Analytics"). Linking it to the AdMob app gives per-screen / per-user-segment ad revenue and impressions next to the usage data:
+
+1. AdMob console -> **Apps** -> the Notra Book Android app -> **App settings** -> **Link to Firebase** (needs Owner/Admin on AdMob and Editor/Owner on the Firebase project).
+2. Pick project **notra-pp** and the Android app `app.notra.book`; save. (Do this after the real AdMob app is created and the real app id is in the release build; the Google TEST app id cannot be linked.)
+3. In Firebase console -> Project settings -> Integrations -> AdMob check it shows as linked. Revenue shows up in Analytics -> Monetization after ~24 h.
+
+Privacy: the link shares only Google's own ad-revenue and app-instance data between the two Google products. The app still sends nothing from the diary to either (events are an allow-list, see `src/analytics/events.ts`). Analytics collection follows the Settings switch "ऐप सुधार के लिए उपयोग के आँकड़े भेजें" and Google UMP consent; ad-personalisation signals (`ad_user_data`, `ad_personalization`, `ad_storage`) stay denied until UMP resolves (`firebase.json`, `src/analytics/consent.ts`).
+
 ## AdMob console: block these categories
 
 Gambling & betting, Dating, Get rich quick, Cryptocurrency, Personal loans / financial services, Alcohol, Sexual content, Politics. (Blocking controls -> General categories / Sensitive categories.) Also keep ad content rating at PG or lower in the app (done in code).
@@ -46,7 +56,7 @@ Gambling & betting, Dating, Get rich quick, Cryptocurrency, Personal loans / fin
 { maintenance:{enabled,message_hi}, min_supported_version, latest_version, force_update_message_hi,
   announcement:{enabled,message_hi,starts_at,ends_at,level: info|warning|critical},
   ads:{enabled,banner,native,interstitial,rewarded,interstitial_min_interval_sec,native_every_n_items,first_day_ads_free},
-  features:{web_app,ocr,invitation_cards} }
+  features:{web_app,ocr,invitation_cards,analytics} }   (features.analytics, default true: false switches usage statistics off for everyone)
 ```
 
 Validated field by field (`src/remote/config.ts`), unknown fields dropped, defaults baked in, last good copy cached in SQLite settings (`remote_config_v1`), fetched on start and on foreground at most every 5 min. A missing endpoint (404) or no network changes nothing. Every API call carries `X-App-Version`, `X-Platform`, `X-OS-Version`.

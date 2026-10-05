@@ -13,6 +13,7 @@ import { getUnlocked } from '@/ledgers/session';
 import { back } from '@/nav';
 import { syncSoon } from '@/sync/runtime';
 import { colors, type } from '@/theme';
+import { track } from '@/analytics';
 
 const MAX_FILE = 50 * 1024 * 1024;
 const dbOf = async () => (await getDb()) as unknown as Db;
@@ -40,6 +41,7 @@ function Create() {
     try {
       const { getRandomBytes } = await import('expo-crypto');
       const r = await createBackup(await dbOf(), pw, getUnlocked(), { randomBytes: getRandomBytes });
+      track('backup_created');
       const FS = await import('expo-file-system');
       const file = new FS.File(FS.Paths.cache, backupFileName());
       file.create({ overwrite: true });
@@ -106,6 +108,7 @@ function Restore() {
     setMsg('');
     try {
       const rep = await restoreBackup(await dbOf(), text, pw);
+      track('backup_restored');
       setDone(rep);
       syncSoon();
     } catch (e) {

@@ -15,6 +15,7 @@ import { replace } from '@/nav';
 import { guarded } from '@/services/guard';
 import { tapLight } from '@/services/haptics';
 import { colors, spacing, type } from '@/theme';
+import { track } from '@/analytics';
 
 const INVITES: InvitationType[] = ['YELLOW_RICE', 'KUMKUM', 'CARD'];
 
@@ -63,6 +64,7 @@ export default function NewEvent() {
       });
     });
     if (e) {
+      track('event_created', { occasion, is_mine: true, is_old_record: isOld }); // closed enum + booleans only, never the label or note
       tapLight();
       setCreated(e.id);
     }

@@ -14,11 +14,13 @@ import { useLoad } from '@/hooks/use-load';
 import { usePaged } from '@/hooks/use-paged';
 import { reportMeta } from '@/services/report-meta';
 import { colors, type } from '@/theme';
+import { useReportViewed } from '@/analytics/use-analytics';
 
 const keyOf = (_: GivenRow, i: number) => String(i);
 
 /** किसको, किस दिन, कितना दिया: every दिया entry, in diary order, with the family, their program, the amount and उतार/चढ़ाव. */
 export default function GivenReport() {
+  useReportViewed('given');
   const [filter, setFilter] = useState<ReportFilter>(() => defaultFilter(todayIso()));
   const ledgerId = useActiveLedgerId();
   const range = filterRange(filter);
@@ -59,7 +61,7 @@ export default function GivenReport() {
             { label: 'कुल उतार', value: formatINR(t.utarPaise) },
             { label: 'कुल चढ़ाव', value: formatINR(t.chadhavPaise) },
           ]} />
-          <ExportBar build={build} disabled={t.count === 0} />
+          <ExportBar reportId={'given'} build={build} disabled={t.count === 0} />
         </>
       }
       data={rows} loading={loading} keyOf={keyOf} renderItem={render} onEnd={more} emptyIcon="moneyOut" emptyText="इस समय में कुछ दिया नहीं लिखा"

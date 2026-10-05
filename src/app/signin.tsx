@@ -13,6 +13,7 @@ import { getDb, setSetting, type Db } from '@/db';
 import { back, go, replace } from '@/nav';
 import { linkGoogle, signInGoogle } from '@/sync/runtime';
 import { colors, spacing, type } from '@/theme';
+import { track } from '@/analytics';
 
 const SIGNIN_PROMPTED = 'signin_prompted';
 
@@ -38,7 +39,10 @@ export default function SignIn() {
       if (link) {
         await linkGoogle(idToken);
         leave();
-      } else if (await afterSignIn(await signInGoogle(idToken))) leave();
+      } else if (await afterSignIn(await signInGoogle(idToken))) {
+        track('sign_in', { method: 'google' });
+        leave();
+      }
       else setErr(CANCELLED_MESSAGE);
     } catch (e) {
       setErr(authErrorMessage(e));

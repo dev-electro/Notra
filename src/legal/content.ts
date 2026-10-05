@@ -45,15 +45,15 @@ const privacy: LegalDoc = {
   titleEn: 'Privacy Policy',
   summary: {
     hi: [
-      'आपका हिसाब आपके फ़ोन में रहता है, ताले में (एनक्रिप्टेड)।',
-      'बैकअप चालू करें तभी हिसाब की कॉपी इंटरनेट पर जाती है।',
+      'आपका हिसाब आपके फ़ोन में रहता है, ताले में (एनक्रिप्टेड)। बैकअप चालू करें तभी उसकी कॉपी इंटरनेट पर जाती है।',
       'मुफ़्त ऐप में हिसाब के पन्नों के बाहर Google AdMob के विज्ञापन दिखते हैं। आपका हिसाब विज्ञापन वालों को कभी नहीं जाता।',
+      'ऐप कौन से पन्ने और सुविधाएँ कितनी चलती हैं, यह गिनने के लिए Google Analytics for Firebase चलता है। आपके हिसाब की कोई बात इसे कभी नहीं जाती। सेटिंग में इसे बंद कर सकते हैं।',
       'हम आपका डेटा बेचते नहीं। हम संपर्क, SMS, कॉल या लोकेशन नहीं देखते।',
     ],
     en: [
-      'Your record stays on your phone, locked (encrypted).',
-      'A copy goes online only if you turn on backup.',
+      'Your record stays on your phone, locked (encrypted). A copy goes online only if you turn on backup.',
       'The free app shows Google AdMob ads outside the diary screens. Your record is never shared with advertisers.',
+      'The app uses Google Analytics for Firebase to count which screens and features are used. Nothing from your record is ever sent to it. You can turn it off in Settings.',
       'We do not sell your data. We do not see contacts, SMS, calls or location.',
     ],
   },
@@ -140,6 +140,7 @@ const privacy: LegalDoc = {
           'SMS कंपनी: मोबाइल OTP भेजने के लिए आपका मोबाइल नंबर उन्हें जाता है, और किसी काम के लिए नहीं।',
           'सर्वर और डेटाबेस की होस्टिंग कंपनियाँ: क्लाउड बैकअप का डेटा उनके सर्वर पर रखा जाता है।',
           'Google AdMob: विज्ञापन दिखाने के लिए (नीचे "विज्ञापन" देखें)।',
+          'Google Analytics for Firebase: ऐप के पन्नों और सुविधाओं के इस्तेमाल की गिनती के लिए (नीचे "उपयोग के आँकड़े" देखें)।',
           'ऐप में कोई क्रैश-रिपोर्टिंग सेवा नहीं है। इस्तेमाल के आँकड़े हम अपने ही सर्वर पर, सिर्फ़ ऊपर बताई जानकारी से बनाते हैं (नीचे "स्टाफ़ और आँकड़े" देखें)।',
         ],
       },
@@ -150,6 +151,7 @@ const privacy: LegalDoc = {
           'SMS company: your mobile number is sent to them to deliver the OTP, for nothing else.',
           'Server and database hosting companies: cloud backup data is stored on their servers.',
           'Google AdMob: to show ads (see "Advertising" below).',
+          'Google Analytics for Firebase: to count how screens and features are used (see "Usage statistics" below).',
           'The app has no crash-reporting service. Usage statistics are made on our own server, only from the information listed above (see "Staff and statistics" below).',
         ],
       },
@@ -171,6 +173,26 @@ const privacy: LegalDoc = {
           'To show ads, Google may use your phone\'s advertising ID and general device information. Your record, family names, amounts or any entry are never sent to advertisers, and no word from your data goes into an ad request.',
           'Where the law requires it (for example in Europe), Google\'s consent form is shown, and you can change your choice in Settings under "Ad privacy options". Until consent is settled only non-personalised ads are requested. You can reset or delete the advertising ID in your phone\'s settings.',
           'Ad content is kept at PG rating or lower, and this app is not for children. Google\'s policy: https://policies.google.com/technologies/ads',
+        ],
+      },
+    },
+    {
+      hi: {
+        h: 'उपयोग के आँकड़े (Google Analytics for Firebase)',
+        p: [
+          'ऐप को बेहतर बनाने के लिए हम Google Analytics for Firebase से सिर्फ़ यह गिनते हैं कि कौन से पन्ने खुले और कौन सी सुविधाएँ इस्तेमाल हुईं (जैसे "एंट्री सेव हुई", "रिपोर्ट भेजी गई")। Google इसमें हमारी सेवा-प्रदाता है।',
+          'आपकी डायरी की कोई भी बात इसे नहीं भेजी जाती: न परिवारों या लोगों के नाम, पिता का नाम, गाँव, फ़ोन नंबर, रकम, सामान, अवसर का अपना लिखा नाम या नोट, कोई लिखा हुआ शब्द या खोज। सिर्फ़ तय, सीमित शब्द और हाँ/नहीं जैसे जवाब जाते हैं, और पन्ने का नाम भी बिना किसी असली पहचान के।',
+          'Firebase फ़ोन के लिए एक बेनाम ऐप-पहचान (app instance ID) और फ़ोन व ऐप की सामान्य जानकारी (ऐप संस्करण, Android संस्करण, फ़ोन का मॉडल, अनुमानित देश) अपने आप रखता है। हम आपका नाम, ईमेल या मोबाइल नंबर इससे नहीं जोड़ते। क्रैश रिपोर्ट इसमें शामिल नहीं हैं।',
+          'आप इसे सेटिंग में "ऐप सुधार के लिए उपयोग के आँकड़े भेजें" बंद करके कभी भी रोक सकते हैं; बंद करने पर आँकड़े भेजना रुक जाता है और फ़ोन पर रखी Firebase की पहचान मिटा दी जाती है। जहाँ क़ानून सहमति माँगता है, वहाँ Google की सहमति के बाद ही आँकड़े जाते हैं। ऐप बिना इंटरनेट के भी पूरा चलता है; आँकड़े इंटरनेट मिलने पर Google को जाते हैं। Google की नीति: https://policies.google.com/privacy',
+        ],
+      },
+      en: {
+        h: 'Usage statistics (Google Analytics for Firebase)',
+        p: [
+          'To improve the app we use Google Analytics for Firebase only to count which screens were opened and which features were used (for example "entry saved", "report sent"). Google acts as our service provider for this.',
+          'Nothing from your diary is sent to it: no names of families or people, father\'s name, village, phone number, amount, goods, your own written occasion name or note, no typed word or search. Only fixed, limited words and yes/no answers go, and the screen name carries no real identifier.',
+          'Firebase itself keeps an anonymous app-instance ID for the phone and general phone and app details (app version, Android version, phone model, approximate country). We do not link your name, email or mobile number to it. Crash reports are not included.',
+          'You can stop it any time in Settings by turning off "Send usage statistics to improve the app"; when off, nothing more is sent and the Firebase ID kept on the phone is cleared. Where the law requires consent, statistics are sent only after Google\'s consent. The app works fully without internet; statistics go to Google when the internet is available. Google\'s policy: https://policies.google.com/privacy',
         ],
       },
     },

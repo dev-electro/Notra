@@ -2,6 +2,8 @@ import React, { useCallback, useRef, useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { prepareExportInterstitial, rewardedAllowed, showExportInterstitial, watchRewardedAd } from '@/ads/service';
+import { track } from '@/analytics';
+import { pagesBucket, type ReportId } from '@/analytics/events';
 import { BigButton } from '@/components/big-button';
 import { ReportSheet, SHEET_W } from '@/components/report-sheet';
 import { Text } from '@/components/text';
@@ -28,6 +30,8 @@ const askWatch = () =>
   );
 
 interface Props {
+  /** Which report this is (a closed list, for the usage count only). */
+  reportId: ReportId;
   /** Builds the whole report (every row, from SQL) when a button is pressed; nothing is built while just looking. */
   build: () => Promise<ReportDoc>;
   disabled?: boolean;
@@ -38,7 +42,7 @@ interface Props {
  * page (~25 rows) at a time, photographs it with react-native-view-shot, and then lists the pages to send one by one (the share sheet
  * takes one file at a time). All native modules load on the first tap.
  */
-export function ExportBar({ build, disabled }: Props) {
+export function ExportBar({ build, disabled, reportId }: Props) {
   const [busy, setBusy] = useState<'pdf' | 'img' | null>(null);
   const [shot, setShot] = useState<{ page: ReportPage; watermark: boolean } | null>(null);
   const [done, setDone] = useState<{ title: string; uris: string[] } | null>(null);
@@ -50,15 +54,19 @@ export function ExportBar({ build, disabled }: Props) {
     setBusy('pdf');
     void prepareExportInterstitial();
     try {
-      const ok = await shareReportPdf(await build());
+      const doc = await build();
+      const ok = await shareReportPdf(doc);
       if (!ok) showToast('इस फ़ोन में भेजने की सुविधा नहीं मिली।');
-      else void showExportInterstitial(); // natural break: the share sheet has closed
+      else {
+        track('report_exported', { report: reportId, format: 'pdf', pages: pagesBucket(paginateDoc(doc).length) });
+        void showExportInterstitial();
+      } // natural break: the share sheet has closed
     } catch {
       showToast('PDF नहीं बन पाया। फिर कोशिश करें।');
     } finally {
       setBusy(null);
     }
-  }, [busy, build]);
+  }, [busy, build, reportId]);
 
   const images = useCallback(async () => {
     if (busy) return;
@@ -86,6 +94,7 @@ export function ExportBar({ build, disabled }: Props) {
         uris.push(await captureView(sheetRef, OUT_W, Math.max(1, Math.round((heightRef.current * OUT_W) / SHEET_W))));
       }
       setShot(null);
+      track('report_exported', { report: reportId, format: 'png', pages: pagesBucket(pages.length) });
       setDone({ title: doc.title, uris });
     } catch {
       showToast('फ़ोटो नहीं बन पाई। फिर कोशिश करें।');
@@ -93,7 +102,7 @@ export function ExportBar({ build, disabled }: Props) {
       setShot(null);
       setBusy(null);
     }
-  }, [busy, build]);
+  }, [busy, build, reportId]);
 
   const send = useCallback(async (uri: string, title: string) => {
     try {

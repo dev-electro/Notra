@@ -12,11 +12,13 @@ import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { useLoad } from '@/hooks/use-load';
 import { reportMeta } from '@/services/report-meta';
 import { colors, type } from '@/theme';
+import { useReportViewed } from '@/analytics/use-analytics';
 
 const keyOf = (r: OccasionRow) => r.occasion;
 
 /** अवसर के हिसाब से: मिला and दिया per occasion (शादी, गृहप्रवेश, मुंडन संस्कार, ...). */
 export default function OccasionReport() {
+  useReportViewed('occasion');
   const [filter, setFilter] = useState<ReportFilter>(() => defaultFilter(todayIso()));
   const ledgerId = useActiveLedgerId();
   const { data, loading } = useLoad((db, l) => sqlOccasionRange(db, l, filterRange(filter)), [] as OccasionRow[], JSON.stringify(filter));
@@ -38,7 +40,7 @@ export default function OccasionReport() {
   return (
     <ReportShell
       title="अवसर के हिसाब से"
-      header={<><RangeFilter value={filter} onChange={setFilter} /><ExportBar build={build} disabled={data.length === 0} /></>}
+      header={<><RangeFilter value={filter} onChange={setFilter} /><ExportBar reportId={'occasion'} build={build} disabled={data.length === 0} /></>}
       data={data} loading={loading} keyOf={keyOf} renderItem={render} emptyText="अभी कुछ नहीं"
     />
   );

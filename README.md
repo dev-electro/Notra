@@ -10,7 +10,7 @@ saves, void entries and optional cloud backup (see **Backend & sync**). The phon
 ## Stack
 
 Expo SDK 57, React Native 0.86 (Hermes), expo-router, TypeScript (strict), expo-sqlite with SQLCipher,
-expo-secure-store (holds the DB key), Jest (jest-expo).
+expo-secure-store (holds the DB key), Firebase Analytics (privacy allow-list, see **Firebase Analytics**), Jest (jest-expo).
 
 ## Folder layout
 
@@ -83,6 +83,20 @@ Android: `RECORD_AUDIO` only (voice entry). `READ_CONTACTS`, `READ_SMS`, `READ_C
 permissions (and `SYSTEM_ALERT_WINDOW`) are removed via `blockedPermissions`. The app still declares `INTERNET`
 (added by default, needed for the dev server and cloud backup). The SQLCipher key is generated once on the
 device and stored in the OS keystore via expo-secure-store.
+
+## Firebase Analytics
+
+`@react-native-firebase/app` + `@react-native-firebase/analytics` 26.4.0 (Expo config plugins in `app.json`; Firebase project `notra-pp`, package `app.notra.book`). Native init comes from the committed `google-services.json` (the `com.google.gms.google-services` Gradle plugin is applied during `expo prebuild`; CI/e2e/release builds just need the file in the repo root). `firebase.json` (repo root, read by Gradle) keeps auto-collection, automatic screen reports, ad ID / SSAID collection and the ad-signal consent defaults OFF; JS turns collection on after the first render (`src/analytics/`).
+
+* `src/analytics/events.ts`: closed allow-list of events and params + sanitizer (unknown events/params dropped, strings over 40 chars or with 4+ digits in a row rejected). **Nothing from the diary is ever sent** (no names, villages, phones, amounts, items, labels, notes, text, ids). No user id, no user properties.
+* Collection = Settings switch "ऐप सुधार के लिए उपयोग के आँकड़े भेजें" (default on) AND remote `features.analytics` (default true) AND not blocked by Google UMP (`consent.ts`). Missing native module (Expo Go, jest) = silent no-op. Adding an event: add it to `EVENTS`, call `track(...)`, update the Play Data Safety notes and `src/legal/content.ts` if the data kinds change.
+* Screen views use route templates from `useSegments()` (`/events/[id]`, never real ids); a test checks the list against `src/app`.
+* **iOS** needs its own `GoogleService-Info.plist` (not created yet): put it at the repo root as `GoogleService-Info.plist`; `app.config.js` then sets `ios.googleServicesFile` and uses the full Firebase plugin automatically. Until then only the Android half of the plugin runs (`plugins/withFirebaseAndroid.js`) so iOS prebuild does not fail; Analytics calls on iOS are a no-op until the plist exists.
+* Link the AdMob app to this Firebase project: see `docs/ADS.md`.
+
+### Security note: the Firebase API key
+
+The `current_key` in `google-services.json` is **not a secret**; it ships inside every APK. Do restrict it in Google Cloud Console -> APIs & Services -> Credentials (project `notra-pp`): Application restrictions = **Android apps** with package `app.notra.book` plus the SHA-1 fingerprint(s) of every signing key (upload key, Play app-signing key, debug key if you test with it), and API restrictions = only the Firebase APIs in use (Firebase Installations API, Firebase Remote Config API if added later, Google Analytics / Firebase management APIs as the console suggests). Also keep the project's Firestore/Storage rules closed (the app uses neither).
 
 ## Phase 1 screens (Stage 2)
 

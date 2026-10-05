@@ -13,6 +13,7 @@ import { useLoad } from '@/hooks/use-load';
 import { go } from '@/nav';
 import { getSyncStatus, setBackup, signOut, syncSoon, type SyncStatus } from '@/sync/runtime';
 import { colors, spacing, type } from '@/theme';
+import { getAnalyticsOptIn, setAnalyticsOptIn, subscribeAnalyticsOptIn, track } from '@/analytics';
 
 const fmt = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('hi-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : 'अभी तक नहीं';
@@ -28,12 +29,14 @@ export default function Settings() {
   }, [reload]);
 
   const ads = useSyncExternalStore(subscribeAds, getAdsState, getAdsState);
+  const stats = useSyncExternalStore(subscribeAnalyticsOptIn, getAnalyticsOptIn, getAnalyticsOptIn);
   const signedIn = !!st?.user;
   const on = !!st?.enabled && signedIn;
 
   const toggle = async () => {
     if (!signedIn) return go('/signin');
     await setBackup(!on);
+    track(on ? 'cloud_backup_disabled' : 'cloud_backup_enabled');
     await load();
   };
 
@@ -100,6 +103,21 @@ export default function Settings() {
           ऐप मुफ़्त रखने के लिए कुछ पन्नों (घर, हिसाब और लंबी सूचियों) पर Google के विज्ञापन दिखते हैं। एंट्री, पिन और सेटिंग के पन्नों पर कभी नहीं। आपका हिसाब विज्ञापन वालों को नहीं जाता।
         </Text>
       </Card>
+      <Card testID="info-analytics">
+        <Text style={type.bodyBold}>उपयोग के आँकड़े</Text>
+        <Text style={[type.caption, styles.muted]}>
+          ऐप कौन से पन्ने और सुविधाएँ कितनी चलती हैं, यह गिनने के लिए Google Analytics for Firebase। आपके हिसाब की कोई बात (नाम, गाँव, फ़ोन, रकम) कभी नहीं जाती। जब चाहें बंद करें।
+        </Text>
+      </Card>
+      <BigButton
+        testID="toggle-analytics"
+        tone={stats ? 'plain' : 'primary'}
+        icon={stats ? 'check' : 'lock'}
+        label="ऐप सुधार के लिए उपयोग के आँकड़े भेजें"
+        selected={stats}
+        hint={stats ? 'अभी चालू है, दबाकर बंद करें' : 'अभी बंद है, दबाकर चालू करें'}
+        onPress={() => void setAnalyticsOptIn(!stats)}
+      />
       {ads.privacyOptions ? <SettingRow icon="lock" label="विज्ञापन गोपनीयता विकल्प" sub="विज्ञापन के लिए अपनी सहमति बदलें" onPress={() => void showPrivacyOptions()} /> : null}
       <SettingRow icon="lock" label="गोपनीयता नीति" onPress={() => go('/legal/privacy')} />
       <SettingRow icon="doc" label="नियम व शर्तें" onPress={() => go('/legal/terms')} />

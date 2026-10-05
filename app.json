@@ -38,7 +38,8 @@
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.MANAGE_EXTERNAL_STORAGE",
         "android.permission.SYSTEM_ALERT_WINDOW"
-      ]
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "plugins": [
       "expo-router",
@@ -71,6 +72,8 @@
         }
       ],
       "expo-secure-store",
+      "@react-native-firebase/app",
+      "@react-native-firebase/analytics",
       [
         "@react-native-google-signin/google-signin",
         {

@@ -12,11 +12,13 @@ import { useLoad } from '@/hooks/use-load';
 import { usePaged } from '@/hooks/use-paged';
 import { reportMeta } from '@/services/report-meta';
 import { colors, type } from '@/theme';
+import { useReportViewed } from '@/analytics/use-analytics';
 
 const keyOf = (r: SelfLedgerRow) => r.entry.id;
 
 /** मेरा खाता: every entry in diary order with the running total (मिला minus दिया). Newest first on screen. */
 export default function SelfReport() {
+  useReportViewed('self');
   const [filter, setFilter] = useState<ReportFilter>(() => defaultFilter(todayIso()));
   const ledgerId = useActiveLedgerId();
   const key = JSON.stringify(filter);
@@ -49,7 +51,7 @@ export default function SelfReport() {
   return (
     <ReportShell
       title="मेरा खाता (क्रम से)"
-      header={<><RangeFilter value={filter} onChange={setFilter} /><Text style={[type.caption, styles.muted]}>नया ऊपर। जोड़ में अब तक का हिसाब।</Text><ExportBar build={build} disabled={rows.length === 0} /></>}
+      header={<><RangeFilter value={filter} onChange={setFilter} /><Text style={[type.caption, styles.muted]}>नया ऊपर। जोड़ में अब तक का हिसाब।</Text><ExportBar reportId={'self'} build={build} disabled={rows.length === 0} /></>}
       data={rows} loading={loading} keyOf={keyOf} renderItem={render} onEnd={more} emptyText="अभी कुछ नहीं"
     />
   );

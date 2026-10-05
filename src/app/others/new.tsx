@@ -15,6 +15,7 @@ import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { replace } from '@/nav';
 import { guarded } from '@/services/guard';
 import { colors, spacing, type } from '@/theme';
+import { track } from '@/analytics';
 
 /**
  * नए नोतरे में गए: I went to ANOTHER family's program, so here I only GIVE. Pick the family (the host), then the occasion and
@@ -49,7 +50,10 @@ export default function NewVisit() {
       const db = (await getDb()) as unknown as Db;
       return findOrCreateEvent(db, { ledgerId, hostHouseholdId: host.id, occasion, occasionLabel: label, occasionNote: note, date });
     });
-    if (ev) replace(`/entry/new?eventId=${ev.id}&householdId=${host.id}${isOld ? '&old=1' : ''}`);
+    if (ev) {
+      if (ev.createdAt && Date.now() - Date.parse(ev.createdAt) < 10_000) track('event_created', { occasion, is_mine: false, is_old_record: isOld }); // only when it was just created
+      replace(`/entry/new?eventId=${ev.id}&householdId=${host.id}${isOld ? '&old=1' : ''}`);
+    }
   };
 
   return (

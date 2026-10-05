@@ -32,7 +32,7 @@ describe('legal text', () => {
     }
     // it must not promise things the app does not do
     expect(en).not.toMatch(/we (use|collect) (your )?(contacts|location)/i);
-    expect(en).not.toMatch(/analytics (are|is) used|we use analytics/i);
+    expect(en).not.toMatch(/analytics (are|is) used|we use analytics/i); // analytics is described precisely (Google Analytics for Firebase), see the next test
   });
 
   it('privacy text describes the ads and the admin / support access honestly', () => {
@@ -46,6 +46,21 @@ describe('legal text', () => {
     }
     expect(en).not.toMatch(/app has no ads|shows no ads/i);
     expect(hi).not.toContain('कोई विज्ञापन नहीं है');
+  });
+
+  it('privacy text describes Google Analytics for Firebase honestly: no diary content, switch in Settings', () => {
+    const hi = all('privacy', 'hi');
+    const en = all('privacy', 'en');
+    for (const must of ['Google Analytics for Firebase', 'उपयोग के आँकड़े', 'बेनाम ऐप-पहचान', 'ऐप सुधार के लिए उपयोग के आँकड़े भेजें', 'क्रैश रिपोर्ट इसमें शामिल नहीं', 'फ़ोन नंबर, रकम']) {
+      expect(new RegExp(must).test(hi)).toBe(true);
+    }
+    for (const must of ['Google Analytics for Firebase', 'Usage statistics', 'anonymous app-instance ID', 'Send usage statistics to improve the app', 'Crash reports are not included', 'phone number, amount']) {
+      expect(new RegExp(must, 'i').test(en)).toBe(true);
+    }
+    const sum = LEGAL.privacy.summary;
+    expect(sum.hi.some((l) => l.includes('Google Analytics for Firebase'))).toBe(true);
+    expect(sum.en.some((l) => l.includes('Google Analytics for Firebase'))).toBe(true);
+    expect(sum.hi.length).toBe(sum.en.length);
   });
 
   it('grievance officer: placeholder name/email/phone and the 30-day response time', () => {

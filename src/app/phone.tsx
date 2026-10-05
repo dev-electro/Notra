@@ -9,6 +9,7 @@ import { afterSignIn, CANCELLED_MESSAGE } from '@/auth/after-signin';
 import { back, replace } from '@/nav';
 import { linkPhone, otpStart, otpVerify } from '@/sync/runtime';
 import { BORDER_TONE, colors, MIN_TOUCH, radius, spacing, type } from '@/theme';
+import { track } from '@/analytics';
 
 const RESEND_S = 30;
 
@@ -51,7 +52,10 @@ export default function Phone() {
       if (link) {
         await linkPhone(num, c);
         back();
-      } else if (await afterSignIn(await otpVerify(num, c))) replace('/');
+      } else if (await afterSignIn(await otpVerify(num, c))) {
+        track('sign_in', { method: 'phone' });
+        replace('/');
+      }
       else {
         setErr(CANCELLED_MESSAGE);
         setCode('');

@@ -15,12 +15,14 @@ import { useLoad } from '@/hooks/use-load';
 import { usePaged } from '@/hooks/use-paged';
 import { reportMeta } from '@/services/report-meta';
 import { colors, type } from '@/theme';
+import { useReportViewed } from '@/analytics/use-analytics';
 
 const keyOf = (_: GuestRow, i: number) => String(i);
 const eventLabel = (e: NotraEvent) => `${isLegacyEventId(e.id) ? LEGACY_EVENT_LABEL : occasionName(e.occasion, e.occasionLabel)} · ${displayDate(e.date)}`;
 
 /** मेरे प्रोग्राम में कौन आया: pick one of my programs, then every family that came, what they gave, उतार/चढ़ाव, totals. */
 export default function GuestsReport() {
+  useReportViewed('guests');
   const { eventId: param } = useLocalSearchParams<{ eventId?: string }>();
   const [eventId, setEventId] = useState<string | null>(param ?? null);
   if (!eventId) return <EventPicker title="किसके नोतरे की रिपोर्ट?" onPick={(c) => setEventId(c.event.id)} />;
@@ -63,7 +65,7 @@ function Report({ eventId, onChange }: { eventId: string; onChange: () => void }
             { label: 'कुल उतार', value: formatINR(t.utarPaise) },
             { label: 'कुल चढ़ाव', value: formatINR(t.chadhavPaise) },
           ]} />
-          <ExportBar build={build} disabled={t.givers === 0} />
+          <ExportBar reportId={'guests'} build={build} disabled={t.givers === 0} />
         </>
       }
       data={rows} loading={loading} keyOf={keyOf} renderItem={render} onEnd={more} emptyIcon="families" emptyText="इस नोतरे में अभी किसी की एंट्री नहीं"

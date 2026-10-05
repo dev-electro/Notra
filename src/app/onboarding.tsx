@@ -10,6 +10,7 @@ import { replace } from '@/nav';
 import { ONBOARDING_CARDS } from '@/onboarding/content';
 import { speak, stopSpeaking } from '@/services/speech';
 import { BORDER_TONE, colors, GUTTER, spacing, type } from '@/theme';
+import { track } from '@/analytics';
 
 const DOT = 16;
 
@@ -27,8 +28,9 @@ export default function Onboarding() {
     return () => void stopSpeaking();
   }, [card]);
 
-  const finish = useCallback(async () => {
+  const finish = useCallback(async (skipped: boolean) => {
     void stopSpeaking();
+    track(skipped ? 'onboarding_skip' : 'onboarding_complete');
     try {
       await setSetting((await getDb()) as unknown as Db, 'onboarding_seen', '1');
     } catch {
@@ -57,10 +59,10 @@ export default function Onboarding() {
         </View>
         <BottomBar>
           <View style={styles.buttons}>
-            <BigButton tone="primary" icon={last ? 'check' : 'chevron'} label={last ? 'शुरू करें' : 'आगे'} hint={last ? 'ऐप शुरू करें' : 'अगला पन्ना'} onPress={last ? finish : () => setI(i + 1)} />
+            <BigButton tone="primary" icon={last ? 'check' : 'chevron'} label={last ? 'शुरू करें' : 'आगे'} hint={last ? 'ऐप शुरू करें' : 'अगला पन्ना'} onPress={last ? () => void finish(false) : () => setI(i + 1)} />
             <View style={styles.row}>
               <BigButton compact icon="speaker" label="फिर से सुनें" hint="यह पन्ना फिर से बोलकर सुनाएगा" onPress={() => void speak(card.speech)} />
-              <BigButton compact label="छोड़ें" hint="सब पन्ने छोड़कर आगे जाएँ" onPress={finish} />
+              <BigButton compact label="छोड़ें" hint="सब पन्ने छोड़कर आगे जाएँ" onPress={() => void finish(true)} />
             </View>
           </View>
         </BottomBar>

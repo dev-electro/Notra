@@ -12,6 +12,8 @@ import { showToast } from '@/services/toast';
 import { CATEGORIES, draftProblems, MESSAGE_MAX, SUBJECT_MAX, type SupportCategory } from '@/support/logic';
 import { submitSupport } from '@/support/service';
 import { colors, spacing, type } from '@/theme';
+import { track } from '@/analytics';
+import { supportCategory } from '@/analytics/events';
 
 /**
  * शिकायत / सुझाव: category chips, a subject and a message, sent to POST /v1/support. It needs a signed-in account (so we can
@@ -37,6 +39,7 @@ export default function Support() {
     setErr('');
     try {
       const r = await submitSupport({ category, subject, message });
+      track('support_ticket_submitted', { category: supportCategory(category) });
       setResult(r);
       if (r === 'sent') showToast('आपकी बात हम तक पहुँच गई');
     } catch {

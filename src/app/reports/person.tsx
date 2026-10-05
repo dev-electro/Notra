@@ -16,6 +16,7 @@ import { usePaged } from '@/hooks/use-paged';
 import { go } from '@/nav';
 import { reportMeta } from '@/services/report-meta';
 import { colors, type } from '@/theme';
+import { useReportViewed } from '@/analytics/use-analytics';
 
 type Row = Awaited<ReturnType<typeof sqlPersonRange>>[number];
 const keyOf = (r: Row) => r.householdId;
@@ -25,6 +26,7 @@ const keyOf = (r: Row) => r.householdId;
  * two-sided ledger (which can be sent as a PDF / photo).
  */
 export function PersonReport({ pending }: { pending: boolean }) {
+  useReportViewed(pending ? 'pending' : 'person');
   const [filter, setFilter] = useState<ReportFilter>(() => defaultFilter(todayIso()));
   const ledgerId = useActiveLedgerId();
   const key = JSON.stringify(filter) + pending;
@@ -87,7 +89,7 @@ export function PersonReport({ pending }: { pending: boolean }) {
           <SummaryCard lines={pending
             ? [{ label: `कुल लौटाना बाकी (${tot.n} परिवार)`, value: formatINR(tot.pend), tone: 'given' }]
             : [{ label: `कुल मिला (${tot.n} परिवार)`, value: formatINR(tot.rec), tone: 'received' }, { label: 'कुल दिया', value: formatINR(tot.giv), tone: 'given' }]} />
-          <ExportBar build={build} disabled={tot.n === 0} />
+          <ExportBar reportId={pending ? 'pending' : 'person'} build={build} disabled={tot.n === 0} />
         </>
       }
       data={rows} loading={loading} keyOf={keyOf} renderItem={render} onEnd={more} emptyIcon="families" emptyText={pending ? 'कुछ भी लौटाना बाकी नहीं' : 'अभी कुछ नहीं'}
