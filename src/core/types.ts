@@ -8,14 +8,23 @@ export type EventStatus = 'PLANNED' | 'HELD' | 'SETTLED';
 export type Direction = 'AAYA' | 'GAYA'; // AAYA = received by me, GAYA = given by me
 export type PaymentMode = 'CASH' | 'UPI';
 
+export type HouseholdKind = 'FAMILY' | 'PERSON';
+
 export interface Household {
   id: string;
   headName: string;
   fatherName: string;
   jati: string;
-  atak: string;
+  /** @deprecated old address field; kept so old data, backups and sync still load. Never shown. */
+  atak?: string;
   village: string;
-  fala: string;
+  /** @deprecated old address field; kept so old data, backups and sync still load. Never shown. */
+  fala?: string;
+  panchayat: string;
+  tehsil: string;
+  district: string;
+  /** whole family (परिवार) or a single person (व्यक्ति) */
+  kind: HouseholdKind;
   phone?: string;
   photoUri?: string;
   createdAt?: string;

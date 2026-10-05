@@ -268,6 +268,13 @@ export const MIGRATIONS: readonly string[] = [
       FROM active_entries a
     ) s;
   `,
+  // v8: Indian administrative address (panchayat/tehsil/district) and FAMILY vs PERSON; atak/fala stay as deprecated columns
+  `
+  ALTER TABLE households ADD COLUMN panchayat TEXT NOT NULL DEFAULT '';
+  ALTER TABLE households ADD COLUMN tehsil TEXT NOT NULL DEFAULT '';
+  ALTER TABLE households ADD COLUMN district TEXT NOT NULL DEFAULT '';
+  ALTER TABLE households ADD COLUMN kind TEXT NOT NULL DEFAULT 'FAMILY';
+  `,
 ];
 
 export const LATEST_VERSION = MIGRATIONS.length;

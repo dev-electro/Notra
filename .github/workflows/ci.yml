@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: ['**']
+    paths-ignore: ['docs/**', '**/*.md', 'admin/**']
   pull_request:
     branches: [main]
+    paths-ignore: ['docs/**', '**/*.md', 'admin/**']
   workflow_dispatch:
 
 concurrency:
@@ -53,6 +55,8 @@ jobs:
 
   android-apk:
     needs: checks
+    # One APK build per commit: the push run builds (and publishes) it, so skip the duplicate PR run for same-repo branches.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -79,10 +83,17 @@ jobs:
         run: npx expo prebuild --platform android --no-install
         env:
           CI: '1'
+          NOTRA_FAST_TEST: '1' # skip release lint in the test APK (plugins/withFastTestBuild.js)
           NOTRA_ADS_TEST: '1' # test builds never carry real AdMob ids (docs/ADS.md)
       - name: Build release APK (debug-signed, for testing only)
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon --build-cache --parallel
+        # Test APK only: arm64 alone (about half the native compile) and no R8/resource shrinking (several minutes).
+        # The Play release (release.yml) still builds both ABIs with R8.
+        run: >-
+          ./gradlew assembleRelease --no-daemon --build-cache --parallel
+          -PreactNativeArchitectures=arm64-v8a
+          -Pandroid.enableProguardInReleaseBuilds=false
+          -Pandroid.enableShrinkResourcesInReleaseBuilds=false
       - uses: actions/upload-artifact@v4
         with:
           name: notra-book-apk

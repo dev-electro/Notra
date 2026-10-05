@@ -220,7 +220,7 @@ export async function sqlEventSummaries(db: Db, ledgerId: string): Promise<Recor
 
 type HRow = {
   id: string; head_name: string; father_name: string; jati: string; atak: string; village: string;
-  fala: string; phone: string | null; photo_uri: string | null; created_at: string; updated_at: string;
+  fala: string; panchayat: string; tehsil: string; district: string; kind: string; phone: string | null; photo_uri: string | null; created_at: string; updated_at: string;
 };
 
 const PHONE_DIGITS = "replace(replace(replace(replace(replace(replace(COALESCE(phone, ''), ' ', ''), '-', ''), '+', ''), '(', ''), ')', ''), '.', '')";
@@ -241,8 +241,8 @@ export async function searchHouseholds(db: Db, query: string, limit: number, off
   } else {
     for (const tok of ps.tokens) {
       const digits = /^\d{3,}$/.test(tok) ? phoneSearchDigits(tok) : '';
-      conds.push(`(instr(lower(head_name), ?) > 0 OR instr(lower(father_name), ?) > 0 OR instr(lower(village), ?) > 0 OR instr(lower(fala), ?) > 0${digits ? ` OR instr(${PHONE_DIGITS}, ?) > 0` : ''})`);
-      params.push(tok, tok, tok, tok);
+      conds.push(`(instr(lower(head_name), ?) > 0 OR instr(lower(father_name), ?) > 0 OR instr(lower(village), ?) > 0 OR instr(lower(panchayat), ?) > 0 OR instr(lower(tehsil), ?) > 0 OR instr(lower(district), ?) > 0${digits ? ` OR instr(${PHONE_DIGITS}, ?) > 0` : ''})`);
+      params.push(tok, tok, tok, tok, tok, tok);
       if (digits) params.push(tok.replace(/\D/g, ''));
     }
   }
@@ -256,7 +256,7 @@ export async function searchHouseholds(db: Db, query: string, limit: number, off
   );
   return rows.map((r) => ({
     id: r.id, headName: r.head_name, fatherName: r.father_name, jati: r.jati, atak: r.atak, village: r.village,
-    fala: r.fala, phone: r.phone ?? undefined, photoUri: r.photo_uri ?? undefined,
+    fala: r.fala, panchayat: r.panchayat, tehsil: r.tehsil, district: r.district, kind: r.kind === 'PERSON' ? 'PERSON' : 'FAMILY', phone: r.phone ?? undefined, photoUri: r.photo_uri ?? undefined,
     createdAt: r.created_at, updatedAt: r.updated_at,
   }));
 }

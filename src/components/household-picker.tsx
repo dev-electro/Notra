@@ -4,6 +4,7 @@ import { BigButton } from '@/components/big-button';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
+import { Icon } from '@/components/icons';
 import { HOUSEHOLD_ROW_HEIGHT, HouseholdRow } from '@/components/household-row';
 import { BottomBar, listContent } from '@/components/screen';
 import { Text } from '@/components/text';
@@ -36,7 +37,7 @@ export function HouseholdPicker({ onPick, headline, top }: Props) {
   const [limit, setLimit] = useState(PAGE);
   const [rows, setRows] = useState<Household[]>([]);
   const [adding, setAdding] = useState(false);
-  const [draft, setDraft] = useState({ name: '', father: '', village: '' });
+  const [draft, setDraft] = useState({ name: '', father: '', village: '', kind: 'FAMILY' as Household['kind'] });
   const [voice, setVoice] = useState<ResolvedVoiceEntry | null>(null);
 
   useEffect(() => {
@@ -70,7 +71,7 @@ export function HouseholdPicker({ onPick, headline, top }: Props) {
       const r = resolveVoiceEntry(text, await listHouseholds(db));
       setVoice(r);
       if (!r.matches.length) {
-        setDraft({ name: r.parsed.name ?? '', father: r.parsed.fatherName ?? '', village: r.parsed.village ?? '' });
+        setDraft({ name: r.parsed.name ?? '', father: r.parsed.fatherName ?? '', village: r.parsed.village ?? '', kind: 'FAMILY' });
         setAdding(true);
       }
     } catch {
@@ -83,7 +84,7 @@ export function HouseholdPicker({ onPick, headline, top }: Props) {
     const db = (await getDb()) as unknown as Db;
     const h = await createHousehold(db, {
       headName: draft.name.trim(), fatherName: draft.father.trim(), village: draft.village.trim(),
-      jati: '', atak: '', fala: '',
+      jati: '', kind: draft.kind,
     });
     onPick(h, amount);
   }, [draft, onPick, amount]);
@@ -96,12 +97,12 @@ export function HouseholdPicker({ onPick, headline, top }: Props) {
       <View style={styles.header}>
         {top}
         {headline ? <Text style={[type.heading, styles.headline]}>{headline}</Text> : null}
-        <Field testID="picker-search" label="खोजें (नाम, पिता, गाँव, मोबाइल)" value={query} onChangeText={onSearch} />
+        <Field testID="picker-search" label="खोजें (नाम, पिता, गाँव, मोबाइल)" leading={<Icon name="search" size={24} color={colors.muted} />} value={query} onChangeText={onSearch} />
         <VoiceButton onTranscript={onTranscript} />
         {voice ? (
           <Card tint="haldi" style={styles.voiceBox}>
             <Text style={[type.bodyBold, styles.voiceTitle]}>
-              {voice.matches.length ? 'क्या ये वही हैं? चुनें' : 'नया परिवार जोड़ें'}
+              {voice.matches.length ? 'क्या ये वही हैं? चुनें' : 'नया जोड़ें'}
               {voice.parsed.amountRupees ? `  (₹${voice.parsed.amountRupees})` : ''}
             </Text>
             {voice.matches.map((m) => (
@@ -111,6 +112,10 @@ export function HouseholdPicker({ onPick, headline, top }: Props) {
         ) : null}
         {adding ? (
           <Card style={styles.addBox}>
+            <View style={styles.kindRow}>
+              <View style={styles.flex}><BigButton testID="picker-kind-family" compact label="परिवार" selected={draft.kind === 'FAMILY'} onPress={() => setDraft((d) => ({ ...d, kind: 'FAMILY' }))} /></View>
+              <View style={styles.flex}><BigButton testID="picker-kind-person" compact label="व्यक्ति" selected={draft.kind === 'PERSON'} onPress={() => setDraft((d) => ({ ...d, kind: 'PERSON' }))} /></View>
+            </View>
             <Field testID="picker-new-name" label="नाम" value={draft.name} onChangeText={(name) => setDraft((d) => ({ ...d, name }))} />
             <Field testID="picker-new-father" label="पिता का नाम" value={draft.father} onChangeText={(father) => setDraft((d) => ({ ...d, father }))} />
             <Field testID="picker-new-village" label="गाँव" value={draft.village} onChangeText={(village) => setDraft((d) => ({ ...d, village }))} />
@@ -152,6 +157,7 @@ export function HouseholdPicker({ onPick, headline, top }: Props) {
 }
 
 const styles = StyleSheet.create({
+  kindRow: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1 },
   header: { gap: spacing.md, paddingBottom: spacing.md },
   headline: { color: colors.ink },

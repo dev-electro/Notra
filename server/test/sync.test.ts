@@ -5,7 +5,7 @@ const DEFAULT = '00000000-0000-4000-8000-000000000001';
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const T = (s: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, s)).toISOString();
 const hh = (n: number, name = `H${n}`, upd = T(0)) => ({
-  id: id(n), headName: name, fatherName: 'कालू', jati: 'भील', atak: 'डामोर', village: 'सरवन', fala: 'ऊपला', phone: null, createdAt: T(0), updatedAt: upd,
+  id: id(n), headName: name, fatherName: 'कालू', jati: 'भील', atak: 'डामोर', village: 'सरवन', fala: 'ऊपला', panchayat: 'पंचायत', tehsil: 'तहसील', district: 'ज़िला', kind: 'PERSON', phone: null, createdAt: T(0), updatedAt: upd,
 });
 const ev = (n: number, host: number, status = 'PLANNED', upd = T(0)) => ({
   id: id(n), hostHouseholdId: id(host), occasion: 'SHAADI', date: '2026-11-21', panchApproved: true, invitationType: 'KUMKUM',

@@ -21,15 +21,17 @@ type Spec = readonly (string | number)[] | 'boolean';
 
 const SIGN_IN_METHODS = ['google', 'phone'] as const;
 const SIDES = ['mine_receive', 'others_give'] as const;
+/** Module ids for feature_interest (short, no digits). */
+export const MODULE_VALUES = ['notra', 'rishtey', 'checkin', 'rewards', 'referral', 'videos'] as const;
 const FORMATS = ['png', 'pdf'] as const;
 
 /** Route templates ("/events/[id]", never a real id). tests/analytics.test.ts checks this list against the files in src/app. */
 export const SCREENS = [
-  '/', '/mera', '/doosre', '/hisab',
+  '/', '/mera', '/doosre', '/hisab', '/inaam',
   '/account-delete', '/app-lock', '/backup', '/entry/new', '/events/[id]', '/events/[id]/ledger', '/events/new',
   '/households/[id]', '/households/edit', '/households', '/ledger/[direction]', '/ledgers', '/legal/[id]', '/old', '/onboarding',
   '/others/new', '/phone', '/reports/given', '/reports/guests', '/reports/notcome', '/reports/occasion', '/reports/pending',
-  '/reports/person', '/reports/self', '/reports/year', '/settings', '/setup', '/signin', '/support-access', '/support', '/sync-errors',
+  '/reports/person', '/reports/self', '/reports/year', '/settings', '/setup', '/signin', '/soon/[id]', '/support-access', '/support', '/sync-errors',
 ] as const;
 
 export const EVENTS = {
@@ -52,6 +54,7 @@ export const EVENTS = {
   support_ticket_submitted: { category: SUPPORT_CATEGORY_VALUES },
   support_access_granted: { days: SUPPORT_DAYS },
   ad_reward_earned: {},
+  feature_interest: { module: MODULE_VALUES },
 } as const satisfies Record<string, Record<string, Spec>>;
 
 export type EventName = keyof typeof EVENTS;

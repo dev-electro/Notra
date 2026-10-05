@@ -8,7 +8,7 @@ import type { Entry, Household, NotraEvent } from '../types';
 const ev = (id: string, date: string): NotraEvent => ({
   id, hostHouseholdId: 'me', occasion: 'SHAADI', date, panchApproved: true, invitationType: 'KUMKUM', status: 'PLANNED',
 });
-const hh: Household = { id: 'h1', headName: 'रमेश <b>', fatherName: 'कालू', village: 'सरवन', jati: 'भील', atak: 'डामोर', fala: 'ऊपला' };
+const hh: Household = { id: 'h1', headName: 'रमेश <b>', fatherName: 'कालू', village: 'सरवन', jati: 'भील', atak: 'डामोर', fala: 'ऊपला', panchayat: '', tehsil: '', district: '', kind: 'FAMILY' };
 const entry = (id: string, dir: 'AAYA' | 'GAYA', cash: number, extra: Partial<Entry> = {}): Entry => ({
   id, otherHouseholdId: 'h1', direction: dir, cashPaise: cash, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'me',
   createdAt: `2026-01-0${id}T00:00:00Z`, ...extra,

@@ -5,7 +5,7 @@ export const SUPPORT_VIEW_PREFIX = '/support-view/';
 
 const TABLES = {
   ledgers: 'SELECT id, name, kind, created_at, updated_at FROM ledgers WHERE user_id = $1 ORDER BY created_at, id',
-  households: 'SELECT id, head_name, father_name, jati, atak, village, fala, phone, created_at, updated_at FROM households WHERE user_id = $1 ORDER BY created_at, id',
+  households: 'SELECT id, head_name, father_name, jati, atak, village, fala, panchayat, tehsil, district, kind, phone, created_at, updated_at FROM households WHERE user_id = $1 ORDER BY created_at, id',
   events: 'SELECT id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at FROM events WHERE user_id = $1 ORDER BY created_at, id',
   entries: `SELECT id, event_id, other_household_id, direction, cash_paise::float8 AS cash_paise, in_kind_item, in_kind_value_paise::float8 AS in_kind_value_paise,
             payment_mode, recorded_by, created_at, corrects_entry_id, is_void, ledger_id FROM entries WHERE user_id = $1 ORDER BY created_at, id`,

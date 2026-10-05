@@ -81,8 +81,8 @@ describe('balances', () => {
 });
 
 const hs: Household[] = [
-  { id: 'h1', headName: 'Suresh', fatherName: 'Kalu', jati: 'Bhil', atak: 'Damor', village: 'Sarwan', fala: 'Upla' },
-  { id: 'h2', headName: 'Ramesh', fatherName: 'Dhula', jati: 'Bhil', atak: 'Katara', village: 'Kherwara', fala: 'Nichla' },
+  { id: 'h1', headName: 'Suresh', fatherName: 'Kalu', jati: 'Bhil', atak: 'Damor', village: 'Sarwan', fala: 'Upla', panchayat: '', tehsil: '', district: '', kind: 'FAMILY' },
+  { id: 'h2', headName: 'Ramesh', fatherName: 'Dhula', jati: 'Bhil', atak: 'Katara', village: 'Kherwara', fala: 'Nichla', panchayat: '', tehsil: '', district: '', kind: 'FAMILY' },
 ];
 const evs: NotraEvent[] = [
   { id: 'ev1', hostHouseholdId: 'me', occasion: 'SHAADI', date: '2026-02-01', panchApproved: true, invitationType: 'YELLOW_RICE', status: 'HELD' },

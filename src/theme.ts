@@ -50,8 +50,8 @@ export const BORDER = 1;
 /** Coloured outline width for tone buttons (indigo / kumkum). */
 export const BORDER_TONE = 2;
 
-/** Minimum touch target (dp), bigger than Material's 48 for older hands. */
-export const MIN_TOUCH = 64;
+/** Minimum touch target (dp), a bit bigger than Material's 48. */
+export const MIN_TOUCH = 56;
 /** Screen side padding. */
 export const GUTTER = spacing.md;
 /** Press feedback duration (ms). */
@@ -66,19 +66,19 @@ export const fonts = { medium: 'Mukta-Medium', bold: 'Mukta-Bold' } as const;
 const t = (s: TextStyle): TextStyle => s;
 const tabular: TextStyle['fontVariant'] = ['tabular-nums'];
 
-/** Type scale (sp). Nothing below 18. Line heights are ~1.45x because Devanagari matras need headroom. */
+/** Type scale (sp). Nothing below 16. Line heights are ~1.45x because Devanagari matras need headroom. */
 export const type = {
-  amountXL: t({ fontFamily: fonts.bold, fontSize: 56, lineHeight: 72, fontVariant: tabular }),
-  amount: t({ fontFamily: fonts.bold, fontSize: 40, lineHeight: 56, fontVariant: tabular }),
-  title: t({ fontFamily: fonts.bold, fontSize: 26, lineHeight: 38 }),
-  heading: t({ fontFamily: fonts.bold, fontSize: 22, lineHeight: 32 }),
-  button: t({ fontFamily: fonts.bold, fontSize: 20, lineHeight: 28 }),
-  body: t({ fontFamily: fonts.medium, fontSize: 20, lineHeight: 30 }),
-  bodyBold: t({ fontFamily: fonts.bold, fontSize: 20, lineHeight: 30 }),
-  caption: t({ fontFamily: fonts.medium, fontSize: 18, lineHeight: 26 }),
-  captionBold: t({ fontFamily: fonts.bold, fontSize: 18, lineHeight: 26 }),
-  key: t({ fontFamily: fonts.bold, fontSize: 32, lineHeight: 44, fontVariant: tabular }),
-  money: t({ fontFamily: fonts.bold, fontSize: 24, lineHeight: 34, fontVariant: tabular }),
+  amountXL: t({ fontFamily: fonts.bold, fontSize: 48, lineHeight: 64, fontVariant: tabular }),
+  amount: t({ fontFamily: fonts.bold, fontSize: 34, lineHeight: 48, fontVariant: tabular }),
+  title: t({ fontFamily: fonts.bold, fontSize: 23, lineHeight: 34 }),
+  heading: t({ fontFamily: fonts.bold, fontSize: 20, lineHeight: 30 }),
+  button: t({ fontFamily: fonts.bold, fontSize: 18, lineHeight: 26 }),
+  body: t({ fontFamily: fonts.medium, fontSize: 18, lineHeight: 27 }),
+  bodyBold: t({ fontFamily: fonts.bold, fontSize: 18, lineHeight: 27 }),
+  caption: t({ fontFamily: fonts.medium, fontSize: 16, lineHeight: 24 }),
+  captionBold: t({ fontFamily: fonts.bold, fontSize: 16, lineHeight: 24 }),
+  key: t({ fontFamily: fonts.bold, fontSize: 30, lineHeight: 42, fontVariant: tabular }),
+  money: t({ fontFamily: fonts.bold, fontSize: 22, lineHeight: 32, fontVariant: tabular }),
 } as const;
 
 /** Every text-on-background pair the app uses, with the minimum contrast ratio it must meet (checked in theme.test.ts). */

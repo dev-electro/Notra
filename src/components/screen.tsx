@@ -34,7 +34,7 @@ interface Props {
   speakText?: string;
   /** Screen is a bottom-tab page: the tab bar already covers the bottom edge (safe area) and there is no back button. */
   tab?: boolean;
-  /** The ONE main thing to do here: a full-width haldi button pinned to the bottom, where the thumb rests. */
+  /** The ONE main thing to do here: a compact haldi button pinned (a right-aligned pill on tab screens) to the bottom, where the thumb rests. */
   action?: ScreenAction;
 }
 
@@ -42,8 +42,8 @@ interface Props {
 export const listContent = { paddingHorizontal: GUTTER, paddingBottom: spacing.lg } as const;
 
 /** The strip at the bottom of a screen that holds its one main button (thumb reach). */
-export function BottomBar({ children }: { children: React.ReactNode }) {
-  return <View style={styles.footer}>{children}</View>;
+export function BottomBar({ children, tab }: { children: React.ReactNode; tab?: boolean }) {
+  return <View style={[styles.footer, tab && styles.footerTab]}>{children}</View>;
 }
 
 /** Paper page: big labelled back button top-left, clear title, a dot-border strip, content, and the bottom action. */
@@ -88,8 +88,8 @@ export function Screen({ title, children, scroll = true, noBack: noBackProp, onB
           <View style={styles.flex}>{children}</View>
         )}
         {action ? (
-          <BottomBar>
-            <BigButton testID={action.testID} tone={action.tone ?? 'primary'} icon={action.icon} label={action.label} onPress={action.onPress} disabled={action.disabled} hint={action.hint} />
+          <BottomBar tab={tab}>
+            <BigButton small testID={action.testID} tone={action.tone ?? 'primary'} icon={action.icon} label={action.label} onPress={action.onPress} disabled={action.disabled} hint={action.hint} />
           </BottomBar>
         ) : null}
       </SafeAreaView>
@@ -117,5 +117,6 @@ const styles = StyleSheet.create({
   backText: { color: colors.received },
   title: { color: colors.ink },
   content: { padding: GUTTER, gap: spacing.md, paddingBottom: spacing.xl },
-  footer: { paddingHorizontal: GUTTER, paddingTop: spacing.sm, paddingBottom: spacing.sm, borderTopWidth: BORDER, borderTopColor: colors.hairline, backgroundColor: colors.paper },
+  footerTab: { alignItems: 'flex-end', borderTopWidth: 0, backgroundColor: 'transparent' },
+  footer: { paddingHorizontal: GUTTER, paddingTop: spacing.xs, paddingBottom: spacing.xs, borderTopWidth: BORDER, borderTopColor: colors.hairline, backgroundColor: colors.paper },
 });

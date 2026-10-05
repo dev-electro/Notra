@@ -9,8 +9,8 @@ import { DatePickerField } from '@/components/calendar';
 import { DIRECTION_INK } from '@/components/direction';
 import { inputStyle } from '@/components/field';
 import { HouseholdPicker } from '@/components/household-picker';
-import { IN_KIND_ICON } from '@/components/icons';
-import { NumberPad } from '@/components/number-pad';
+import { Icon, IN_KIND_ICON } from '@/components/icons';
+import { MAX_DIGITS, NumberPad } from '@/components/number-pad';
 import { SaveCheck } from '@/components/save-check';
 import { Screen } from '@/components/screen';
 import { Text, TextInput } from '@/components/text';
@@ -43,6 +43,7 @@ export default function NewEntry() {
   const [myId, setMyId] = useState<string | null>(null);
   const [household, setHousehold] = useState<Household | null>(null);
   const [digits, setDigits] = useState('');
+  const [editing, setEditing] = useState(false);
   const [kind, setKind] = useState<string | null>(null);
   const [kindText, setKindText] = useState('');
   const [kindValue, setKindValue] = useState('');
@@ -216,6 +217,25 @@ export default function NewEntry() {
 
       <AmountDisplay rupees={Number(digits || 0)} color={ink} />
       <View style={styles.row}>
+        <BigButton small testID="btn-edit-amount" icon="write" label="✎ बदलें" selected={editing} onPress={() => setEditing((e) => !e)} hint="रकम सीधे लिखें" />
+        {digits ? <BigButton small testID="btn-clear-amount" label="× हटाएँ" tone="danger" onPress={() => setDigits('')} hint="रकम खाली करें" /> : null}
+      </View>
+      {editing ? (
+        <TextInput
+          testID="field-amount"
+          style={inputStyle}
+          value={digits}
+          onChangeText={(t) => setDigits(t.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_DIGITS))}
+          keyboardType="number-pad"
+          maxLength={MAX_DIGITS}
+          autoFocus
+          accessibilityLabel="रकम रुपये में"
+          placeholder="रकम ₹"
+          placeholderTextColor={colors.muted}
+        />
+      ) : null}
+      <NumberPad value={digits} onChange={setDigits} />
+      <View style={styles.row}>
         {SHAGUN_QUICK_RUPEES.map((r) => (
           <BigButton key={r} testID={`chip-${r}`} compact label={formatINR(r * 100)} selected={digits === String(r)} onPress={() => setDigits(String(r))} />
         ))}
@@ -223,7 +243,6 @@ export default function NewEntry() {
           <BigButton testID="chip-suggested" compact label={`सुझाव ${formatINR(suggested)}`} selected={digits === String(suggested / 100)} onPress={() => setDigits(String(suggested / 100))} />
         ) : null}
       </View>
-      <NumberPad value={digits} onChange={setDigits} />
 
       {date ? <DatePickerField testID="field-date" label="किस तारीख को" value={date} onChange={setDate} /> : null}
 
