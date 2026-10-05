@@ -9,18 +9,22 @@ export function escapeHtml(s: string): string {
 }
 
 const CSS = `
-@page { margin: 14mm; }
-body { font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif; color: #2A2118; font-size: 14pt; }
-.page { background-color: #FBF6EC; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, #E7DCC8 31px, #E7DCC8 32px); padding: 8px 8px 8px 36px; border-left: 3px solid #E8A317; }
-h1 { color: #1F3A93; font-size: 22pt; margin: 0 0 4px; }
-.sub { color: #5A5148; margin: 0 0 12px; }
+@page { size: A4; margin: 14mm; }
+* { box-sizing: border-box; }
+body { font-family: 'Noto Sans Devanagari', sans-serif; color: #2A2118; font-size: 13pt; line-height: 1.6; margin: 0; }
+.page { background: #FBF6EC; padding: 12px 14px; border-left: 4px solid #E8A317; }
+h1 { color: #1F3A93; font-size: 21pt; line-height: 1.5; margin: 0 0 4px; }
+.sub { color: #5A5148; margin: 0 0 12px; line-height: 1.6; }
 table { width: 100%; border-collapse: collapse; }
-th { color: #1F3A93; text-align: left; border-bottom: 2px solid #1F3A93; padding: 4px; }
-td { padding: 4px; border-bottom: 1px solid #E7DCC8; vertical-align: top; }
+thead { display: table-header-group; }
+th { background: #E4E9F7; color: #1F3A93; text-align: left; border-bottom: 2px solid #1F3A93; padding: 6px 8px; line-height: 1.6; vertical-align: middle; }
+td { padding: 6px 8px; border-bottom: 1px solid #E7DCC8; vertical-align: middle; line-height: 1.6; }
+tr { page-break-inside: avoid; }
+tbody tr:nth-child(even) td { background: #F3EBDA; }
 td.n, th.n { text-align: right; white-space: nowrap; }
-.small { font-size: 11pt; color: #5A5148; }
+.small { font-size: 10.5pt; line-height: 1.6; color: #5A5148; }
 .blue { color: #1F3A93; } .red { color: #9E2A2B; }
-.total { font-size: 18pt; font-weight: 700; margin-top: 12px; }
+.total { font-size: 15pt; font-weight: 700; line-height: 1.6; margin-top: 12px; padding: 8px 12px; border: 2px solid #1F3A93; border-radius: 6px; background: #FFFFFF; page-break-inside: avoid; }
 .foot { margin-top: 16px; font-size: 10pt; color: #5A5148; }
 `;
 
@@ -54,7 +58,7 @@ export function eventLedgerHtml(event: NotraEvent, host: Household | undefined, 
     'नोतरा बही',
     `<h1>${escapeHtml(occasionName(event.occasion, event.occasionLabel))} का नोतरा</h1>
 <p class="sub">${escapeHtml(host?.headName ?? '')} · ${displayDate(event.date)} · ${INVITATION_LABEL[event.invitationType]} · ${STATUS_LABEL[event.status]}</p>
-<table><tr><th>#</th><th>नाम / पिता / गाँव</th><th class="n">रकम</th></tr>${body}</table>
+<table><thead><tr><th>#</th><th>नाम / पिता / गाँव</th><th class="n">रकम</th></tr></thead><tbody>${body}</tbody></table>
 <div class="total blue">कुल: ${formatINR(total)} (${givers} परिवार)</div>`,
   );
 }
@@ -77,8 +81,8 @@ export function personLedgerHtml(household: Household, entries: readonly Entry[]
   return wrap(
     'लेना-देना',
     `<h1>${escapeHtml(household.headName)}</h1>
-<p class="sub">${who(household).replace(/<div class="small">|<\/div>/g, ' ')} ${escapeHtml(household.fala)}</p>
-<table><tr><th>तारीख</th><th></th><th class="n">रकम</th></tr>${body}</table>
+<p class="sub">${who(household).replace(/<div class="small">|<\/div>/g, ' ')} ${escapeHtml([household.village, household.panchayat, household.tehsil, household.district].filter(Boolean).join(' · '))}</p>
+<table><thead><tr><th>तारीख</th><th></th><th class="n">रकम</th></tr></thead><tbody>${body}</tbody></table>
 <div class="total"><span class="red">कुल दिया: ${formatINR(given)}</span> · <span class="blue">कुल आया: ${formatINR(received)}</span></div>
 ${pending > 0 ? `<div class="total">लौटाना बाकी: ${formatINR(pending)}</div>` : ''}`,
   );

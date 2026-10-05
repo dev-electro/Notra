@@ -7,6 +7,9 @@ import { colors, fonts, spacing, type } from '@/theme';
 /** Width of the printed page in dp. It is captured at a fixed pixel width, so WhatsApp always gets the same picture. */
 export const SHEET_W = 720;
 
+const LH = 22;
+const CELL = { lineHeight: LH, includeFontPadding: false, textAlignVertical: 'center' as const };
+
 const INK: Record<Tone, string> = { received: colors.received, given: colors.given, ink: colors.ink, muted: colors.muted };
 
 /**
@@ -27,17 +30,17 @@ export const ReportSheet = React.memo(function ReportSheet({ page, watermark }: 
         {doc.filters.length ? <Text style={[type.caption, styles.muted]}>{doc.filters.join(' · ')}</Text> : null}
         <View style={styles.headRow}>
           {doc.columns.map((c, i) => (
-            <Text key={i} style={[type.captionBold, styles.headCell, { flex: c.flex, textAlign: c.align === 'right' ? 'right' : 'left' }]} numberOfLines={1}>
+            <Text key={i} style={[type.captionBold, CELL, styles.headCell, { flex: c.flex, textAlign: c.align === 'right' ? 'right' : 'left' }]} numberOfLines={1}>
               {c.label}
             </Text>
           ))}
         </View>
         {doc.rows.map((r, ri) => (
-          <View key={ri} style={styles.row}>
+          <View key={ri} style={[styles.row, ri % 2 === 1 && styles.zebra]}>
             {r.map((c, ci) => (
-              <View key={ci} style={{ flex: doc.columns[ci]?.flex ?? 1, alignItems: doc.columns[ci]?.align === 'right' ? 'flex-end' : 'flex-start' }}>
-                <Text style={[type.caption, { color: INK[c.tone ?? 'ink'], fontFamily: c.tone && c.tone !== 'ink' ? fonts.bold : fonts.medium }]}>{c.text}</Text>
-                {c.sub ? <Text style={[type.caption, styles.sub]}>{c.sub}</Text> : null}
+              <View key={ci} style={{ flex: doc.columns[ci]?.flex ?? 1, justifyContent: 'center', alignItems: doc.columns[ci]?.align === 'right' ? 'flex-end' : 'flex-start' }}>
+                <Text style={[type.caption, CELL, { color: INK[c.tone ?? 'ink'], fontFamily: c.tone && c.tone !== 'ink' ? fonts.bold : fonts.medium }]}>{c.text}</Text>
+                {c.sub ? <Text style={[type.caption, CELL, styles.sub, { marginTop: 2 }]}>{c.sub}</Text> : null}
               </View>
             ))}
           </View>
@@ -46,8 +49,8 @@ export const ReportSheet = React.memo(function ReportSheet({ page, watermark }: 
           <View style={styles.totals}>
             {doc.totals.map((t, i) => (
               <View key={i} style={styles.totalRow}>
-                <Text style={[type.bodyBold, styles.flex]}>{t.label}</Text>
-                <Text style={[type.bodyBold, { color: INK[t.tone ?? 'ink'] }]}>{t.value}</Text>
+                <Text style={[type.bodyBold, CELL, styles.flex]}>{t.label}</Text>
+                <Text style={[type.bodyBold, CELL, { color: INK[t.tone ?? 'ink'] }]}>{t.value}</Text>
               </View>
             ))}
             {doc.note ? <Text style={[type.caption, styles.note]}>{doc.note}</Text> : null}
@@ -74,11 +77,12 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.ink },
   muted: { color: colors.muted },
   sub: { color: colors.muted },
-  headRow: { flexDirection: 'row', gap: spacing.sm, borderBottomWidth: 2, borderBottomColor: colors.received, paddingVertical: spacing.xs, marginTop: spacing.sm },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 36, backgroundColor: '#E4E9F7', borderBottomWidth: 2, borderBottomColor: colors.received, paddingHorizontal: spacing.sm, marginTop: spacing.sm },
   headCell: { color: colors.received },
-  row: { flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.hairline },
-  totals: { gap: spacing.xs, marginTop: spacing.md },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.md },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: 44, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.hairline },
+  zebra: { backgroundColor: '#F3EBDA' },
+  totals: { gap: spacing.xs, marginTop: spacing.md, padding: spacing.md, borderWidth: 2, borderColor: colors.received, borderRadius: 8, backgroundColor: '#FFFFFF' },
+  totalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, minHeight: 30 },
   note: { color: colors.muted, marginTop: spacing.sm },
   footRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md },
 });
