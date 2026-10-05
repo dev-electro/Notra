@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { normalizeIndianMobile } from '../src/auth/phone';
 import { Msg91Provider } from '../src/auth/sms';
 import { randomCode6 } from '../src/crypto';
+import { hashOtpValue } from '../src/auth/otp-store';
 import { setup } from './helpers';
 
 type T = Awaited<ReturnType<typeof setup>>;
@@ -51,7 +52,8 @@ describe('phone OTP (Better Auth phoneNumber plugin + MSG91 sender)', () => {
     const [row] = (await t.pg.query<{ identifier: string; value: string; secs: number }>(
       `SELECT identifier, value, extract(epoch FROM expires_at - now())::int AS secs FROM auth_verifications`)).rows;
     expect(row!.identifier).toBe('+919876543210');
-    expect(row!.value).toBe(`${t.sms.last().code}:0`);
+    expect(row!.value).not.toContain(t.sms.last().code);
+    expect(row!.value).toMatch(/^[0-9a-f]{64}:0$/); // keyed hash, never the clear code
     expect(row!.secs).toBeGreaterThan(280);
     expect(row!.secs).toBeLessThanOrEqual(300);
     expect((await verify(t, t.sms.last().code)).status).toBe(200);
@@ -205,5 +207,16 @@ describe('Msg91Provider', () => {
     expect(seen!.headers.authkey).toBe('KEY');
     const failing = (async () => new Response(JSON.stringify({ type: 'error' }), { status: 200 })) as unknown as typeof fetch;
     await expect(new Msg91Provider('KEY', 'TPL1', failing).sendOtp('+919876543210', '1')).rejects.toThrow();
+  });
+});
+
+describe('OTP hashing', () => {
+  it('hashes only phone OTP values, keyed by secret and phone', async () => {
+    const a = await hashOtpValue('s1', '+919876543210', '123456:0');
+    expect(a).toMatch(/^[0-9a-f]{64}:0$/);
+    expect(a).not.toBe(await hashOtpValue('s2', '+919876543210', '123456:0'));
+    expect(a).not.toBe(await hashOtpValue('s1', '+919876543211', '123456:0'));
+    expect(await hashOtpValue('s1', 'some-state-id', '123456:0')).toBe('123456:0');
+    expect(await hashOtpValue('s1', '+919876543210', 'not-an-otp')).toBe('not-an-otp');
   });
 });

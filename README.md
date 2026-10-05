@@ -184,9 +184,9 @@ Settings). The server stores: user id, Google subject or phone number, display n
 Signing out keeps local data; wiping it is a separate, confirmed choice. Not yet built: end-to-end encryption of synced
 rows (the server can read them), account deletion, photo sync (R2).
 
-**Known limits.** The "my household" and village-increment settings are device-local and are not restored by a pull (a
-restored phone still shows first-run setup). Signing in as a different user on a phone that already has data uploads
-that data to the new account. A row the server rejects as invalid would retry forever (visible as "भेजना बाकी").
+**Known limits.** Profile (my household, village increment) syncs and account switching asks before uploading (Stage 5). A row the
+server rejects is retried no more: it is marked and shown in Settings with a retry button. Still open: no de-duplication of families after
+merging accounts, no per-user quota on `/v1/sync/*`, and the cloud copy is not end-to-end encrypted (see `docs/ROADMAP.md` §3).
 
 ## Stage 5: production hardening
 
@@ -228,7 +228,7 @@ For a first-time smartphone user who may not read well: picture-first, plain Hin
   a few paths, built once per width and memoized.
 - **Feel.** `PressableScale` (150 ms scale/fade, native driver), `expo-haptics` light tick on save and number-pad taps, an animated check on save; all animations are skipped
   when the phone's "remove animations" setting is on (`useReduceMotion`). `core/words.ts` writes the typed amount in Hindi words ("पाँच सौ एक रुपये").
-- **E2E.** `.maestro/08_screenshots.yaml` visits every main screen and saves `screenshots/<name>.png`; flows 01-07 use the new strings.
+- **E2E.** `.maestro/09_screenshots.yaml` visits every main screen and saves `screenshots/<name>.png`; flows 01-07 use the new strings.
 
 ## Stage 7: two separate worlds, उतार/चढ़ाव, reports
 

@@ -12,7 +12,8 @@ export async function deleteAccount(db: Db, userId: string): Promise<void> {
   await withUserTx(db, userId, 'user', async (q) => {
     await q.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`sync:${userId}`]);
     const user = await getUser(q, userId);
-    for (const table of ['entries', 'events', 'households', 'ledgers', 'profiles', 'auth_sessions', 'auth_accounts']) {
+    await q.query('DELETE FROM rishtey_interests WHERE from_user = $1 OR to_user = $1', [userId]);
+    for (const table of ['entries', 'events', 'households', 'ledgers', 'profiles', 'rishtey_profiles', 'rishtey_reports', 'rishtey_blocks', 'auth_sessions', 'auth_accounts']) {
       await q.query(`DELETE FROM ${table} WHERE user_id = $1`, [userId]);
     }
     if (user?.phone_e164) {

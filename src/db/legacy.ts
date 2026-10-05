@@ -12,15 +12,17 @@ export const endApplying = (db: Db) => db.runAsync('DELETE FROM settings WHERE k
 /**
  * An entry that arrives without an event (rows written before every entry needed one: an old cloud copy or an old backup file) is
  * attached to the same automatic "पुराना हिसाब" event the v7 migration makes (deterministic id). Creates that event if missing and returns its id.
+ * Returns null when it cannot be hosted safely: an AAYA (received) entry while my household is not set. It is never hosted by another family.
  */
 export async function ensureLegacyEvent(
   db: Db, e: { direction: Direction; ledgerId: string; otherHouseholdId: string; occurredOn: string },
-): Promise<string> {
+): Promise<string | null> {
   const id = legacyEventId(e.direction, e.ledgerId, e.otherHouseholdId);
   let host = e.otherHouseholdId;
   if (e.direction === 'AAYA') {
     const me = await db.getFirstAsync<{ value: string }>("SELECT value FROM settings WHERE key = 'my_household_id'", []);
-    host = me?.value ?? e.otherHouseholdId;
+    if (!me?.value) return null;
+    host = me.value;
   }
   const now = new Date().toISOString();
   await db.runAsync(

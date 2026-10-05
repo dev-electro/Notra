@@ -1,6 +1,6 @@
 # Notra Book — Handoff
 
-Status as of **2026-10-05**, branch **`ccr-c41967d5-5ii4w6`**. Start here, then read [`docs/INDEX.md`](docs/INDEX.md).
+Status as of **2026-10-06**, branch **`ccr-c41967d5-5ii4w6`**. Start here, then read [`docs/INDEX.md`](docs/INDEX.md).
 
 Notra Book (नोतरा बुक, Android package `app.notra.book`) is an offline-first Hindi app for recording नोतरा: what a
 family receives at its own occasions and what it gives at other families' occasions, with reports. The data is
@@ -15,7 +15,7 @@ encrypted on the phone, with an optional cloud backup.
 | Local encrypted DB (SQLCipher, migrations v1–v7) | `src/db/` | Tested |
 | Cloud sync (push/pull, restore, account switch) | `src/sync/`, `server/src/sync.ts` | Tested |
 | Login: **self-hosted Better Auth** (Google + mobile OTP via MSG91) | `server/src/auth/`, `src/auth/`, [`docs/AUTH.md`](docs/AUTH.md) | Tested; not yet deployed |
-| Server: Hono on Cloudflare Workers + Neon Postgres with Row Level Security | `server/` (migrations `001–004`, `100–103`) | 122 tests |
+| Server: Hono on Cloudflare Workers + Neon Postgres with Row Level Security | `server/` (migrations `001–004`, `100–103`) | tests green |
 | Admin panel (React + Vite; DB roles, aggregate-only insights) | `admin/`, [`docs/ADMIN.md`](docs/ADMIN.md) | 18 tests; builds |
 | Ads (AdMob) and remote config | `src/ads/`, `src/remote/`, [`docs/ADS.md`](docs/ADS.md) | Uses test ad IDs until real IDs are set |
 | Firebase Analytics (privacy allow-list) | `src/analytics/`, `google-services.json`, `firebase.json` | Integrated (see open decision §4) |
@@ -28,6 +28,13 @@ Product decisions and the reasons for them are in [`docs/DECISIONS.md`](docs/DEC
 - **Entries are append-only.** A mistake is fixed by a correction or void entry, never by editing or deleting.
 - **Reports are the main feature.** They export as image (PNG) or PDF.
 - **Admins cannot read anyone's diary.** The only exception is read-only access the user grants, for at most 7 days.
+
+**Deployed (2026-10-06).**
+- API: `https://notra-book-api.gauravapproved.workers.dev`.
+- Admin panel: `https://notra-admin.gauravapproved.workers.dev`. It deploys as a Worker with static assets: run `wrangler deploy` in `admin/` (no Cloudflare Pages).
+- Neon migrations are applied; the Worker connects as the runtime role `notra_runtime`.
+- Owner (first admin): `gauravapproved@gmail.com`.
+- App navigation has 4 tabs: घर / नोतरा / रिश्ते / इनाम.
 
 ## 2. Run it on your Mac
 
@@ -83,12 +90,12 @@ Details and file paths are in [`docs/ROADMAP.md`](docs/ROADMAP.md) §3.
 3. **Remote config does not match between app and server.** The server's `features` has no `analytics` key, the server default is `ads.enabled=false` while the app default is `true`, and the clamp ranges differ.
 4. **A missing SMS secret breaks every route.** It makes `createApp` throw, so all routes, `/v1/health` included, return 500. Make the SMS provider lazy.
 5. **Maintenance mode can lock staff out.** It blocks `/api/auth/*`, which the admin panel also needs to sign in. Allow staff sign-in during maintenance.
-6. **The v7 legacy-event fallback can pick the wrong host.** It may host "my" old entries on another household when `my_household_id` was never set.
-7. **Backup merge can store orphan event references,** and backup id validation is looser than the server's.
-8. **The OTP is stored in clear for its 5 minutes** in `auth_verifications` under Better Auth; the old code stored a salted hash.
+6. **FIXED.** The v7 legacy-event fallback no longer hosts "my" old entries on another household when `my_household_id` was never set: the migration, `ensureLegacyEvent`, sync pull and backup merge leave them without a program (or skip them) instead of guessing.
+7. **FIXED.** Backup merge skips (and counts) entries that name an unknown event, and backup id validation is now the server's UUID check.
+8. **FIXED.** The OTP is stored as an HMAC-SHA256 hash (keyed with `BETTER_AUTH_SECRET`) in `auth_verifications` and checked by a custom `verifyOTP` (`server/src/auth/otp-store.ts`). Better Auth 1.7.7 has no `storeOTP` option, so a `verification.create.before` hook does the hashing. No migration needed.
 9. **Dead code:** `server/src/auth/otp.ts` and `server/src/auth/tokens.ts` are unused since the Better Auth move. The session
-   was not allowed to delete them, so run `git rm` on them. There are also unused columns (`lekhak_name`, `voice_note_uri`).
-10. **Stale doc sections:** README "Known limits", `docs/TESTING.md` (now 9 flows), and `docs/ADMIN.md` §9.
+   was not allowed to delete them, so run `git rm` on them. The unused columns `lekhak_name` and `voice_note_uri` are left in place: they sit in the immutability triggers and the v7 table rebuild, so removing them needs a careful new local migration.
+10. **FIXED.** README "Known limits", `docs/TESTING.md` (9 flows) and `docs/ADMIN.md` §9 are updated.
 
 ## 6. Go-live checklist (owner actions)
 

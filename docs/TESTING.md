@@ -5,12 +5,16 @@ Flows live in `.maestro/` (numbered; they run in order and share app data, only 
 | Flow | What it checks |
 | --- | --- |
 | `01_launch_setup` | clean launch, skip the picture cards (`छोड़ें`) and sign-in (`बाद में`), first-launch setup |
-| `02_add_household` | add household (name, father, village) |
-| `03_add_aaya_entry` | AAYA Rs 501 via number pad, read-back confirmed (`हाँ`) |
-| `04_home_totals` | home card shows Rs 501 |
-| `05_event_ledger` | create event, the event ledger (खाता खोलें), 2 givers, finish, summary Rs 752 |
-| `06_reports` | all five report tabs |
-| `07_persistence` | `stopApp` + `launchApp` without `clearState`, data still there (Rs 1,253) |
+| `02_add_household` | add a household (name, father, village, phone) |
+| `03_family_search` | one search box finds a family by name, father, village, panchayat and phone |
+| `04_my_event_receive` | मेरा नोतरा: make my event, record who came (receive only), summary total |
+| `05_give_at_others` | दूसरों का नोतरा: give at another family's program, उतार and चढ़ाव in the read-back |
+| `06_old_records` | पुराना हिसाब जोड़ें with past dates, for my old Notra and another family's |
+| `07_reports` | हिसाब tab: open each report, send a report as photos |
+| `08_persistence` | `stopApp` + `launchApp` without `clearState`, data still there |
+| `09_screenshots` | screenshots of every main screen (for review, no assertions) |
+
+The order is fixed in `.maestro/config.yaml` (names there must match each flow's `name:`).
 
 Screenshots are written to `./screenshots/`. Test names are ASCII (Ramesh / Mohan / Kherwa) because
 typing Devanagari through adb is unreliable; all assertions on UI chrome use the Hindi text.
@@ -46,7 +50,7 @@ maestro --version
 
    ```bash
    maestro test .maestro/                 # whole suite
-   maestro test .maestro/03_add_aaya_entry.yaml   # a single flow (needs 01+02 run before)
+   maestro test .maestro/04_my_event_receive.yaml   # a single flow (needs 01+02 run before)
    maestro studio                          # inspect the view hierarchy / try commands live
    ```
    With several devices attached add `--device <serial from adb devices>`.

@@ -121,4 +121,22 @@ describe('interstitial log', () => {
     expect(parseLog('nonsense')).toEqual(EMPTY_LOG);
     expect(parseLog('{"lastAt":5,"day":"2026-01-01","count":2}')).toEqual({ lastAt: 5, day: '2026-01-01', count: 2 });
   });
+
+  describe('inaam_video (rewarded video on the इनाम tab)', () => {
+    const on = { ...ADS_ON, inaam_video: true };
+    it('shows only on the inaam screen, when its own switch is on', () => {
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: on })).toBe('show');
+      expect(reason({ placement: 'inaam_video', screen: 'inaam' })).toBe('placement-off'); // default: off
+      expect(reason({ placement: 'inaam_video', screen: 'home', ads: on })).toBe('screen');
+      expect(reason({ placement: 'rewarded', screen: 'inaam' })).toBe('screen');
+    });
+    it('is capped at 3 a day', () => {
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: on, inaamVideosToday: 2 })).toBe('show');
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: on, inaamVideosToday: 3 })).toBe('daily-cap');
+    });
+    it('respects the master switch and the first-day rule', () => {
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: { ...on, enabled: false } })).toBe('disabled');
+      expect(reason({ placement: 'inaam_video', screen: 'inaam', ads: on, installAt: NOW - 1000 })).toBe('first-day');
+    });
+  });
 });

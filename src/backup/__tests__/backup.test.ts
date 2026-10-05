@@ -230,10 +230,13 @@ describe('snapshot round trip', () => {
   }, 30_000);
 });
 
+const u = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const H1 = u(1);
+const E1 = u(11);
 describe('snapshot validation', () => {
   const snap = (over: object = {}) => JSON.stringify({ app: 'notra-diary', version: 1, exportedAt: 'x', ledgers: [], households: [], events: [], entries: [], profile: null, ...over });
-  const good = { id: 'h1', headName: 'रमेश', fatherName: '', jati: '', atak: '', village: '', fala: '', phone: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
-  const ent = { id: 'e1', eventId: null, otherHouseholdId: 'h1', direction: 'AAYA', cashPaise: 100, inKindItem: null, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'me', createdAt: '2026-01-01T00:00:00.000Z', correctsEntryId: null, isVoid: false, ledgerId: L };
+  const good = { id: H1, headName: 'रमेश', fatherName: '', jati: '', atak: '', village: '', fala: '', phone: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
+  const ent = { id: E1, eventId: null, otherHouseholdId: H1, direction: 'AAYA', cashPaise: 100, inKindItem: null, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'me', createdAt: '2026-01-01T00:00:00.000Z', correctsEntryId: null, isVoid: false, ledgerId: L };
 
   it('refuses files that are not snapshots', () => {
     for (const t of ['nope', '[]', '{}', snap({ app: 'other' }), snap({ version: 2 }), snap({ entries: 'x' })]) {
@@ -243,12 +246,12 @@ describe('snapshot validation', () => {
 
   it('drops malformed rows and counts them instead of importing them', () => {
     const bad = [
-      { ...ent, id: 'e2', cashPaise: -1 }, { ...ent, id: 'e3', direction: 'X' }, { ...ent, id: 'e4', cashPaise: 1.5 },
-      { ...ent, id: 'bad id!' }, { ...ent, id: 'e5', isVoid: true }, { ...ent, id: 'e6', inKindItem: 'a\u0000b' }, { ...ent, id: 'e7', paymentMode: 'BTC' },
+      { ...ent, id: u(12), cashPaise: -1 }, { ...ent, id: u(13), direction: 'X' }, { ...ent, id: u(14), cashPaise: 1.5 },
+      { ...ent, id: 'bad id!' }, { ...ent, id: u(15), isVoid: true }, { ...ent, id: u(16), inKindItem: 'a\u0000b' }, { ...ent, id: u(17), paymentMode: 'BTC' },
     ];
-    const r = parseSnapshot(snap({ households: [good, { ...good, id: 'h2', headName: 5 }], entries: [ent, ...bad] }));
-    expect(r.snapshot.entries.map((e) => e.id)).toEqual(['e1']);
-    expect(r.snapshot.households.map((h) => h.id)).toEqual(['h1']);
+    const r = parseSnapshot(snap({ households: [good, { ...good, id: u(2), headName: 5 }], entries: [ent, ...bad] }));
+    expect(r.snapshot.entries.map((e) => e.id)).toEqual([E1]);
+    expect(r.snapshot.households.map((h) => h.id)).toEqual([H1]);
     expect(r.invalid).toBe(bad.length + 1);
   });
 
@@ -258,14 +261,14 @@ describe('snapshot validation', () => {
     const parsed = parseSnapshot(snap({
       households: [good],
       ledgers: [{ id: sita.id, name: 'सीता देवी', kind: 'PERSONAL', createdAt: sita.createdAt, updatedAt: '2999-01-01T00:00:00.000Z' }],
-      entries: [ent, { ...ent, id: 'e2', otherHouseholdId: 'ghost' }, { ...ent, id: 'e3', ledgerId: 'ghost-ledger' }],
+      entries: [{ ...ent, direction: 'GAYA' }, { ...ent, id: u(12), otherHouseholdId: u(99) }, { ...ent, id: u(13), ledgerId: u(98) }],
     }));
     const rep = await mergeSnapshot(db, parsed);
     expect(rep.entries.added).toBe(1);
     expect(rep.skipped).toBe(2);
     const l = (await listLedgers(db)).find((x) => x.id === sita.id)!;
     expect(l).toMatchObject({ name: 'सीता देवी', hasPin: true });
-    expect((await db.getFirstAsync<{ n: number }>("SELECT COUNT(*) AS n FROM entries WHERE id IN ('e2','e3')", []))!.n).toBe(0);
+    expect((await db.getFirstAsync<{ n: number }>("SELECT COUNT(*) AS n FROM entries WHERE id IN ('00000000-0000-4000-8000-000000000012','00000000-0000-4000-8000-000000000013')", []))!.n).toBe(0);
     expect((await db.getFirstAsync<{ foreign_keys: number }>('PRAGMA foreign_keys', []))!.foreign_keys).toBe(1);
   });
 
@@ -277,3 +280,51 @@ describe('snapshot validation', () => {
 async function clearPin(db: Db, id: string) {
   await db.runAsync('UPDATE ledgers SET pin_hash = NULL WHERE id = ?', [id]);
 }
+
+describe('merge safety (orphans, ids, legacy host)', () => {
+  const U = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+  const at = '2026-01-01T00:00:00.000Z';
+
+  it('rejects ids that are not UUIDs (the server would refuse them on push)', () => {
+    const text = JSON.stringify({
+      app: 'notra-diary', version: 1, exportedAt: at, ledgers: [], events: [], entries: [], profile: null,
+      households: [
+        { id: 'abc', headName: 'क', fatherName: 'ख', jati: 'ज', village: 'ग', phone: null, createdAt: at, updatedAt: at },
+        { id: U(5), headName: 'क', fatherName: 'ख', jati: 'ज', village: 'ग', phone: null, createdAt: at, updatedAt: at },
+      ],
+    });
+    const p = parseSnapshot(text);
+    expect(p.snapshot.households.map((h) => h.id)).toEqual([U(5)]);
+    expect(p.invalid).toBe(1);
+  });
+
+  it('skips an entry whose event is unknown instead of storing an orphan reference', async () => {
+    const db = await phone();
+    const entry = (id: string, eventId: string | null) => ({
+      id, eventId, otherHouseholdId: U(5), direction: 'GAYA', cashPaise: 100, inKindItem: null, inKindValuePaise: 0, paymentMode: 'CASH',
+      recordedBy: 'me', createdAt: at, correctsEntryId: null, ledgerId: L, occurredOn: '2026-01-01', isVoid: false,
+    });
+    const text = JSON.stringify({
+      app: 'notra-diary', version: 1, exportedAt: at, ledgers: [], events: [], profile: null,
+      households: [{ id: U(5), headName: 'क', fatherName: 'ख', jati: 'ज', village: 'ग', phone: null, createdAt: at, updatedAt: at }],
+      entries: [entry(U(9), U(77))],
+    });
+    const rep = await mergeSnapshot(db, parseSnapshot(text));
+    expect(rep.entries.added).toBe(0);
+    expect(rep.skipped).toBe(1);
+    expect(await db.getFirstAsync('SELECT COUNT(*) AS n FROM entries', [])).toEqual({ n: 0 });
+  });
+
+  it('an old event-less "received" entry is skipped (not hosted by another family) while my household is unknown', async () => {
+    const db = await phone();
+    const text = JSON.stringify({
+      app: 'notra-diary', version: 1, exportedAt: at, ledgers: [], events: [], profile: null,
+      households: [{ id: U(5), headName: 'क', fatherName: 'ख', jati: 'ज', village: 'ग', phone: null, createdAt: at, updatedAt: at }],
+      entries: [{ id: U(9), otherHouseholdId: U(5), direction: 'AAYA', cashPaise: 100, inKindItem: null, inKindValuePaise: 0, paymentMode: 'CASH',
+        recordedBy: 'me', createdAt: at, correctsEntryId: null, ledgerId: L, isVoid: false }],
+    });
+    const rep = await mergeSnapshot(db, parseSnapshot(text));
+    expect(rep.skipped).toBe(1);
+    expect(await db.getFirstAsync('SELECT COUNT(*) AS n FROM events', [])).toEqual({ n: 0 });
+  });
+});

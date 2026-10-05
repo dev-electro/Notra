@@ -107,7 +107,12 @@ describe('every mutation is audit-logged, and no response leaks ledger content',
     const victim = await signInWithPhone(t, nextPhone());
     await seedLedger(t, victim.accessToken, 60);
     await t.call('POST', '/v1/support', { token: target.accessToken, body: { category: 'grievance', subject: 'Cannot sync', body: 'It fails' } });
-    const f: Record<string, string> = { userId: target.user.id, key: 'announcement', report: 'signups', table: 'households' };
+    // a pending community profile (with a private contact number) and a report about it, for the rishtey moderation routes
+    const poster = await signInWithPhone(t, nextPhone());
+    const prof = (await t.pg.query(`INSERT INTO rishtey_profiles (user_id, status, gender, first_name, age, contact, consent_at, district, state)
+      VALUES ($1, 'pending', 'female', 'SENTINEL_RISHTEY', 25, '9000011111', now(), 'Dungarpur', 'Rajasthan') RETURNING id`, [poster.user.id])).rows[0] as { id: string };
+    const rep = (await t.pg.query(`INSERT INTO rishtey_reports (user_id, profile_id, reason, note) VALUES ($1, $2, 'fake', 'looks fake') RETURNING id`, [target.user.id, prof.id])).rows[0] as { id: string };
+    const f: Record<string, string> = { userId: target.user.id, key: 'announcement', report: 'signups', table: 'households', profileId: prof.id, reportId: rep.id };
     const texts: string[] = [];
     const covered = new Set<string>();
     const audits = async () => Number(((await t.pg.query('SELECT count(*)::int AS n FROM admin_audit_log')).rows[0] as { n: number }).n);
@@ -130,6 +135,8 @@ describe('every mutation is audit-logged, and no response leaks ledger content',
       ['POST', '/staff', { user_id: other.user.id, role: 'admin', reason: 'promote for test' }],
       ['PATCH', '/staff/:userId', { role: 'viewer', reason: 'demote for test' }],
       ['DELETE', '/staff/:userId', { reason: 'remove from staff' }],
+      ['POST', '/rishtey/profiles/:profileId/review', { decision: 'approve' }],
+      ['POST', '/rishtey/reports/:reportId/resolve', { action: 'dismiss', reason: 'profile looks genuine' }],
       ['POST', '/users/:userId/delete', { reason: 'user asked by email', confirm: `delete ${target.user.id.slice(0, 8)}` }],
     ];
     for (const [method, path, body, capture] of steps) {

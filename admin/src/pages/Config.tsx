@@ -183,13 +183,13 @@ function Announcement({ entry, editable, onSaved }: { entry: ConfigEntry } & Car
 function Ads({ entry, editable, onSaved }: { entry: ConfigEntry } & CardProps) {
   const v = obj(entry.value);
   const init = () => ({
-    enabled: !!v.enabled, banner: !!v.banner, native: !!v.native, interstitial: !!v.interstitial, rewarded: !!v.rewarded, first_day_ads_free: !!v.first_day_ads_free,
+    enabled: !!v.enabled, banner: !!v.banner, native: !!v.native, interstitial: !!v.interstitial, rewarded: !!v.rewarded, inaam_video: !!v.inaam_video, first_day_ads_free: !!v.first_day_ads_free,
     interstitial_min_interval_sec: String(v.interstitial_min_interval_sec ?? 300), native_every_n_items: String(v.native_every_n_items ?? 8),
   });
   const [s, setS] = useState(init);
   useEffect(() => setS(init()), [entry]); // eslint-disable-line react-hooks/exhaustive-deps
   const { err, ok, save, clear } = useSave('ads', onSaved);
-  const flag = (k: 'enabled' | 'banner' | 'native' | 'interstitial' | 'rewarded' | 'first_day_ads_free', label: string) => (
+  const flag = (k: 'enabled' | 'banner' | 'native' | 'interstitial' | 'rewarded' | 'inaam_video' | 'first_day_ads_free', label: string) => (
     <Toggle key={k} label={label} checked={s[k]} disabled={!editable || (k !== 'enabled' && !s.enabled)} onChange={(x) => { clear(); setS({ ...s, [k]: x }); }} />
   );
   return (
@@ -197,7 +197,7 @@ function Ads({ entry, editable, onSaved }: { entry: ConfigEntry } & CardProps) {
       <div className="space-y-3">
         {flag('enabled', 'Ads enabled (master switch)')}
         <div className="grid grid-cols-2 gap-2">
-          {flag('banner', 'Banner')}{flag('native', 'Native (in lists)')}{flag('interstitial', 'Interstitial')}{flag('rewarded', 'Rewarded')}
+          {flag('banner', 'Banner')}{flag('native', 'Native (in lists)')}{flag('interstitial', 'Interstitial')}{flag('rewarded', 'Rewarded')}{flag('inaam_video', 'इनाम video (+5 pts)')}
         </div>
         {flag('first_day_ads_free', 'First day is ad-free for new users')}
         <div className="grid grid-cols-2 gap-3">
@@ -215,8 +215,8 @@ function Ads({ entry, editable, onSaved }: { entry: ConfigEntry } & CardProps) {
 
 function Features({ entry, editable, onSaved }: { entry: ConfigEntry } & CardProps) {
   const v = obj(entry.value);
-  const [s, setS] = useState({ web_app: !!v.web_app, ocr: !!v.ocr, invitation_cards: !!v.invitation_cards, analytics: v.analytics !== false });
-  useEffect(() => setS({ web_app: !!v.web_app, ocr: !!v.ocr, invitation_cards: !!v.invitation_cards, analytics: v.analytics !== false }), [entry]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [s, setS] = useState({ web_app: !!v.web_app, ocr: !!v.ocr, invitation_cards: !!v.invitation_cards, analytics: v.analytics !== false, checkin: v.checkin !== false, videos: v.videos !== false, referral: v.referral !== false, rewards: v.rewards !== false, rishtey_discovery: !!v.rishtey_discovery });
+  useEffect(() => setS({ web_app: !!v.web_app, ocr: !!v.ocr, invitation_cards: !!v.invitation_cards, analytics: v.analytics !== false, checkin: v.checkin !== false, videos: v.videos !== false, referral: v.referral !== false, rewards: v.rewards !== false, rishtey_discovery: !!v.rishtey_discovery }), [entry]); // eslint-disable-line react-hooks/exhaustive-deps
   const { err, ok, save, clear } = useSave('features', onSaved);
   return (
     <Card title="Feature flags">
@@ -224,6 +224,11 @@ function Features({ entry, editable, onSaved }: { entry: ConfigEntry } & CardPro
         <Toggle label="Web app" checked={s.web_app} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, web_app: x }); }} />
         <Toggle label="OCR (read from a photo)" checked={s.ocr} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, ocr: x }); }} />
         <Toggle label="Invitation cards" checked={s.invitation_cards} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, invitation_cards: x }); }} />
+        <Toggle label="Rewards tab (इनाम)" checked={s.rewards} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, rewards: x }); }} />
+        <Toggle label="Daily check-in" checked={s.checkin} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, checkin: x }); }} />
+        <Toggle label="Rewarded videos" checked={s.videos} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, videos: x }); }} />
+        <Toggle label="Rishtey community discovery (legal review pending: keep OFF)" checked={s.rishtey_discovery} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, rishtey_discovery: x }); }} />
+        <Toggle label="Referrals" checked={s.referral} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, referral: x }); }} />
         <Toggle label="Usage statistics (analytics)" checked={s.analytics} disabled={!editable} onChange={(x) => { clear(); setS({ ...s, analytics: x }); }} />
         {err != null && <ErrorBox error={err} />}
         {ok && <Notice tone="good">Saved.</Notice>}

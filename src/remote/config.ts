@@ -17,11 +17,13 @@ export interface RemoteConfig {
     native: boolean;
     interstitial: boolean;
     rewarded: boolean;
+    /** इनाम tab "वीडियो देखें" rewarded video (+5 points, 3 a day). Off by default. */
+    inaam_video: boolean;
     interstitial_min_interval_sec: number;
     native_every_n_items: number;
     first_day_ads_free: boolean;
   };
-  features: { web_app: boolean; ocr: boolean; invitation_cards: boolean; /** usage statistics (Google Analytics for Firebase); the server can switch it off for everyone */ analytics: boolean };
+  features: { web_app: boolean; ocr: boolean; invitation_cards: boolean; /** usage statistics (Google Analytics for Firebase); the server can switch it off for everyone */ analytics: boolean; checkin: boolean; videos: boolean; referral: boolean; rewards: boolean; /** रिश्ते community discovery (legal review pending): OFF unless the server turns it on */ rishtey_discovery: boolean };
 }
 
 export const DEFAULT_CONFIG: RemoteConfig = {
@@ -36,11 +38,12 @@ export const DEFAULT_CONFIG: RemoteConfig = {
     native: false,
     interstitial: false,
     rewarded: false,
+    inaam_video: false,
     interstitial_min_interval_sec: 300,
     native_every_n_items: 8,
     first_day_ads_free: true,
   },
-  features: { web_app: false, ocr: false, invitation_cards: false, analytics: true },
+  features: { web_app: false, ocr: false, invitation_cards: false, analytics: true, checkin: true, videos: true, referral: true, rewards: true, rishtey_discovery: false },
 };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -77,11 +80,14 @@ export function parseConfig(raw: unknown, base: RemoteConfig = DEFAULT_CONFIG): 
       native: bool(ad.native, base.ads.native),
       interstitial: bool(ad.interstitial, base.ads.interstitial),
       rewarded: bool(ad.rewarded, base.ads.rewarded),
+      inaam_video: bool(ad.inaam_video, base.ads.inaam_video),
       interstitial_min_interval_sec: int(ad.interstitial_min_interval_sec, base.ads.interstitial_min_interval_sec, 60, 86_400),
       native_every_n_items: int(ad.native_every_n_items, base.ads.native_every_n_items, 5, 50),
       first_day_ads_free: bool(ad.first_day_ads_free, base.ads.first_day_ads_free),
     },
-    features: { web_app: bool(f.web_app, base.features.web_app), ocr: bool(f.ocr, base.features.ocr), invitation_cards: bool(f.invitation_cards, base.features.invitation_cards), analytics: bool(f.analytics, base.features.analytics) },
+    features: { web_app: bool(f.web_app, base.features.web_app), ocr: bool(f.ocr, base.features.ocr), invitation_cards: bool(f.invitation_cards, base.features.invitation_cards), analytics: bool(f.analytics, base.features.analytics),
+      checkin: bool(f.checkin, base.features.checkin), videos: bool(f.videos, base.features.videos), referral: bool(f.referral, base.features.referral), rewards: bool(f.rewards, base.features.rewards), rishtey_discovery: bool(f.rishtey_discovery, base.features.rishtey_discovery),
+    },
   };
 }
 

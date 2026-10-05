@@ -9,6 +9,9 @@ import { BIODATA_KEY, EMPTY_BIODATA, hasContent, parseBiodata, serializeBiodata,
 import { getDb, getSetting, setSetting, type Db } from '@/db';
 import { BiodataCard } from '@/features/rishte/BiodataCard';
 import { BiodataForm } from '@/features/rishte/BiodataForm';
+import { DiscoverySection } from '@/features/rishte/DiscoverySection';
+import { rishteyDiscoveryOn } from '@/features';
+import { useRemoteConfig } from '@/remote/use-remote';
 import { useLoad } from '@/hooks/use-load';
 import { captureView, shareImageFile } from '@/services/report-export';
 import { showToast } from '@/services/toast';
@@ -49,6 +52,7 @@ export default function Rishte() {
     }
   }, [busy]);
 
+  const discoveryOn = rishteyDiscoveryOn(useRemoteConfig());
   const editing = draft !== null;
   return (
     <Screen
@@ -78,7 +82,8 @@ export default function Rishte() {
         </View>
       )}
       <Text style={[type.caption, styles.note]}>{PRIVACY}</Text>
-      {editing ? null : (
+      {editing ? null : <DiscoverySection />}
+      {editing || discoveryOn ? null : (
         <Card style={styles.soon} testID="rishte-soon">
           <Text style={[type.bodyBold, styles.muted]}>रिश्ते खोजें — जल्द आ रहा है</Text>
         </Card>

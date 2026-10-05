@@ -12,6 +12,7 @@ const NAV: { to: string; label: string; need: Action }[] = [
   { to: '/abuse', label: 'Abuse & blocklist', need: 'view_abuse' },
   { to: '/monitoring', label: 'Monitoring', need: 'view_monitoring' },
   { to: '/reports', label: 'Reports', need: 'view_reports' },
+  { to: '/rishtey', label: 'Rishtey moderation', need: 'moderate_rishtey' },
   { to: '/staff', label: 'Staff & roles', need: 'manage_staff' },
   { to: '/audit', label: 'Audit log', need: 'view_audit' },
 ];

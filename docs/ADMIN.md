@@ -54,6 +54,7 @@ Cloudflare Access is **not** the login mechanism. You may still put an Access po
 | Suspend / unsuspend, force sign-out | - | yes | yes | yes |
 | Block / unblock a phone or IP | - | yes | yes | yes |
 | View data a user **chose to share** (consented support access) | - | yes | yes | yes |
+| Moderate community रिश्ते profiles (public details only; no contact, no account), handle reports | - | yes | yes | yes |
 | **Unmask** a phone / e-mail (reason required, audited) | - | - | yes | yes |
 | **Delete an account** (reason + typed confirmation) | - | - | yes | yes |
 | Edit remote config (maintenance, versions, announcement, ads, features) | - | - | yes | yes |
@@ -164,10 +165,11 @@ admin response guard and the privacy test (below) are defence in depth, not the 
 Reads: `GET /me, /health, /errors, /overview, /users, /users/:id, /users/:id/notes (support+), /tickets, /tickets/:id, /config,
 /config-history, /abuse/otp, /abuse/blocklist, /reports, /reports/:name[?format=csv&from=&to=], /audit (admin+), /staff (owner),
 /support-view/:userId/:table (support+, needs grant)`.
+रिश्ते moderation (support+, `moderate_rishtey`): `GET /rishtey/queue?status=` (each view audited), `GET /rishtey/reports?status=`.
 Mutations (each writes `admin_audit_log` with who, role, action, target, reason, IP and before/after metadata):
 `POST /users/:id/{suspend,unsuspend,signout,delete,unmask,notes}`, `PUT /config/:key`, `POST /tickets`, `PATCH /tickets/:id`,
 `POST /tickets/:id/{notes,resolve}`, `POST /abuse/blocklist`, `DELETE /abuse/blocklist/:id`, `POST /reports/recompute`,
-`POST /staff`, `PATCH|DELETE /staff/:id`. Error responses commit nothing, including their audit row.
+`POST /staff`, `PATCH|DELETE /staff/:id`. `POST /rishtey/profiles/:id/review` (approve/reject + reason), `POST /rishtey/reports/:id/resolve` (dismiss/hide). Error responses commit nothing, including their audit row.
 
 Public/app endpoints added in this stage: `GET /v1/config` (no auth, `Cache-Control: max-age=300`), `POST /v1/support`
 (authenticated, 5 per hour), `POST|GET /v1/support/access`.
@@ -259,14 +261,13 @@ The session token (from the `set-auth-token` header after sign-in) is kept in `s
 Zero Trust > Access > Applications > Self-hosted: add the Pages domain and the Worker path `/admin/*`, policy = allowed e-mails.
 Nothing in the code depends on it. If you use it with a cross-origin API, bypass `OPTIONS` requests in the policy.
 
-## 9. What the app must do (not done in this stage)
+## 9. What the app does (done)
 
-* Send `X-App-Version` (e.g. `1.4.2`), `X-Platform` (`android`|`ios`|`web`) and optionally `X-OS-Version` on sync and sign-in
-  requests. Without them the app shows as "unknown version" (still works).
-* Read `GET /v1/config` on launch and about every 5 minutes: honour `maintenance`, `min_supported_version` (force-update screen with
-  `force_update_message_hi`), `announcement`, `ads`, `features`. Handle 503 `maintenance` and 403 `account_suspended` (show `message_hi`).
-* "Contact support / grievance" screen: `POST /v1/support`; and the toggle "सहायता को मेरा डेटा 7 दिन दिखाएं" calling
-  `POST /v1/support/access`.
-* **Privacy policy text must change** (`src/legal`, owned by the app work): disclose that authorised staff can see account details
-  (phone/e-mail, sign-in method, app version, last active, counts of records) and anonymous aggregate statistics, **cannot read
-  diary entries**, and can read a user's data only during a window the user switches on themselves (max 7 days, read-only, logged).
+* It sends `X-App-Version`, `X-Platform` (`android`|`ios`|`web`) and `X-OS-Version` on sync and sign-in requests (the admin CORS list allows
+  `x-platform` and `x-app-version`).
+* It reads `GET /v1/config` on launch and periodically and honours `maintenance`, `min_supported_version` (force-update screen),
+  `announcement`, `ads` and `features`; it handles 503 `maintenance` and 403 `account_suspended` (shows `message_hi`).
+* The support screen posts `POST /v1/support`, and the toggle "सहायता को मेरा डेटा 7 दिन दिखाएं" calls `POST /v1/support/access`.
+* The privacy policy (`src/legal`) discloses what staff can and cannot see: account details and aggregate statistics only, never diary
+  entries, and a user's data only during a window the user switches on (max 7 days, read-only, logged).
+* Remaining owner work: replace the grievance contact placeholders in `src/legal/content.ts`.

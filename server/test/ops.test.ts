@@ -17,7 +17,7 @@ describe('remote config', () => {
     expect(r.json.maintenance.enabled).toBe(false);
     expect(r.json.ads).toEqual(CONFIG_DEFAULTS.ads);
     expect(r.json.ads.enabled).toBe(false);
-    expect(r.json.features).toEqual({ web_app: false, ocr: false, invitation_cards: false, analytics: true });
+    expect(r.json.features).toEqual({ web_app: false, ocr: false, invitation_cards: false, analytics: true, checkin: true, videos: true, referral: true, rewards: true, rishtey_discovery: false });
     // a stray key in the table is never exposed
     await t.pg.query(`INSERT INTO app_config (key, value) VALUES ('internal_secret', '"x"')`);
     expect(JSON.stringify((await t.call('GET', '/v1/config')).json)).not.toContain('internal_secret');

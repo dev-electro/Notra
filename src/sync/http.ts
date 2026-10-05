@@ -47,7 +47,7 @@ export interface ApiClientOptions {
 
 export interface Api {
   /** JSON request. `auth: true` sends the session cookie; a 401 clears the session and throws SignedOutError. */
-  request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, o?: { body?: unknown; auth?: boolean }): Promise<T>;
+  request<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, o?: { body?: unknown; auth?: boolean }): Promise<T>;
 }
 
 /** Plain fetch with a 15 s timeout (AbortController). No NetInfo: callers just try and fail quietly. */
@@ -87,7 +87,7 @@ export function createApi(o: ApiClientOptions): Api {
   }
 
   return {
-    async request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, opts: { body?: unknown; auth?: boolean } = {}): Promise<T> {
+    async request<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, opts: { body?: unknown; auth?: boolean } = {}): Promise<T> {
       if (!opts.auth) return parse<T>(await raw(method, path, opts.body));
       const cookie = await o.session.cookie();
       if (!cookie) {

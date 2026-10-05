@@ -5,7 +5,7 @@ import { defineConfig } from 'vitest/config';
 import { cloudflare } from "@cloudflare/vite-plugin";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), cloudflare()],
+  plugins: [react(), tailwindcss(), ...(process.env.VITEST ? [] : [cloudflare()])],
   build: { sourcemap: false, chunkSizeWarningLimit: 400 },
   test: { environment: 'jsdom', include: ['src/**/*.vtest.{ts,tsx}'], globals: false },
 });

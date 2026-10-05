@@ -56,7 +56,8 @@ export async function buildSnapshot(db: Db, ledgerIds: readonly string[], now: D
 // ---------- validation of a decrypted file ----------
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
-const ID = /^[A-Za-z0-9_-]{1,64}$/;
+/** Same shape the server accepts (server/src/validate.ts), so a restored row can never be rejected on its first push. */
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO = /^\d{4}-\d{2}-\d{2}T[\d:.]{5,16}Z$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const txt = (v: unknown, max = 500): v is string => typeof v === 'string' && v.length <= max && !v.includes('\u0000');
@@ -172,6 +173,7 @@ export async function mergeSnapshot(db: Db, parsed: ParsedSnapshot): Promise<Mer
       if (s.profile) rep.profileApplied = await applyProfile(db, s.profile); // first: old entries need to know who "me" is
       const ledgerIds = await localIds('ledgers');
       const householdIds = await localIds('households');
+      const eventIds = await localIds('events');
       for (const l of s.ledgers) {
         rep.ledgers[await kind('ledgers', l.id, l.updatedAt)]++;
         await db.runAsync(
@@ -212,6 +214,7 @@ export async function mergeSnapshot(db: Db, parsed: ParsedSnapshot): Promise<Mer
            WHERE excluded.updated_at > events.updated_at`,
           [e.id, e.hostHouseholdId, e.occasion, e.date, e.panchApproved ? 1 : 0, e.invitationType, e.status, e.ledgerId, e.createdAt, e.updatedAt, e.occasionLabel ?? null, e.occasionNote ?? null],
         );
+        eventIds.add(e.id);
       }
       for (const e of s.entries) {
         if (!ledgerIds.has(e.ledgerId) || !householdIds.has(e.otherHouseholdId)) {
@@ -223,7 +226,16 @@ export async function mergeSnapshot(db: Db, parsed: ParsedSnapshot): Promise<Mer
           continue;
         }
         const occurredOn = e.occurredOn ?? e.createdAt.slice(0, 10);
+        // An entry that names a program we do not have would be an orphan: skip it (counted), like an unknown ledger or family.
+        if (e.eventId && !eventIds.has(e.eventId)) {
+          rep.skipped++;
+          continue;
+        }
         const eventId = e.eventId ?? (await ensureLegacyEvent(db, { direction: e.direction as 'AAYA' | 'GAYA', ledgerId: e.ledgerId, otherHouseholdId: e.otherHouseholdId, occurredOn }));
+        if (!eventId) {
+          rep.skipped++; // old "my" entry while my household is unknown: not hosted on a guess
+          continue;
+        }
         await db.runAsync(
           `INSERT INTO entries (id, event_id, other_household_id, direction, cash_paise, in_kind_item, in_kind_value_paise,
              payment_mode, recorded_by, created_at, occurred_on, corrects_entry_id, is_void, ledger_id, dirty)
