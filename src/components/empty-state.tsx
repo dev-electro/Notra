@@ -31,7 +31,7 @@ export function EmptyState({ icon, text, actionLabel, onAction }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl, paddingHorizontal: spacing.md },
+  wrap: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl, paddingHorizontal: spacing.lg },
   text: { color: colors.muted, textAlign: 'center' },
   btn: { alignSelf: 'stretch' },
 });

@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { ExportBar } from '@/components/report-export';
@@ -9,7 +10,7 @@ import { Text } from '@/components/text';
 import {
   defaultFilter, filterLabels, filterRange, formatINR, pendingDoc, personDoc, todayIso, type Household, type ReportFilter,
 } from '@/core';
-import { getDb, sqlPersonRange, type Db } from '@/db';
+import { getDb, getHousehold, sqlPersonRange, type Db } from '@/db';
 import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { useLoad } from '@/hooks/use-load';
 import { usePaged } from '@/hooks/use-paged';
@@ -27,6 +28,16 @@ const keyOf = (r: Row) => r.householdId;
  */
 export function PersonReport({ pending }: { pending: boolean }) {
   useReportViewed(pending ? 'pending' : 'person');
+  // Optional: opened for one family, the header shows where they live.
+  const { householdId } = useLocalSearchParams<{ householdId?: string }>();
+  const { data: place } = useLoad(
+    async (db) => {
+      const h = householdId ? await getHousehold(db, String(householdId)) : null;
+      return h ? [h.village, h.panchayat, h.tehsil, h.district].filter(Boolean).join(' · ') : '';
+    },
+    '',
+    String(householdId ?? ''),
+  );
   const [filter, setFilter] = useState<ReportFilter>(() => defaultFilter(todayIso()));
   const ledgerId = useActiveLedgerId();
   const key = JSON.stringify(filter) + pending;
@@ -84,6 +95,7 @@ export function PersonReport({ pending }: { pending: boolean }) {
       title={pending ? 'लौटाना बाकी' : 'किसका कितना'}
       header={
         <>
+          {place ? <Text style={[type.bodyBold, styles.ink]} accessibilityLabel={`गाँव, पंचायत, तहसील, ज़िला: ${place}`}>{place}</Text> : null}
           <RangeFilter value={filter} onChange={setFilter} />
           <Text style={[type.caption, styles.muted]}>{pending ? 'इनका नोतरा आया है, लौटाना बाकी है' : 'किसके साथ कितना मिला, कितना दिया'}</Text>
           <SummaryCard lines={pending
@@ -105,4 +117,5 @@ const styles = StyleSheet.create({
   amounts: { alignItems: 'flex-end' },
   amtRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   muted: { color: colors.muted },
+  ink: { color: colors.ink },
 });

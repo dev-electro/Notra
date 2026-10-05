@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Card } from '@/components/card';
+import { Card, SoonBadge } from '@/components/card';
 import { Icon } from '@/components/icons';
+import { DotBorder } from '@/components/motifs';
 import { PressableScale } from '@/components/pressable-scale';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
@@ -21,8 +22,15 @@ export default function Inaam() {
   return (
     <Screen title="इनाम" tab>
       <Card tint="haldi" style={styles.wallet} testID="card-wallet">
-        <Text style={[type.caption, { color: colors.muted }]}>मेरा इनाम</Text>
-        <Text style={[type.title, { color: colors.ink }]}>₹0 · जल्द शुरू</Text>
+        <View style={styles.walletTop}>
+          <View style={styles.walletDisc}>
+            <Icon name="cash" size={28} color={colors.ink} />
+          </View>
+          <Text style={[type.heading, { color: colors.ink }]}>मेरा इनाम</Text>
+        </View>
+        <Text style={[type.amountXL, styles.walletAmt]}>₹0</Text>
+        <Text style={[type.caption, { color: colors.muted }]}>जल्द शुरू होगा</Text>
+        <DotBorder />
       </Card>
       {CARDS.map(({ id, sub }) => {
         const m = getModule(id);
@@ -34,7 +42,7 @@ export default function Inaam() {
               <Text style={[type.bodyBold, { color: colors.ink }]}>{m.title}</Text>
               <Text style={[type.caption, { color: colors.muted }]}>{sub}</Text>
             </View>
-            <View style={styles.tag}><Text style={type.captionBold}>जल्द</Text></View>
+            <SoonBadge />
           </PressableScale>
         );
       })}
@@ -43,11 +51,13 @@ export default function Inaam() {
 }
 
 const styles = StyleSheet.create({
-  wallet: { gap: spacing.xs },
+  wallet: { gap: spacing.xs, alignItems: 'center', paddingBottom: spacing.sm },
+  walletTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  walletDisc: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  walletAmt: { color: colors.ink },
   flex: { flex: 1 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: 72, paddingHorizontal: spacing.md,
     backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
   },
-  tag: { paddingHorizontal: spacing.sm, borderRadius: radius.pill, backgroundColor: colors.haldiTint },
 });

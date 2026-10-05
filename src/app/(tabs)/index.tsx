@@ -1,19 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Easing, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
 import { NoticeBanners } from '@/components/notice-banners';
 import { Calendar, type DayMarkers } from '@/components/calendar';
-import { Card, SectionTitle } from '@/components/card';
+import { Card, SectionTitle, SoonBadge } from '@/components/card';
 import { Icon } from '@/components/icons';
 import { OccasionBadge } from '@/components/occasion';
-import { Toran } from '@/components/motifs';
+import { DotBorder, Toran } from '@/components/motifs';
 import { PressableScale } from '@/components/pressable-scale';
 import { SpeakerButton } from '@/components/speaker-button';
 import { Text } from '@/components/text';
 import { BottomBar } from '@/components/screen';
 import { DEFAULT_LEDGER_ID, firstRunRoute, formatINR, LEGACY_EVENT_LABEL, longDateHi, monthRange, occasionName, todayIso, type Occasion } from '@/core';
 import { getMyHousehold, getMyHouseholdId, sqlEventCards, type EventCard } from '@/db';
+import { isReduceMotion } from '@/hooks/use-reduce-motion';
 import { useActiveLedger } from '@/hooks/use-active-ledger';
 import { useLedgerTotals } from '@/hooks/use-ledger-totals';
 import { useLoad } from '@/hooks/use-load';
@@ -22,35 +23,46 @@ import { go, replace } from '@/nav';
 import { HELP_HOME } from '@/onboarding/help';
 import { BORDER, colors, GUTTER, MIN_TOUCH, radius, spacing, type } from '@/theme';
 
-interface RowProps {
+interface TileProps {
   tone: 'received' | 'given';
   word: string;
   paired: string;
+  /** Spoken label (the app's older words, kept for screen readers and tests). */
+  spoken: string;
   amount: string;
 }
 
-/** One line of the summary: arrow in a tinted disc, the word, and the big amount. Arrow + word + colour, never colour alone. */
-function SummaryRow({ tone, word, paired, amount }: RowProps) {
+/** Big summary tile: arrow in a disc, the word, the amount. Arrow + word + colour + left bar, never colour alone. */
+function SummaryTile({ tone, word, paired, spoken, amount }: TileProps) {
   const received = tone === 'received';
   const ink = received ? colors.received : colors.given;
   return (
-    <View style={styles.sumRow} accessible accessibilityLabel={`${word}, ${amount}`}>
-      <View style={[styles.sumDisc, { backgroundColor: received ? colors.receivedTint : colors.givenTint }]}>
-        <Icon name={received ? 'arrowDown' : 'arrowUp'} size={28} color={ink} strokeWidth={2.5} />
+    <Card tint={tone} accent={tone} style={styles.sumTile} accessible accessibilityLabel={`${spoken}, ${amount}`}>
+      <View style={styles.sumHead}>
+        <View style={styles.sumDisc}>
+          <Icon name={received ? 'arrowDown' : 'arrowUp'} size={28} color={ink} strokeWidth={2.5} />
+        </View>
+        <View style={styles.flex}>
+          <Text style={[type.heading, { color: ink }]} numberOfLines={1}>{word}</Text>
+          <Text style={[type.caption, styles.muted]} numberOfLines={1}>{paired}</Text>
+        </View>
       </View>
-      <View style={styles.sumWords}>
-        <Text style={[type.heading, { color: ink }]} numberOfLines={1}>
-          {word}
-        </Text>
-        <Text style={[type.caption, styles.muted]} numberOfLines={1}>
-          {paired}
-        </Text>
-      </View>
-      <Text style={[type.amount, styles.sumAmount, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+      <Text style={[type.amount, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
         {amount}
       </Text>
-    </View>
+    </Card>
   );
+}
+
+/** Cheap one-shot fade + 12dp slide-up (native driver); off with "remove animations". */
+function FadeIn({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const [v] = useState(() => new Animated.Value(isReduceMotion() ? 1 : 0));
+  useEffect(() => {
+    if (isReduceMotion()) return;
+    Animated.timing(v, { toValue: 1, duration: 280, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [v, delay]);
+  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [spacing.sm + spacing.xs, 0] });
+  return <Animated.View style={{ opacity: v, transform: [{ translateY }] }}>{children}</Animated.View>;
 }
 
 interface MonthProgram extends EventCard {
@@ -73,6 +85,57 @@ function useMonthPrograms(month: { y: number; m: number }) {
     `${month.y}-${month.m}`,
   );
   return data;
+}
+
+/** The next few programs from today on (mine and others'), soonest first. */
+function useUpcoming() {
+  const { data } = useLoad(
+    async (db, ledgerId) => {
+      const from = todayIso();
+      const me = await getMyHouseholdId(db);
+      const [mine, theirs] = await Promise.all([
+        sqlEventCards(db, ledgerId, me, { mine: true, from, limit: 5 }),
+        sqlEventCards(db, ledgerId, me, { mine: false, from, limit: 5 }),
+      ]);
+      return [...mine.map((c) => ({ ...c, mine: true })), ...theirs.map((c) => ({ ...c, mine: false }))]
+        .sort((x, y) => x.event.date.localeCompare(y.event.date))
+        .slice(0, 5) as MonthProgram[];
+    },
+    [] as MonthProgram[],
+    todayIso(),
+  );
+  return data;
+}
+
+/** "आने वाले नोतरे": a sideways strip of the next programs. Hidden when there are none. */
+function UpcomingStrip({ items }: { items: MonthProgram[] }) {
+  if (items.length === 0) return null;
+  return (
+    <View style={styles.upWrap}>
+      <SectionTitle icon="events">आने वाले नोतरे</SectionTitle>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.upRow} style={styles.upScroll}>
+        {items.map((c) => {
+          const name = c.event.legacy ? LEGACY_EVENT_LABEL : occasionName(c.event.occasion, c.event.occasionLabel);
+          return (
+            <PressableScale
+              key={c.event.id}
+              testID={`upcoming-${c.event.id}`}
+              accessibilityRole="button"
+              accessibilityLabel={`${name}, ${c.mine ? 'मेरा नोतरा' : c.host.headName}, ${longDateHi(c.event.date)}`}
+              accessibilityHint="नोतरे की जानकारी खोलें"
+              onPress={() => go(`/events/${c.event.id}`)}
+              style={styles.upCard}
+            >
+              <OccasionBadge occasion={c.event.occasion as Occasion} size={48} />
+              <Text style={[type.bodyBold, styles.ink]} numberOfLines={1}>{name}</Text>
+              <Text style={[type.caption, styles.muted]} numberOfLines={1}>{c.mine ? 'मेरा नोतरा' : c.host.headName}</Text>
+              <Text style={[type.captionBold, { color: c.mine ? colors.received : colors.given }]} numberOfLines={1}>{longDateHi(c.event.date)}</Text>
+            </PressableScale>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
 }
 
 /** Programs of the chosen day, one line each: picture, name, whose, and a tap to open. */
@@ -120,11 +183,13 @@ function Services() {
           accessibilityLabel={m.status === 'soon' ? `${m.title}, जल्द आ रहा है` : m.title}
           onPress={() => go(m.route)}
           outerStyle={styles.tileOuter}
-          style={styles.tile}
+          style={[styles.tile, m.status === 'live' && styles.tileLive]}
         >
-          <Icon name={m.icon} size={28} color={colors.received} />
+          <View style={styles.tileDisc}>
+            <Icon name={m.icon} size={32} color={colors.received} />
+          </View>
           <Text style={[type.captionBold, styles.ink, styles.tileLabel]} numberOfLines={2}>{m.title}</Text>
-          {m.status === 'soon' ? <View style={styles.soonTag}><Text style={styles.soonText}>जल्द</Text></View> : null}
+          {m.status === 'soon' ? <SoonBadge /> : null}
         </PressableScale>
       ))}
     </View>
@@ -140,6 +205,7 @@ export default function Home() {
   const [month, setMonth] = useState(() => ({ y: Number(todayIso().slice(0, 4)), m: Number(todayIso().slice(5, 7)) }));
   const [day, setDay] = useState(todayIso());
   const programs = useMonthPrograms(month);
+  const upcoming = useUpcoming();
   const onMonth = useCallback((y: number, m: number) => setMonth((c) => (c.y === y && c.m === m ? c : { y, m })), []);
   const markers = useMemo(() => {
     const out: DayMarkers = {};
@@ -161,22 +227,28 @@ export default function Home() {
         <ScrollView contentContainerStyle={styles.content}>
           <Toran />
           <View style={styles.body}>
-            <View style={styles.top}>
-              <Text style={[type.title, styles.greeting]} accessibilityRole="header">
-                {greeting}
-              </Text>
-              <SpeakerButton text={HELP_HOME} />
-              <PressableScale
-                accessibilityRole="button"
-                testID="btn-settings"
-                accessibilityLabel="सेटिंग"
-                accessibilityHint="बैकअप, ताला और जानकारी"
-                onPress={() => go('/settings')}
-                outerStyle={styles.gearOuter}
-                style={styles.gear}
-              >
-                <Icon name="settings" size={30} color={colors.muted} />
-              </PressableScale>
+            <View style={styles.band}>
+              <View style={styles.top}>
+                <View style={styles.flex}>
+                  <Text style={[type.title, styles.greeting]} accessibilityRole="header">
+                    {greeting}
+                  </Text>
+                  <Text style={[type.caption, styles.muted]}>{longDateHi(todayIso())}</Text>
+                </View>
+                <SpeakerButton text={HELP_HOME} />
+                <PressableScale
+                  accessibilityRole="button"
+                  testID="btn-settings"
+                  accessibilityLabel="सेटिंग"
+                  accessibilityHint="बैकअप, ताला और जानकारी"
+                  onPress={() => go('/settings')}
+                  outerStyle={styles.gearOuter}
+                  style={styles.gear}
+                >
+                  <Icon name="settings" size={30} color={colors.muted} />
+                </PressableScale>
+              </View>
+              <DotBorder />
             </View>
 
             <NoticeBanners scope="home" />
@@ -185,11 +257,16 @@ export default function Home() {
               <BigButton icon="lock" label={`खाता: ${ledger.name}`} tone="plain" hint="दूसरा खाता खोलें" onPress={() => go('/ledgers')} />
             ) : null}
 
-            <Card style={styles.summary}>
-              <SummaryRow tone="received" word="कुल मिला" paired="(आया)" amount={show(receivedPaise)} />
-              <View style={styles.divider} />
-              <SummaryRow tone="given" word="कुल दिया" paired="(गया)" amount={show(givenPaise)} />
-            </Card>
+            <FadeIn>
+              <View style={styles.sumRow}>
+                <SummaryTile tone="received" word="कुल आया" paired="(मिला)" spoken="कुल मिला" amount={show(receivedPaise)} />
+                <SummaryTile tone="given" word="कुल गया" paired="(दिया)" spoken="कुल दिया" amount={show(givenPaise)} />
+              </View>
+            </FadeIn>
+
+            <FadeIn delay={80}>
+              <UpcomingStrip items={upcoming} />
+            </FadeIn>
 
             <SectionTitle icon="star">सेवाएँ</SectionTitle>
             <Services />
@@ -219,7 +296,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { paddingBottom: spacing.lg },
   body: { paddingHorizontal: GUTTER, gap: spacing.md, paddingTop: spacing.sm },
-  top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  band: { backgroundColor: colors.haldiTint, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card, overflow: 'hidden' },
+  top: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, paddingBottom: spacing.sm },
   greeting: { flex: 1, color: colors.ink },
   gearOuter: { width: MIN_TOUCH, height: MIN_TOUCH },
   gear: {
@@ -232,24 +310,28 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
     backgroundColor: colors.card,
   },
-  summary: { paddingVertical: spacing.sm, gap: 0 },
-  sumRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, minHeight: MIN_TOUCH + spacing.sm },
-  sumDisc: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  sumWords: { flexShrink: 0 },
-  sumAmount: { flex: 1, textAlign: 'right' },
+  sumRow: { flexDirection: 'row', gap: spacing.sm },
+  sumTile: { flex: 1, gap: spacing.sm, paddingLeft: spacing.md + spacing.xs },
+  sumHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  sumDisc: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  upWrap: { gap: spacing.sm },
+  upScroll: { marginHorizontal: -GUTTER },
+  upRow: { paddingHorizontal: GUTTER, gap: spacing.sm },
+  upCard: {
+    width: 176, gap: spacing.xs, padding: spacing.md, backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
+  },
   muted: { color: colors.muted },
   ink: { color: colors.ink },
   flex: { flex: 1 },
-  divider: { height: BORDER, backgroundColor: colors.hairline },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   tileOuter: { width: '31%', flexGrow: 1 },
   tile: {
-    minHeight: 84, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, padding: spacing.sm,
+    minHeight: 112, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, padding: spacing.sm,
     backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card,
   },
+  tileLive: { backgroundColor: colors.haldiTint },
+  tileDisc: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.receivedTint },
   tileLabel: { textAlign: 'center' },
-  soonTag: { position: 'absolute', top: 4, right: 4, paddingHorizontal: 6, borderRadius: radius.pill, backgroundColor: colors.haldiTint },
-  soonText: { fontSize: 12, lineHeight: 16, color: colors.ink },
   dayList: { gap: spacing.sm },
   dayRow: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.md, minHeight: MIN_TOUCH + spacing.sm, paddingHorizontal: spacing.md,

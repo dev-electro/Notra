@@ -19,10 +19,12 @@ interface Props {
   rightNode?: React.ReactNode;
   /** Spoken in place of `right` text, for rightNode rows. */
   rightLabel?: string;
+  /** Thin left bar for direction. */
+  accent?: 'received' | 'given';
 }
 
 /** Same names are common, so father and village always appear under the name. A card with photo, name and a chevron. */
-export const HouseholdRow = React.memo(function HouseholdRow({ household: h, onPress, right, rightNode, rightLabel }: Props) {
+export const HouseholdRow = React.memo(function HouseholdRow({ household: h, onPress, right, rightNode, rightLabel, accent }: Props) {
   return (
     <View style={styles.cell}>
       <PressableScale
@@ -34,6 +36,7 @@ export const HouseholdRow = React.memo(function HouseholdRow({ household: h, onP
         outerStyle={styles.fill}
         style={styles.row}
       >
+        {accent ? <View pointerEvents="none" style={[styles.bar, { backgroundColor: accent === 'received' ? colors.received : colors.given }]} /> : null}
         <Avatar name={h.headName} photoUri={h.photoUri} />
         <View style={styles.text}>
           <Text style={[type.heading, styles.name]} numberOfLines={1}>
@@ -63,7 +66,9 @@ const styles = StyleSheet.create({
     borderWidth: BORDER,
     borderColor: colors.hairline,
     borderRadius: radius.card,
+    overflow: 'hidden',
   },
+  bar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: spacing.xs },
   text: { flex: 1 },
   name: { color: colors.ink },
   sub: { color: colors.muted },

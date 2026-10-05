@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { track } from '@/analytics';
 import { BigButton } from '@/components/big-button';
-import { Card } from '@/components/card';
+import { Card, SoonBadge } from '@/components/card';
 import { Icon } from '@/components/icons';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
@@ -12,7 +12,7 @@ import { getSetting, setSetting } from '@/db/repository';
 import type { Db } from '@/db/types';
 import { getModule, type ModuleId } from '@/modules/registry';
 import { showToast } from '@/services/toast';
-import { colors, radius, spacing, type } from '@/theme';
+import { colors, spacing, type } from '@/theme';
 
 const key = (id: string) => `interest_${id}`;
 
@@ -50,9 +50,7 @@ export default function Soon() {
           <Icon name={mod.icon} size={56} color={colors.received} />
         </View>
         <Text style={[type.title, styles.center]} accessibilityRole="header">{mod.title}</Text>
-        <View style={styles.badge}>
-          <Text style={type.captionBold}>जल्द आ रहा है</Text>
-        </View>
+        <SoonBadge label="जल्द आ रहा है" />
         <Text style={[type.body, styles.center]}>{mod.blurb}</Text>
       </Card>
       <BigButton testID={`btn-notify-${mod.id}`} icon="check" tone="primary" label={saved ? 'ठीक है, बता देंगे' : 'शुरू होने पर मुझे बताएँ'} onPress={notify} />
@@ -62,7 +60,6 @@ export default function Soon() {
 
 const styles = StyleSheet.create({
   card: { alignItems: 'center', gap: spacing.md, paddingVertical: spacing.lg },
-  disc: { width: 104, height: 104, borderRadius: 52, backgroundColor: colors.haldiTint, alignItems: 'center', justifyContent: 'center' },
+  disc: { width: 104, height: 104, borderRadius: 52, backgroundColor: colors.haldiTint, borderWidth: 2, borderColor: colors.haldi, alignItems: 'center', justifyContent: 'center' },
   center: { textAlign: 'center', color: colors.ink },
-  badge: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.haldiTint },
 });
