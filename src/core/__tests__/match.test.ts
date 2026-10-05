@@ -2,7 +2,7 @@ import { foldName, matchHouseholds, nameSimilarity } from '../match';
 import type { Household } from '../types';
 
 const h = (id: string, headName: string, fatherName: string, village: string): Household => ({
-  id, headName, fatherName, village, jati: 'भील', atak: 'डामोर', fala: 'ऊपला',
+  id, headName, fatherName, village, jati: 'भील', atak: 'डामोर', fala: 'ऊपला', panchayat: '', tehsil: '', district: '', kind: 'FAMILY',
 });
 const list = [
   h('1', 'रमेश', 'कालू', 'छोटी सरवन'),

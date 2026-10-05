@@ -20,11 +20,12 @@ const nowIso = () => new Date().toISOString();
 // ---------- row mappers ----------
 type HouseholdRow = {
   id: string; head_name: string; father_name: string; jati: string; atak: string; village: string;
-  fala: string; phone: string | null; photo_uri: string | null; created_at: string; updated_at: string;
+  fala: string; panchayat: string; tehsil: string; district: string; kind: string; phone: string | null; photo_uri: string | null; created_at: string; updated_at: string;
 };
 const toHousehold = (r: HouseholdRow): Household => ({
   id: r.id, headName: r.head_name, fatherName: r.father_name, jati: r.jati, atak: r.atak,
-  village: r.village, fala: r.fala, phone: r.phone ?? undefined, photoUri: r.photo_uri ?? undefined,
+  village: r.village, fala: r.fala, panchayat: r.panchayat, tehsil: r.tehsil, district: r.district,
+  kind: r.kind === 'PERSON' ? 'PERSON' : 'FAMILY', phone: r.phone ?? undefined, photoUri: r.photo_uri ?? undefined,
   createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
@@ -56,13 +57,13 @@ const toEntry = (r: EntryRow): Entry => ({
 });
 
 // ---------- households ----------
-export async function createHousehold(db: Db, input: Omit<Household, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<Household> {
+export async function createHousehold(db: Db, input: Omit<Household, 'id' | 'createdAt' | 'updatedAt' | 'panchayat' | 'tehsil' | 'district' | 'kind'> & Partial<Pick<Household, 'panchayat' | 'tehsil' | 'district' | 'kind'>> & { id?: string }): Promise<Household> {
   const now = nowIso();
-  const h: Household = { ...input, id: input.id ?? newId(), createdAt: now, updatedAt: now };
+  const h: Household = { panchayat: '', tehsil: '', district: '', kind: 'FAMILY', ...input, id: input.id ?? newId(), createdAt: now, updatedAt: now };
   await db.runAsync(
-    `INSERT INTO households (id, head_name, father_name, jati, atak, village, fala, phone, photo_uri, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-    [h.id, h.headName, h.fatherName, h.jati, h.atak, h.village, h.fala, h.phone ?? null, h.photoUri ?? null, now, now],
+    `INSERT INTO households (id, head_name, father_name, jati, atak, village, fala, panchayat, tehsil, district, kind, phone, photo_uri, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [h.id, h.headName, h.fatherName, h.jati, h.atak ?? '', h.village, h.fala ?? '', h.panchayat, h.tehsil, h.district, h.kind, h.phone ?? null, h.photoUri ?? null, now, now],
   );
   notifyLocalWrite();
   return h;
@@ -70,8 +71,8 @@ export async function createHousehold(db: Db, input: Omit<Household, 'id' | 'cre
 
 export async function updateHousehold(db: Db, h: Household): Promise<void> {
   await db.runAsync(
-    `UPDATE households SET head_name=?, father_name=?, jati=?, atak=?, village=?, fala=?, phone=?, photo_uri=?, updated_at=?, dirty=1, sync_error=NULL WHERE id=?`,
-    [h.headName, h.fatherName, h.jati, h.atak, h.village, h.fala, h.phone ?? null, h.photoUri ?? null, nowIso(), h.id],
+    `UPDATE households SET head_name=?, father_name=?, jati=?, atak=COALESCE(?, atak), village=?, fala=COALESCE(?, fala), panchayat=?, tehsil=?, district=?, kind=?, phone=?, photo_uri=?, updated_at=?, dirty=1, sync_error=NULL WHERE id=?`,
+    [h.headName, h.fatherName, h.jati, h.atak ?? null, h.village, h.fala ?? null, h.panchayat, h.tehsil, h.district, h.kind, h.phone ?? null, h.photoUri ?? null, nowIso(), h.id],
   );
   notifyLocalWrite();
 }

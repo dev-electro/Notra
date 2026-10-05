@@ -8,7 +8,7 @@ executionOrder:
   flowsOrder:
     - "01 - launch, skip sign-in, first-launch setup"
     - "02 - add a household (with a phone number)"
-    - "03 - one search box finds a family by name, father, village, fala and phone"
+    - "03 - one search box finds a family by name, father, village, panchayat and phone"
     - "04 - मेरा नोतरा, make my event, record who came (receive only), summary total"
     - "05 - दूसरों का नोतरा, go to another family's program, give, उतार and चढ़ाव in the read-back"
     - "06 - पुराना हिसाब जोड़ें, past dates for my old Notra and another family's"

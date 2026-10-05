@@ -50,7 +50,7 @@ export function PersonReport({ pending }: { pending: boolean }) {
   }, [filter, ledgerId, pending]);
   const open = useCallback((h: Household) => go(`/households/${h.id}`), []);
   const render = useCallback(({ item: r }: { item: Row }) => {
-    const h = { id: r.householdId, headName: r.name, fatherName: r.father, village: r.village, jati: '', atak: '', fala: '' } as Household;
+    const h = { id: r.householdId, headName: r.name, fatherName: r.father, village: r.village, jati: '', panchayat: '', tehsil: '', district: '', kind: 'FAMILY' } as Household;
     const owe = r.receivedPaise - r.givenPaise;
     return (
       <HouseholdRow

@@ -7,7 +7,7 @@
  */
 export const FORBIDDEN_KEYS = [
   // households
-  'head_name', 'father_name', 'jati', 'atak', 'village', 'fala', 'headname', 'fathername',
+  'head_name', 'father_name', 'jati', 'atak', 'village', 'fala', 'panchayat', 'tehsil', 'district', 'headname', 'fathername',
   'phone', // a household phone; user phones are always `phone_masked` (or `value` in the audited unmask response)
   'other_household_id', 'host_household_id', 'my_household_id',
   // entries

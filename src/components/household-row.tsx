@@ -40,7 +40,7 @@ export const HouseholdRow = React.memo(function HouseholdRow({ household: h, onP
             {h.headName}
           </Text>
           <Text style={[type.caption, styles.sub]} numberOfLines={1}>
-            {[h.fatherName && `${h.fatherName} का`, h.village].filter(Boolean).join(' · ')}
+            {[h.fatherName && `${h.fatherName} का`, h.village, h.kind === 'PERSON' && 'व्यक्ति'].filter(Boolean).join(' · ')}
           </Text>
         </View>
         {rightNode ?? (right ? <Text style={[type.money, styles.right]}>{right}</Text> : null)}

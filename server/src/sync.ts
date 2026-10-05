@@ -28,11 +28,12 @@ export async function pushRows(
       out.ledgers = r.length;
     }    if (b.households.length) {
       const r = await q.query(
-        `INSERT INTO households (user_id, id, head_name, father_name, jati, atak, village, fala, phone, created_at, updated_at, server_seq)
-         SELECT $1::uuid, t.id, t.head_name, t.father_name, t.jati, t.atak, t.village, t.fala, t.phone, t.created_at, t.updated_at, nextval('sync_seq')
-         FROM jsonb_to_recordset($2::text::jsonb) AS t(id uuid, head_name text, father_name text, jati text, atak text, village text, fala text, phone text, created_at text, updated_at text)
+        `INSERT INTO households (user_id, id, head_name, father_name, jati, atak, village, fala, panchayat, tehsil, district, kind, phone, created_at, updated_at, server_seq)
+         SELECT $1::uuid, t.id, t.head_name, t.father_name, t.jati, t.atak, t.village, t.fala, t.panchayat, t.tehsil, t.district, t.kind, t.phone, t.created_at, t.updated_at, nextval('sync_seq')
+         FROM jsonb_to_recordset($2::text::jsonb) AS t(id uuid, head_name text, father_name text, jati text, atak text, village text, fala text, panchayat text, tehsil text, district text, kind text, phone text, created_at text, updated_at text)
          ON CONFLICT (user_id, id) DO UPDATE SET head_name = EXCLUDED.head_name, father_name = EXCLUDED.father_name,
-           jati = EXCLUDED.jati, atak = EXCLUDED.atak, village = EXCLUDED.village, fala = EXCLUDED.fala, phone = EXCLUDED.phone,
+           jati = EXCLUDED.jati, atak = EXCLUDED.atak, village = EXCLUDED.village, fala = EXCLUDED.fala, panchayat = EXCLUDED.panchayat, tehsil = EXCLUDED.tehsil,
+           district = EXCLUDED.district, kind = EXCLUDED.kind, phone = EXCLUDED.phone,
            updated_at = EXCLUDED.updated_at, server_seq = EXCLUDED.server_seq
          WHERE EXCLUDED.updated_at > households.updated_at
          RETURNING 1`,
@@ -110,7 +111,7 @@ export async function pullRows(db: Db, userId: string, since: number, limit: num
       await q.query<Tagged<ProfileRow>>(
         `SELECT my_household_id, increment, updated_at, server_seq FROM profiles WHERE user_id = $1 AND server_seq > $2`, [userId, since]),
       await q.query<Tagged<HouseholdRow>>(
-        `SELECT id, head_name, father_name, jati, atak, village, fala, phone, created_at, updated_at, server_seq
+        `SELECT id, head_name, father_name, jati, atak, village, fala, panchayat, tehsil, district, kind, phone, created_at, updated_at, server_seq
          FROM households WHERE user_id = $1 AND server_seq > $2 ORDER BY server_seq LIMIT $3`, [userId, since, take]),
       await q.query<Tagged<EventRow>>(
         `SELECT id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at, occasion_label, occasion_note, server_seq
@@ -153,7 +154,7 @@ const camelProfile = (r: ProfileRow) => ({
   updatedAt: r.updated_at,
 });
 const camelHousehold = (r: HouseholdRow) => ({
-  id: r.id, headName: r.head_name, fatherName: r.father_name, jati: r.jati, atak: r.atak, village: r.village, fala: r.fala,
+  id: r.id, headName: r.head_name, fatherName: r.father_name, jati: r.jati, atak: r.atak, village: r.village, fala: r.fala, panchayat: r.panchayat, tehsil: r.tehsil, district: r.district, kind: r.kind,
   phone: r.phone, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 const camelEvent = (r: EventRow) => ({

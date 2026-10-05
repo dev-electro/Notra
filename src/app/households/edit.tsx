@@ -14,7 +14,7 @@ import { showToast } from '@/services/toast';
 import { pickPhoto } from '@/services/photo';
 import { spacing } from '@/theme';
 
-const EMPTY = { headName: '', fatherName: '', jati: '', village: '', fala: '', atak: '', phone: '', photoUri: '' };
+const EMPTY = { headName: '', fatherName: '', jati: '', village: '', panchayat: '', tehsil: '', district: '', kind: 'FAMILY' as Household['kind'], phone: '', photoUri: '' };
 
 /** Add / edit a household. Column order follows the paper diary. */
 export default function HouseholdEdit() {
@@ -53,7 +53,8 @@ export default function HouseholdEdit() {
   const save = async () => {
     const data = {
       headName: f.headName.trim(), fatherName: f.fatherName.trim(), jati: f.jati.trim(), village: f.village.trim(),
-      fala: f.fala.trim(), atak: f.atak.trim(), phone: f.phone.trim() || undefined, photoUri: f.photoUri || undefined,
+      panchayat: f.panchayat.trim(), tehsil: f.tehsil.trim(), district: f.district.trim(), kind: f.kind,
+      phone: f.phone.trim() || undefined, photoUri: f.photoUri || undefined,
     };
     const ok = await guarded(async () => {
       const db = (await getDb()) as unknown as Db;
@@ -73,12 +74,17 @@ export default function HouseholdEdit() {
           <BigButton compact icon="image" label="गैलरी" onPress={() => photo('gallery')} />
         </View>
       </View>
+      <View style={styles.kindRow}>
+        <View style={styles.kindBtn}><BigButton testID="kind-family" compact label="परिवार" selected={f.kind === 'FAMILY'} onPress={() => setF((s) => ({ ...s, kind: 'FAMILY' }))} /></View>
+        <View style={styles.kindBtn}><BigButton testID="kind-person" compact label="व्यक्ति" selected={f.kind === 'PERSON'} onPress={() => setF((s) => ({ ...s, kind: 'PERSON' }))} /></View>
+      </View>
       <Field testID="field-name" label="नाम" value={f.headName} onChangeText={set('headName')} />
       <Field testID="field-father" label="पिता का नाम" value={f.fatherName} onChangeText={set('fatherName')} />
       <Field testID="field-jati" label="जाति" value={f.jati} onChangeText={set('jati')} />
       <Field testID="field-village" label="गाँव" value={f.village} onChangeText={set('village')} />
-      <Field testID="field-fala" label="फला" value={f.fala} onChangeText={set('fala')} />
-      <Field testID="field-atak" label="अटक" value={f.atak} onChangeText={set('atak')} />
+      <Field testID="field-panchayat" label="ग्राम पंचायत" value={f.panchayat} onChangeText={set('panchayat')} />
+      <Field testID="field-tehsil" label="तहसील" value={f.tehsil} onChangeText={set('tehsil')} />
+      <Field testID="field-district" label="ज़िला" value={f.district} onChangeText={set('district')} />
       <Field testID="field-phone" label="फ़ोन (ज़रूरी नहीं)" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
       {canPick ? <BigButton testID="btn-pick-contact" icon="phone" label="फ़ोन से नंबर चुनें" tone="plain" hint="फ़ोन की संपर्क सूची खुलेगी; आप एक नाम चुनेंगे और सिर्फ़ वही नंबर आएगा" onPress={pickContact} /> : null}
     </Screen>
@@ -87,5 +93,7 @@ export default function HouseholdEdit() {
 
 const styles = StyleSheet.create({
   photoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  kindRow: { flexDirection: 'row', gap: spacing.sm },
+  kindBtn: { flex: 1 },
   photoBtns: { flex: 1, gap: spacing.sm },
 });

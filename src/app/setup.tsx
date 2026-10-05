@@ -1,26 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { BigButton } from '@/components/big-button';
 import { Field } from '@/components/field';
 import { Screen } from '@/components/screen';
-import { Text } from '@/components/text';
-import type { Increment } from '@/core';
 import { createHousehold, getDb, getMyHouseholdId, setIncrement, setMyHouseholdId, type Db } from '@/db';
 import { replace } from '@/nav';
 import { guarded } from '@/services/guard';
-import { colors, spacing, type } from '@/theme';
 import { track } from '@/analytics';
 
-const CHOICES: { label: string; value: Increment }[] = [
-  { label: '₹51', value: { type: 'FIXED', rupees: 51 } },
-  { label: '₹101', value: { type: 'FIXED', rupees: 101 } },
-  { label: '10%', value: { type: 'PERCENT', pct: 10 } },
-];
-
-/** First launch: my household + the village custom for how much more to return. */
+/** First launch: my household. The default return increment (₹51) is set silently. */
 export default function Setup() {
-  const [f, setF] = useState({ name: '', father: '', jati: '', village: '', fala: '', atak: '' });
-  const [inc, setInc] = useState(0);
+  const [f, setF] = useState({ name: '', father: '', jati: '', village: '', panchayat: '', tehsil: '', district: '' });
   const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
 
   // A restored phone gets "my household" from the cloud profile: never make a second one.
@@ -40,10 +28,10 @@ export default function Setup() {
       if (await getMyHouseholdId(db)) return true; // arrived from the cloud while the form was open
       const h = await createHousehold(db, {
         headName: f.name.trim(), fatherName: f.father.trim(), jati: f.jati.trim(),
-        village: f.village.trim(), fala: f.fala.trim(), atak: f.atak.trim(),
+        village: f.village.trim(), panchayat: f.panchayat.trim(), tehsil: f.tehsil.trim(), district: f.district.trim(), kind: 'FAMILY',
       });
       await setMyHouseholdId(db, h.id);
-      await setIncrement(db, CHOICES[inc].value);
+      await setIncrement(db, { type: 'FIXED', rupees: 51 });
       return true;
     });
     if (ok) {
@@ -58,19 +46,9 @@ export default function Setup() {
       <Field testID="field-father" label="पिता का नाम" value={f.father} onChangeText={set('father')} />
       <Field testID="field-jati" label="जाति" value={f.jati} onChangeText={set('jati')} />
       <Field testID="field-village" label="गाँव" value={f.village} onChangeText={set('village')} />
-      <Field testID="field-fala" label="फला" value={f.fala} onChangeText={set('fala')} />
-      <Field testID="field-atak" label="अटक" value={f.atak} onChangeText={set('atak')} />
-      <Text style={[type.heading, styles.q]}>हमारे गाँव में लौटाते समय कितना ज़्यादा देते हैं?</Text>
-      <View style={styles.row}>
-        {CHOICES.map((c, i) => (
-          <BigButton key={c.label} testID={`chip-${c.label.replace(/\W/g, '')}`} third label={c.label} selected={inc === i} onPress={() => setInc(i)} />
-        ))}
-      </View>
+      <Field testID="field-panchayat" label="ग्राम पंचायत" value={f.panchayat} onChangeText={set('panchayat')} />
+      <Field testID="field-tehsil" label="तहसील" value={f.tehsil} onChangeText={set('tehsil')} />
+      <Field testID="field-district" label="ज़िला" value={f.district} onChangeText={set('district')} />
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  q: { color: colors.ink },
-  row: { flexDirection: 'row', gap: spacing.sm },
-});

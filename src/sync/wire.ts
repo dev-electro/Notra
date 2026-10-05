@@ -5,7 +5,8 @@ export interface WireLedger {
   id: string; name: string; kind: string; createdAt: string; updatedAt: string;
 }
 export interface WireHousehold {
-  id: string; headName: string; fatherName: string; jati: string; atak: string; village: string; fala: string;
+  id: string; headName: string; fatherName: string; jati: string; atak?: string; village: string; fala?: string;
+  panchayat?: string; tehsil?: string; district?: string; kind?: string;
   phone: string | null; createdAt: string; updatedAt: string;
 }
 export interface WireEvent {
@@ -67,6 +68,7 @@ export interface LedgerRow {
 }
 export interface HouseholdRow {
   id: string; head_name: string; father_name: string; jati: string; atak: string; village: string; fala: string;
+  panchayat: string; tehsil: string; district: string; kind: string;
   phone: string | null; created_at: string; updated_at: string;
 }
 export interface EventRow {
@@ -84,6 +86,7 @@ export const ledgerToWire = (r: LedgerRow): WireLedger => ({
 });
 export const householdToWire = (r: HouseholdRow): WireHousehold => ({
   id: r.id, headName: r.head_name, fatherName: r.father_name, jati: r.jati, atak: r.atak, village: r.village, fala: r.fala,
+  panchayat: r.panchayat, tehsil: r.tehsil, district: r.district, kind: r.kind,
   phone: r.phone, createdAt: isoMs(r.created_at), updatedAt: isoMs(r.updated_at),
 });
 export const eventToWire = (r: EventRow): WireEvent => ({

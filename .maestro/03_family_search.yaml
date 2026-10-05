@@ -1,5 +1,5 @@
 appId: app.notra.book
-name: 03 - one search box finds a family by name, father, village, fala and phone
+name: 03 - one search box finds a family by name, father, village, panchayat and phone
 ---
 - runFlow: subflows/launch-home.yaml
 - tapOn:
@@ -21,7 +21,7 @@ name: 03 - one search box finds a family by name, father, village, fala and phon
 - inputText: "Kherwa"
 - assertVisible: "Mohan"
 - eraseText: 20
-# fala
+# panchayat
 - inputText: "Upla"
 - assertVisible: "Mohan"
 - eraseText: 20
