@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { BigButton } from '@/components/big-button';
 import { DateStepper } from '@/components/date-stepper';
-import { Field } from '@/components/field';
 import { HouseholdPicker } from '@/components/household-picker';
 import { Screen } from '@/components/screen';
 import {
@@ -22,7 +21,7 @@ export default function NewEvent() {
   const [date, setDate] = useState(todayIso());
   const [panch, setPanch] = useState(false);
   const [invite, setInvite] = useState<InvitationType>('YELLOW_RICE');
-  const [lekhak, setLekhak] = useState('');
+  const [created, setCreated] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => setHost(await getMyHousehold((await getDb()) as unknown as Db)))();
@@ -41,14 +40,24 @@ export default function NewEvent() {
     );
   }
 
+  if (created) {
+    return (
+      <Screen title="कार्यक्रम बन गया" noBack>
+        <Text style={styles.host}>अभी खाता खोलकर नोतरा लिखना शुरू करें?</Text>
+        <BigButton icon="📒" label="खाता खोलें" tone="red" onPress={() => replace(`/events/${created}/ledger`)} />
+        <BigButton label="बाद में" tone="plain" onPress={() => replace(`/events/${created}`)} />
+      </Screen>
+    );
+  }
+
   const save = async () => {
     if (!host) return;
     const db = (await getDb()) as unknown as Db;
     const e = await createEvent(db, {
       hostHouseholdId: host.id, occasion, date, panchApproved: panch, invitationType: invite,
-      lekhakName: lekhak.trim() || undefined, status: 'PLANNED',
+      status: 'PLANNED',
     });
-    replace(`/events/${e.id}`);
+    setCreated(e.id);
   };
 
   return (
@@ -73,7 +82,6 @@ export default function NewEvent() {
           <BigButton key={i} compact label={INVITATION_LABEL[i]} tone="plain" selected={invite === i} onPress={() => setInvite(i)} />
         ))}
       </View>
-      <Field label="लेखक का नाम (ज़रूरी नहीं)" value={lekhak} onChangeText={setLekhak} />
       <BigButton icon="✔" label="सेव करें" onPress={save} disabled={!host} />
     </Screen>
   );

@@ -46,3 +46,6 @@ example
 coverage/
 *.apk
 *.aab
+
+# local agent worktrees
+.claude/worktrees/

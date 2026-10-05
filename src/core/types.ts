@@ -30,7 +30,6 @@ export interface NotraEvent {
   date: string;
   panchApproved: boolean;
   invitationType: InvitationType;
-  lekhakName?: string;
   status: EventStatus;
   createdAt?: string;
   updatedAt?: string;
@@ -50,6 +49,8 @@ export interface Entry {
   voiceNoteUri?: string;
   createdAt: string;
   correctsEntryId?: string;
+  /** A void cancels `correctsEntryId` and counts as nothing itself (zero amounts). */
+  isVoid?: boolean;
 }
 
 export type Increment =

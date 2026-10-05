@@ -83,7 +83,7 @@ type EntryRow = {
   id: string; event_id: string | null; other_household_id: string; direction: Direction;
   cash_paise: number; in_kind_item: string | null; in_kind_value_paise: number;
   payment_mode: Entry['paymentMode']; recorded_by: string; voice_note_uri: string | null;
-  created_at: string; corrects_entry_id: string | null; superseded?: number;
+  created_at: string; corrects_entry_id: string | null; is_void?: number; superseded?: number;
   h_name?: string; h_father?: string; h_village?: string; h_photo?: string | null;
 };
 const toEntry = (r: EntryRow): Entry => ({
@@ -91,7 +91,7 @@ const toEntry = (r: EntryRow): Entry => ({
   direction: r.direction, cashPaise: r.cash_paise, inKindItem: r.in_kind_item ?? undefined,
   inKindValuePaise: r.in_kind_value_paise, paymentMode: r.payment_mode, recordedBy: r.recorded_by,
   voiceNoteUri: r.voice_note_uri ?? undefined, createdAt: r.created_at,
-  correctsEntryId: r.corrects_entry_id ?? undefined,
+  correctsEntryId: r.corrects_entry_id ?? undefined, isVoid: r.is_void === 1 ? true : undefined,
 });
 
 export interface EntryPageOptions {
@@ -112,7 +112,7 @@ export type EntryWithState = Entry & {
 
 /** Newest-first page of entries. Full history keeps corrected entries, flagged `superseded`. */
 export async function listEntriesPage(db: Db, o: EntryPageOptions): Promise<EntryWithState[]> {
-  const where: string[] = [];
+  const where: string[] = ['e.is_void = 0']; // void rows are bookkeeping, never shown
   const params: (string | number)[] = [];
   if (o.householdId) { where.push('e.other_household_id = ?'); params.push(o.householdId); }
   if (o.eventId) { where.push('e.event_id = ?'); params.push(o.eventId); }
@@ -192,3 +192,33 @@ export async function searchHouseholds(db: Db, query: string, limit: number, off
   }));
 }
 
+
+export interface EventTotals {
+  cashPaise: number;
+  inKindValuePaise: number;
+  totalPaise: number;
+  giverCount: number;
+  entryCount: number;
+}
+
+/** Running totals for one event's received (AAYA) entries: cheap, indexed, used by the event ledger screen. */
+export async function sqlEventTotals(db: Db, eventId: string): Promise<EventTotals> {
+  const r = await db.getFirstAsync<{ cash: number | null; kind: number | null; givers: number; n: number }>(
+    `SELECT SUM(cash_paise) AS cash, SUM(in_kind_value_paise) AS kind,
+            COUNT(DISTINCT other_household_id) AS givers, COUNT(*) AS n
+     FROM active_entries WHERE event_id = ? AND direction = 'AAYA'`,
+    [eventId],
+  );
+  const cash = r?.cash ?? 0;
+  const kind = r?.kind ?? 0;
+  return { cashPaise: cash, inKindValuePaise: kind, totalPaise: cash + kind, giverCount: r?.givers ?? 0, entryCount: r?.n ?? 0 };
+}
+
+/** The newest entry of the event that still counts (what "undo" removes), or null. */
+export async function lastActiveEntryForEvent(db: Db, eventId: string): Promise<Entry | null> {
+  const r = await db.getFirstAsync<EntryRow>(
+    `SELECT * FROM active_entries WHERE event_id = ? AND direction = 'AAYA' ORDER BY created_at DESC, rid DESC LIMIT 1`,
+    [eventId],
+  );
+  return r ? toEntry(r) : null;
+}

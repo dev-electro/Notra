@@ -22,7 +22,7 @@ src/core/                   Pure TypeScript domain logic (no React/Expo imports)
   money.ts                  formatINR (Indian grouping), shagun rounding (ends in 1)
   voice.ts                  parseVoiceEntry: Hindi / Hinglish transcript -> name, father, village, amount
   reports.ts                personWise, occasionWise, selfLedger, pendingReturns ("Lautana baaki")
-  session.ts                Lekhak-mode EventSession
+  session.ts                (removed in Stage 3: entries are saved to SQLite immediately)
   readback.ts               Devanagari read-back sentence
 src/db/                     expo-sqlite schema, migrations, key handling, typed repositories
 src/app/                    expo-router screens (Stage 1: home only)

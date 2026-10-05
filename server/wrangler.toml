@@ -1,0 +1,14 @@
+name = "notra-diary-api"
+main = "src/worker.ts"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Secrets are NOT stored here. Set them with `wrangler secret put <NAME>` (or the deploy workflow):
+#   DATABASE_URL, JWT_SECRET, OTP_PEPPER, GOOGLE_CLIENT_IDS, MSG91_AUTH_KEY, MSG91_TEMPLATE_ID, SMS_PROVIDER
+# SMS_PROVIDER is "msg91" in production, "dev" (logs the code, sends nothing) only for local development.
+
+# Optional: Cloudflare Hyperdrive (connection pooling in front of Neon/Supabase). When bound, the Worker
+# uses env.HYPERDRIVE.connectionString instead of DATABASE_URL.
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "<your-hyperdrive-config-id>"

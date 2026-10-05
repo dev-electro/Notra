@@ -45,9 +45,9 @@ describe('db', () => {
     expect(await getHousehold(db, h.id)).toMatchObject({ headName: 'Suresh', phone: '9999999999' });
     expect((await listHouseholds(db)).map((x) => x.headName)).toEqual(['Main', 'Suresh']);
 
-    const ev = await createEvent(db, { hostHouseholdId: me.id, occasion: 'SHAADI', date: '2026-02-01', panchApproved: true, invitationType: 'YELLOW_RICE', status: 'PLANNED', lekhakName: 'Mangu' });
+    const ev = await createEvent(db, { hostHouseholdId: me.id, occasion: 'SHAADI', date: '2026-02-01', panchApproved: true, invitationType: 'YELLOW_RICE', status: 'PLANNED'});
     await setEventStatus(db, ev.id, 'HELD');
-    expect((await listEvents(db))[0]).toMatchObject({ status: 'HELD', panchApproved: true, lekhakName: 'Mangu' });
+    expect((await listEvents(db))[0]).toMatchObject({ status: 'HELD', panchApproved: true});
 
     const e = await addEntry(db, { eventId: ev.id, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 50100, inKindItem: '10 किलो गेहूं', inKindValuePaise: 30000, paymentMode: 'CASH', recordedBy: 'Mangu' });
     expect((await listEntriesForEvent(db, ev.id))[0]).toEqual(e);

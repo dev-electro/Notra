@@ -3,12 +3,13 @@ import { roundUpToShagun } from './money';
 
 /**
  * Entries that still count: those not superseded by a correction. Chains are handled:
- * A <- B (corrects A) <- C (corrects B) leaves only C.
+ * A <- B (corrects A) <- C (corrects B) leaves only C. A void entry supersedes its target and counts as
+ * nothing itself: A <- B <- V (void of B) leaves nothing.
  */
 export function activeEntries(entries: readonly Entry[]): Entry[] {
   const superseded = new Set<string>();
   for (const e of entries) if (e.correctsEntryId) superseded.add(e.correctsEntryId);
-  return entries.filter((e) => !superseded.has(e.id));
+  return entries.filter((e) => !e.isVoid && !superseded.has(e.id));
 }
 
 /** Total value of an entry (cash + estimated in-kind), paise. */

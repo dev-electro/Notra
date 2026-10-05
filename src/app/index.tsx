@@ -27,12 +27,12 @@ export default function Home() {
             <TotalCard title="दूसरों का नोतरा" subtitle="जो मैंने दिया" amount={show(givenPaise)} ink="red" onPress={() => go('/ledger/gaya')} />
           </View>
           <BigButton icon="✍️" label="नई एंट्री" onPress={() => go('/entry/new')} />
-          <BigButton icon="📒" label="लेखक मोड" tone="red" onPress={() => go('/lekhak')} />
           <View style={styles.row}>
             <BigButton compact icon="👪" label="परिवार" onPress={() => go('/households')} />
             <BigButton compact icon="📊" label="रिपोर्ट" tone="red" onPress={() => go('/reports')} />
           </View>
-          <BigButton icon="🎉" label="नोतरा कार्यक्रम" onPress={() => go('/events')} />
+          <BigButton icon="🎉" label="नोतरा कार्यक्रम" tone="red" onPress={() => go('/events')} />
+          <BigButton icon="⚙️" label="सेटिंग" tone="plain" onPress={() => go('/settings')} />
           {error ? <Text style={styles.note}>डेटा नहीं खुल पाया। ऐप दोबारा खोलें।</Text> : null}
         </ScrollView>
       </SafeAreaView>

@@ -8,6 +8,7 @@ import {
   newId,
 } from '../core';
 import type { Db } from './types';
+import { notifyLocalWrite } from './writes';
 
 const nowIso = () => new Date().toISOString();
 
@@ -24,27 +25,27 @@ const toHousehold = (r: HouseholdRow): Household => ({
 
 type EventRow = {
   id: string; host_household_id: string; occasion: NotraEvent['occasion']; date: string;
-  panch_approved: number; invitation_type: NotraEvent['invitationType']; lekhak_name: string | null;
+  panch_approved: number; invitation_type: NotraEvent['invitationType'];
   status: EventStatus; created_at: string; updated_at: string;
 };
 const toEvent = (r: EventRow): NotraEvent => ({
   id: r.id, hostHouseholdId: r.host_household_id, occasion: r.occasion, date: r.date,
   panchApproved: r.panch_approved === 1, invitationType: r.invitation_type,
-  lekhakName: r.lekhak_name ?? undefined, status: r.status, createdAt: r.created_at, updatedAt: r.updated_at,
+  status: r.status, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
 type EntryRow = {
   id: string; event_id: string | null; other_household_id: string; direction: Entry['direction'];
   cash_paise: number; in_kind_item: string | null; in_kind_value_paise: number;
   payment_mode: Entry['paymentMode']; recorded_by: string; voice_note_uri: string | null;
-  created_at: string; corrects_entry_id: string | null;
+  created_at: string; corrects_entry_id: string | null; is_void: number;
 };
 const toEntry = (r: EntryRow): Entry => ({
   id: r.id, eventId: r.event_id ?? undefined, otherHouseholdId: r.other_household_id,
   direction: r.direction, cashPaise: r.cash_paise, inKindItem: r.in_kind_item ?? undefined,
   inKindValuePaise: r.in_kind_value_paise, paymentMode: r.payment_mode, recordedBy: r.recorded_by,
   voiceNoteUri: r.voice_note_uri ?? undefined, createdAt: r.created_at,
-  correctsEntryId: r.corrects_entry_id ?? undefined,
+  correctsEntryId: r.corrects_entry_id ?? undefined, isVoid: r.is_void === 1 ? true : undefined,
 });
 
 // ---------- households ----------
@@ -56,14 +57,16 @@ export async function createHousehold(db: Db, input: Omit<Household, 'id' | 'cre
      VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
     [h.id, h.headName, h.fatherName, h.jati, h.atak, h.village, h.fala, h.phone ?? null, h.photoUri ?? null, now, now],
   );
+  notifyLocalWrite();
   return h;
 }
 
 export async function updateHousehold(db: Db, h: Household): Promise<void> {
   await db.runAsync(
-    `UPDATE households SET head_name=?, father_name=?, jati=?, atak=?, village=?, fala=?, phone=?, photo_uri=?, updated_at=? WHERE id=?`,
+    `UPDATE households SET head_name=?, father_name=?, jati=?, atak=?, village=?, fala=?, phone=?, photo_uri=?, updated_at=?, dirty=1 WHERE id=?`,
     [h.headName, h.fatherName, h.jati, h.atak, h.village, h.fala, h.phone ?? null, h.photoUri ?? null, nowIso(), h.id],
   );
+  notifyLocalWrite();
 }
 
 export async function getHousehold(db: Db, id: string): Promise<Household | null> {
@@ -80,15 +83,17 @@ export async function createEvent(db: Db, input: Omit<NotraEvent, 'id' | 'create
   const now = nowIso();
   const e: NotraEvent = { ...input, id: input.id ?? newId(), createdAt: now, updatedAt: now };
   await db.runAsync(
-    `INSERT INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, lekhak_name, status, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?,?)`,
-    [e.id, e.hostHouseholdId, e.occasion, e.date, e.panchApproved ? 1 : 0, e.invitationType, e.lekhakName ?? null, e.status, now, now],
+    `INSERT INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, status, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
+    [e.id, e.hostHouseholdId, e.occasion, e.date, e.panchApproved ? 1 : 0, e.invitationType, e.status, now, now],
   );
+  notifyLocalWrite();
   return e;
 }
 
 export async function setEventStatus(db: Db, id: string, status: EventStatus): Promise<void> {
-  await db.runAsync('UPDATE events SET status = ?, updated_at = ? WHERE id = ?', [status, nowIso(), id]);
+  await db.runAsync('UPDATE events SET status = ?, updated_at = ?, dirty = 1 WHERE id = ?', [status, nowIso(), id]);
+  notifyLocalWrite();
 }
 
 export async function listEvents(db: Db): Promise<NotraEvent[]> {
@@ -100,23 +105,42 @@ export async function addEntry(db: Db, input: Omit<Entry, 'id' | 'createdAt'> & 
   const e: Entry = { ...input, id: input.id ?? newId(), createdAt: input.createdAt ?? nowIso() };
   await db.runAsync(
     `INSERT INTO entries (id, event_id, other_household_id, direction, cash_paise, in_kind_item, in_kind_value_paise,
-       payment_mode, recorded_by, voice_note_uri, created_at, corrects_entry_id)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+       payment_mode, recorded_by, voice_note_uri, created_at, corrects_entry_id, is_void)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [e.id, e.eventId ?? null, e.otherHouseholdId, e.direction, e.cashPaise, e.inKindItem ?? null, e.inKindValuePaise,
-      e.paymentMode, e.recordedBy, e.voiceNoteUri ?? null, e.createdAt, e.correctsEntryId ?? null],
+      e.paymentMode, e.recordedBy, e.voiceNoteUri ?? null, e.createdAt, e.correctsEntryId ?? null, e.isVoid ? 1 : 0],
   );
+  notifyLocalWrite();
   return e;
+}
+
+async function assertTargetOpen(db: Db, target: Entry): Promise<void> {
+  if (target.isVoid) throw new Error('cannot correct or void a void entry');
+  const hit = await db.getFirstAsync<{ n: number }>('SELECT 1 AS n FROM entries WHERE corrects_entry_id = ? LIMIT 1', [target.id]);
+  if (hit) throw new Error('entry is already superseded');
 }
 
 /** Correct an entry by inserting a new one that points at it. The old row is never touched. */
 export async function correctEntry(
   db: Db,
   original: Entry,
-  changes: Partial<Omit<Entry, 'id' | 'correctsEntryId'>>,
+  changes: Partial<Omit<Entry, 'id' | 'correctsEntryId' | 'isVoid'>>,
 ): Promise<Entry> {
-  const { id, createdAt: _original, ...rest } = original;
+  await assertTargetOpen(db, original);
+  const { id, createdAt: _original, isVoid: _v, ...rest } = original;
   void _original;
+  void _v;
   return addEntry(db, { ...rest, ...changes, correctsEntryId: id });
+}
+
+/** Undo: append a void entry pointing at `target` (zero amounts). The target stops counting; nothing is deleted. */
+export async function voidEntry(db: Db, target: Entry, createdAt?: string): Promise<Entry> {
+  await assertTargetOpen(db, target);
+  return addEntry(db, {
+    eventId: target.eventId, otherHouseholdId: target.otherHouseholdId, direction: target.direction,
+    cashPaise: 0, inKindValuePaise: 0, paymentMode: target.paymentMode, recordedBy: target.recordedBy,
+    correctsEntryId: target.id, isVoid: true, createdAt,
+  });
 }
 
 /** All rows including superseded ones (pass to core functions, which filter). */

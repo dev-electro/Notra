@@ -81,7 +81,7 @@ export default function EventDetail() {
       <Text style={styles.total}>{formatINR(summary?.receivedPaise ?? 0)}</Text>
       <Text style={styles.sub}>{summary?.giverCount ?? 0} परिवार</Text>
       {next ? <BigButton label={`आगे: ${STATUS_LABEL[next]}`} tone="plain" onPress={advance} /> : null}
-      <BigButton icon="📒" label="लेखक मोड" tone="red" onPress={() => go(`/lekhak/${e.id}`)} />
+      <BigButton icon="📒" label="खाता खोलें" tone="red" onPress={() => go(`/events/${e.id}/ledger`)} />
       <View style={styles.row}>
         <BigButton compact icon="✍️" label="एंट्री" onPress={() => go(`/entry/new?eventId=${e.id}`)} />
         <BigButton compact icon="📄" label="PDF बही" tone="plain" onPress={exportPdf} disabled={busy} />
