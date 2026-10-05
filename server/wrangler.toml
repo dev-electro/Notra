@@ -26,4 +26,4 @@ ENVIRONMENT = "production"
 BETTER_AUTH_URL = "https://notra-book-api.gauravapproved.workers.dev"
 SMS_COST_PAISE = "25"
 # Origin of the admin web app, only if it is served from a different origin than this Worker (enables CORS for it):
-# ADMIN_ORIGIN = "https://admin.example.com"
+ADMIN_ORIGIN = "https://notra-admin.gauravapproved.workers.dev"
