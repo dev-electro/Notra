@@ -1,12 +1,18 @@
 import { useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from '@/components/text';
+import { AmountDisplay } from '@/components/amount-display';
 import { BigButton } from '@/components/big-button';
+import { Card } from '@/components/card';
+import { DIRECTION_INK } from '@/components/direction';
+import { EventHeader } from '@/components/event-header';
 import { HouseholdPicker } from '@/components/household-picker';
+import { Icon } from '@/components/icons';
 import { NumberPad } from '@/components/number-pad';
+import { SaveCheck } from '@/components/save-check';
 import { Screen } from '@/components/screen';
-import { formatINR, displayDate, OCCASION_ICON, OCCASION_LABEL, readBack, SHAGUN_QUICK_RUPEES, type Household, type NotraEvent } from '@/core';
+import { Text } from '@/components/text';
+import { formatINR, displayDate, OCCASION_LABEL, readBack, SHAGUN_QUICK_RUPEES, STATUS_LABEL, type Household, type NotraEvent } from '@/core';
 import {
   addEntry, getDb, getEvent, getHousehold, getMyHouseholdId, lastActiveEntryForEvent, listEntriesForEvent, listHouseholds, setEventStatus,
   sqlEventTotals, voidEntry, type Db, type EventTotals,
@@ -16,16 +22,18 @@ import { replace } from '@/nav';
 import { HELP_EVENT_LEDGER } from '@/onboarding/help';
 import { shareEventLedger } from '@/services/export';
 import { guarded } from '@/services/guard';
+import { tapLight } from '@/services/haptics';
 import { speak } from '@/services/speech';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, type } from '@/theme';
 
 type Step = 'pick' | 'amount' | 'summary';
 const EMPTY: EventTotals = { cashPaise: 0, inKindValuePaise: 0, totalPaise: 0, giverCount: 0, entryCount: 0 };
 const getDbTyped = async () => (await getDb()) as unknown as Db;
+const FLASH_MS = 2500;
 
 /**
  * Event ledger (खाता): the host records the Notra coming in. <=3 taps per giver (family -> shagun amount -> save). Every entry is written to SQLite the moment
- * it is saved, so an app kill loses nothing. "वापस" appends a void entry (append-only). "पूरा करें" only marks the
+ * it is saved, so an app kill loses nothing. "आखिरी हटाएँ" appends a void entry (append-only). "पूरा करें" only marks the
  * event HELD and shows the summary; running totals come from an indexed SQL query on the event.
  */
 export default function EventLedger() {
@@ -38,7 +46,16 @@ export default function EventLedger() {
   const [pad, setPad] = useState(false);
   const [totals, setTotals] = useState<EventTotals>(EMPTY);
   const [last, setLast] = useState<{ id: string; name: string; paise: number } | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    [],
+  );
 
   const refresh = useCallback(async () => {
     const db = await getDbTyped();
@@ -75,7 +92,11 @@ export default function EventLedger() {
         });
       });
       if (!e) return; // a toast told the person; the amount stays on screen so they can press save again
+      tapLight();
       speak(readBack(e, who));
+      setFlash(`${who.headName} · ${formatINR(cash)}`);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(null), FLASH_MS);
       setWho(null);
       setDigits('');
       setStep('pick');
@@ -96,6 +117,7 @@ export default function EventLedger() {
           speak('आखिरी एंट्री हटा दी');
         }
       });
+      setFlash(null);
       await refresh();
     } finally {
       setBusy(false);
@@ -124,80 +146,105 @@ export default function EventLedger() {
     await shareEventLedger(event, (await getHousehold(db, event.hostHouseholdId)) ?? undefined, await listEntriesForEvent(db, eventId), await listHouseholds(db));
   };
 
-  const title = event ? `${OCCASION_ICON[event.occasion]} ${OCCASION_LABEL[event.occasion]} का नोतरा खाता` : 'नोतरा खाता';
+  const title = event ? `${OCCASION_LABEL[event.occasion]} का खाता` : 'नोतरा खाता';
 
   if (step === 'summary') {
     return (
-      <Screen title="हो गया" noBack>
-        <Text style={styles.label}>कुल रकम</Text>
-        <Text style={styles.huge}>{formatINR(totals.totalPaise)}</Text>
-        <Text style={styles.count}>{totals.giverCount} परिवार</Text>
-        <BigButton icon="＋" label="और एंट्री लिखें" tone="plain" onPress={() => setStep('pick')} />
-        <BigButton icon="📄" label="PDF बही भेजें" tone="red" onPress={exportPdf} />
-        <BigButton icon="📋" label="कार्यक्रम देखें" onPress={() => replace(`/events/${eventId}`)} />
+      <Screen title="हो गया" noBack action={{ icon: 'events', label: 'कार्यक्रम देखें', onPress: () => replace(`/events/${eventId}`) }}>
+        <SaveCheck />
+        <View style={styles.center}>
+          <Text style={[type.heading, styles.muted]}>कुल रकम</Text>
+          <Text style={[type.amountXL, styles.total]} adjustsFontSizeToFit numberOfLines={1}>
+            {formatINR(totals.totalPaise)}
+          </Text>
+          <Text style={[type.heading, styles.ink]}>{totals.giverCount} परिवार</Text>
+        </View>
+        <BigButton icon="plus" label="और एंट्री लिखें" tone="plain" onPress={() => setStep('pick')} />
+        <BigButton icon="share" label="बही भेजें" tone="plain" onPress={exportPdf} />
         <BigButton label="होम" tone="plain" onPress={() => replace('/')} />
       </Screen>
     );
   }
 
-  const bar = (
-    <View style={styles.bar}>
-      {event ? <Text style={styles.label}>{displayDate(event.date)}</Text> : null}
-      <Text style={styles.huge} adjustsFontSizeToFit numberOfLines={1}>
-        {formatINR(totals.totalPaise)}
-      </Text>
-      <Text style={styles.count}>{totals.giverCount} परिवार</Text>
-      {last ? (
-        <View style={styles.lastRow}>
-          <Text style={styles.last} numberOfLines={1}>
-            {last.name} · {formatINR(last.paise)}
-          </Text>
-          <BigButton compact label="↩ वापस" tone="plain" onPress={undo} disabled={busy} />
-        </View>
-      ) : null}
-      {totals.entryCount > 0 ? <BigButton icon="✔" label="पूरा करें" onPress={finish} disabled={busy} /> : null}
-    </View>
-  );
+  const header = event ? (
+    <EventHeader
+      occasion={event.occasion}
+      status={STATUS_LABEL[event.status]}
+      subtitle={displayDate(event.date)}
+      totalPaise={totals.totalPaise}
+      giverCount={totals.giverCount}
+      compact={step === 'amount'}
+    />
+  ) : null;
 
   if (step === 'pick') {
+    const top = (
+      <View style={styles.top}>
+        {header}
+        {flash ? (
+          <Card tint="success" style={styles.flash} accessibilityLiveRegion="polite">
+            <View style={styles.flashDisc}>
+              <Icon name="check" size={24} color={colors.onSolid} strokeWidth={3} />
+            </View>
+            <Text style={[type.bodyBold, styles.flashText]} numberOfLines={2}>
+              लिख लिया: {flash}
+            </Text>
+          </Card>
+        ) : null}
+        {last ? (
+          <Card style={styles.lastRow}>
+            <Text style={[type.body, styles.last]} numberOfLines={2}>
+              आखिरी: {last.name} · {formatINR(last.paise)}
+            </Text>
+            <BigButton compact icon="undo" label="आखिरी हटाएँ" tone="plain" onPress={undo} disabled={busy} hint="आखिरी लिखी एंट्री हटाता है" />
+          </Card>
+        ) : null}
+        {totals.entryCount > 0 ? <BigButton icon="check" label="पूरा करें" onPress={finish} disabled={busy} hint="कार्यक्रम का खाता पूरा करके कुल देखें" /> : null}
+      </View>
+    );
     return (
       <Screen title={title} scroll={false} speakText={HELP_EVENT_LEDGER}>
-        {bar}
-        <HouseholdPicker onPick={onPick} />
+        <HouseholdPicker onPick={onPick} top={top} />
       </Screen>
     );
   }
 
   return (
-    <Screen title={title} speakText={HELP_EVENT_LEDGER}>
-      {bar}
+    <Screen
+      title={title}
+      speakText={HELP_EVENT_LEDGER}
+      action={{ icon: 'check', label: 'सेव', onPress: add, disabled: cash <= 0 || busy }}
+    >
+      {header}
       {who ? (
-        <Text style={styles.who}>
-          {who.headName} · {[who.fatherName && `${who.fatherName} का`, who.village].filter(Boolean).join(' · ')}
-        </Text>
+        <Card>
+          <Text style={[type.heading, styles.ink]}>{who.headName}</Text>
+          <Text style={[type.caption, styles.muted]}>{[who.fatherName && `${who.fatherName} का`, who.village].filter(Boolean).join(' · ')}</Text>
+        </Card>
       ) : null}
-      <Text style={styles.amount}>{formatINR(cash)}</Text>
+      <AmountDisplay rupees={Number(digits || 0)} color={DIRECTION_INK.AAYA} />
       <View style={styles.row}>
         {SHAGUN_QUICK_RUPEES.map((r) => (
-          <BigButton key={r} compact label={formatINR(r * 100)} tone="plain" selected={digits === String(r)} onPress={() => setDigits(String(r))} />
+          <BigButton key={r} compact label={formatINR(r * 100)} selected={digits === String(r)} onPress={() => setDigits(String(r))} />
         ))}
-        <BigButton compact label="दूसरी रकम" tone="plain" selected={pad} onPress={() => setPad(!pad)} />
+        <BigButton compact label="दूसरी रकम" selected={pad} onPress={() => setPad(!pad)} />
       </View>
       {pad ? <NumberPad value={digits} onChange={setDigits} /> : null}
-      <BigButton icon="💾" label="सेव" onPress={add} disabled={cash <= 0 || busy} />
       <BigButton label="दूसरा परिवार चुनें" tone="plain" onPress={() => setStep('pick')} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  bar: { gap: spacing.xs, paddingLeft: 44, paddingRight: spacing.md, paddingBottom: spacing.sm },
-  huge: { fontSize: 64, lineHeight: 76, fontWeight: '700', color: colors.inkBlue },
-  count: { fontSize: 26, fontWeight: '700', color: colors.textMuted },
-  label: { fontSize: 22, color: colors.textMuted },
-  lastRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  last: { flex: 1, fontSize: 20, color: colors.text },
-  who: { fontSize: 26, lineHeight: 34, fontWeight: '700', color: colors.text },
-  amount: { fontSize: 56, lineHeight: 68, fontWeight: '700', color: colors.inkBlue, textAlign: 'right' },
+  top: { gap: spacing.md },
+  center: { alignItems: 'center', gap: spacing.xs },
+  total: { color: colors.received },
+  ink: { color: colors.ink },
+  muted: { color: colors.muted },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  flash: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  flashDisc: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center' },
+  flashText: { flex: 1, color: colors.successInk },
+  lastRow: { gap: spacing.sm },
+  last: { color: colors.ink },
 });

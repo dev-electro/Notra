@@ -16,3 +16,4 @@ export * from './ledgers';
 export * from './pin';
 export * from './firstRun';
 export * from './accountDelete';
+export * from './words';

@@ -2,7 +2,7 @@ appId: app.notra.diary
 name: 03 - AAYA entry of 501 via number pad, read-back confirmed
 ---
 - runFlow: subflows/launch-home.yaml
-- tapOn: ".*नई एंट्री"
+- tapOn: "नोतरा लिखें"
 - extendedWaitUntil:
     visible: "किसका नोतरा?"
     timeout: 20000
@@ -17,10 +17,10 @@ name: 03 - AAYA entry of 501 via number pad, read-back confirmed
     timeout: 20000
 - tapOn: "Mohan"
 - extendedWaitUntil:
-    visible: "नई एंट्री"
+    visible: "नोतरा लिखें"
     timeout: 20000
 - takeScreenshot: screenshots/03-entry-form
-# Direction defaults to AAYA. Type 501 on the number pad.
+# Direction defaults to मिला (आया). Type 501 on the number pad.
 - tapOn: "5"
 - tapOn: "0"
 - tapOn: "1"
@@ -37,6 +37,6 @@ name: 03 - AAYA entry of 501 via number pad, read-back confirmed
 - takeScreenshot: screenshots/03-readback
 - tapOn: "हाँ.*"
 - extendedWaitUntil:
-    visible: "नोतरा डायरी"
+    visible: "नोतरा लिखें"
     timeout: 20000
 - takeScreenshot: screenshots/03-after-confirm

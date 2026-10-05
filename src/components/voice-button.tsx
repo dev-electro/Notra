@@ -12,9 +12,9 @@ export function VoiceButton({ onTranscript }: Props) {
   if (!available) return null;
   return (
     <BigButton
-      icon="🎤"
+      icon="mic"
       label={listening ? 'सुन रहा हूँ… (रोकें)' : 'बोलकर लिखें'}
-      tone="red"
+      tone="given"
       selected={listening}
       onPress={listening ? stop : start}
     />

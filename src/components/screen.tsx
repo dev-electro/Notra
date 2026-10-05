@@ -1,11 +1,25 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { RuledPaper } from '@/components/ruled-paper';
+import { BigButton } from '@/components/big-button';
+import type { IconName } from '@/components/icons';
+import { Icon } from '@/components/icons';
+import { DotBorder } from '@/components/motifs';
+import { PressableScale } from '@/components/pressable-scale';
 import { SpeakerButton } from '@/components/speaker-button';
 import { Text } from '@/components/text';
 import { back } from '@/nav';
-import { colors, MIN_TOUCH, spacing, type } from '@/theme';
+import { BORDER, colors, GUTTER, MIN_TOUCH, radius, spacing, type } from '@/theme';
+
+export interface ScreenAction {
+  label: string;
+  onPress: () => void;
+  icon?: IconName;
+  disabled?: boolean;
+  hint?: string;
+  /** 'danger' (kumkum outline) for things that cannot be undone. Default: haldi. */
+  tone?: 'primary' | 'danger';
+}
 
 interface Props {
   title: string;
@@ -16,32 +30,50 @@ interface Props {
   onBack?: () => void;
   /** Plain-Hindi sentence about what this screen is for; adds a speaker button that reads it aloud. */
   speakText?: string;
+  /** The ONE main thing to do here: a full-width haldi button pinned to the bottom, where the thumb rests. */
+  action?: ScreenAction;
 }
 
-/** Ruled-paper page with a big back arrow and Hindi title. */
-export function Screen({ title, children, scroll = true, noBack, onBack, speakText }: Props) {
+/** Padding for FlatList content so lists line up with the rest of the screen. */
+export const listContent = { paddingHorizontal: GUTTER, paddingBottom: spacing.lg } as const;
+
+/** The strip at the bottom of a screen that holds its one main button (thumb reach). */
+export function BottomBar({ children }: { children: React.ReactNode }) {
+  return <View style={styles.footer}>{children}</View>;
+}
+
+/** Paper page: big labelled back button top-left, clear title, a dot-border strip, content, and the bottom action. */
+export function Screen({ title, children, scroll = true, noBack, onBack, speakText, action }: Props) {
   return (
-    <RuledPaper>
+    <View style={styles.page}>
       <SafeAreaView style={styles.safe}>
         <View style={styles.header}>
-          {noBack ? null : (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="पीछे"
-              accessibilityHint="पिछली स्क्रीन पर जाएँ"
-              onPress={onBack ?? back}
-              style={styles.back}
-            >
-              <Text style={styles.backText} importantForAccessibility="no">
-                ← वापस
-              </Text>
-            </Pressable>
+          {noBack && !speakText ? null : (
+            <View style={styles.topRow}>
+              {noBack ? (
+                <View />
+              ) : (
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel="वापस"
+                  accessibilityHint="पिछली स्क्रीन पर जाएँ"
+                  onPress={onBack ?? back}
+                  style={styles.back}
+                >
+                  <Icon name="back" size={28} color={colors.received} />
+                  <Text style={[type.button, styles.backText]} importantForAccessibility="no">
+                    वापस
+                  </Text>
+                </PressableScale>
+              )}
+              {speakText ? <SpeakerButton text={speakText} /> : null}
+            </View>
           )}
-          <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
+          <Text style={[type.title, styles.title]} numberOfLines={2} accessibilityRole="header">
             {title}
           </Text>
-          {speakText ? <SpeakerButton text={speakText} /> : null}
         </View>
+        <DotBorder />
         {scroll ? (
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             {children}
@@ -49,17 +81,35 @@ export function Screen({ title, children, scroll = true, noBack, onBack, speakTe
         ) : (
           <View style={styles.flex}>{children}</View>
         )}
+        {action ? (
+          <BottomBar>
+            <BigButton tone={action.tone ?? 'primary'} icon={action.icon} label={action.label} onPress={action.onPress} disabled={action.disabled} hint={action.hint} />
+          </BottomBar>
+        ) : null}
       </SafeAreaView>
-    </RuledPaper>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: colors.paper },
   safe: { flex: 1 },
-  flex: { flex: 1 },
-  header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm, minHeight: MIN_TOUCH, paddingLeft: 44, paddingRight: spacing.md },
-  back: { minWidth: MIN_TOUCH * 1.6, height: MIN_TOUCH, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: colors.inkBlue, borderRadius: 14, backgroundColor: colors.card, paddingHorizontal: spacing.sm },
-  backText: { ...type.body, fontWeight: '700', color: colors.inkBlue },
-  title: { ...type.title, color: colors.inkBlue, flexShrink: 1, flexGrow: 1 },
-  content: { padding: spacing.md, paddingLeft: 44, gap: spacing.md, paddingBottom: spacing.xl * 2 },
+  flex: { flex: 1, paddingTop: spacing.sm },
+  header: { paddingHorizontal: GUTTER, paddingTop: spacing.sm, paddingBottom: spacing.sm, gap: spacing.sm },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  back: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: MIN_TOUCH,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.button,
+    borderWidth: BORDER,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
+  },
+  backText: { color: colors.received },
+  title: { color: colors.ink },
+  content: { padding: GUTTER, gap: spacing.md, paddingBottom: spacing.xl },
+  footer: { paddingHorizontal: GUTTER, paddingTop: spacing.sm, paddingBottom: spacing.sm, borderTopWidth: BORDER, borderTopColor: colors.hairline, backgroundColor: colors.paper },
 });

@@ -7,19 +7,19 @@ name: 07 - kill and relaunch, data persisted
 - launchApp:
     stopApp: true
 - extendedWaitUntil:
-    visible: ".*बाद में|नोतरा डायरी"
+    visible: ".*बाद में|नोतरा लिखें"
     timeout: 90000
 - runFlow: subflows/skip-signin.yaml
 - extendedWaitUntil:
-    visible: ".*मेरा नोतरा.*"
+    visible: "नोतरा लिखें"
     timeout: 60000
 # 501 (entry) + 501 + 251 (event-ledger givers) = 1,253 received; must NOT have bounced back to setup.
 - assertNotVisible: "मेरा परिवार"
 - extendedWaitUntil:
-    visible: ".*मेरा नोतरा.*₹1,253.*"
+    visible: ".*कुल मिला.*₹1,253.*"
     timeout: 20000
 - takeScreenshot: screenshots/07-home-after-relaunch
-- tapOn: ".*परिवार"
+- tapOn: "परिवार"
 - extendedWaitUntil:
     visible: "Mohan"
     timeout: 20000

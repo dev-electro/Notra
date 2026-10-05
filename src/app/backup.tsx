@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { BigButton } from '@/components/big-button';
+import { Card } from '@/components/card';
 import { Field } from '@/components/field';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
@@ -10,8 +10,9 @@ import {
 } from '@/backup';
 import { getDb, type Db } from '@/db';
 import { getUnlocked } from '@/ledgers/session';
+import { back } from '@/nav';
 import { syncSoon } from '@/sync/runtime';
-import { colors, spacing, type } from '@/theme';
+import { colors, type } from '@/theme';
 
 const MAX_FILE = 50 * 1024 * 1024;
 const dbOf = async () => (await getDb()) as unknown as Db;
@@ -66,13 +67,15 @@ function Create() {
   };
 
   return (
-    <Screen title="बैकअप फ़ाइल बनाएं">
+    <Screen
+      title="बैकअप फ़ाइल बनाएं"
+      action={{ icon: 'share', label: busy ? 'बना रहे हैं… रुकिए' : 'फ़ाइल बनाएं', disabled: !ok || busy, onPress: make }}
+    >
       <Text style={styles.body}>पूरा हिसाब एक फ़ाइल में ताले के साथ बनेगा। उसे WhatsApp या ब्लूटूथ से भेज सकते हैं। ताले का पासवर्ड आप चुनिए।</Text>
       <Field label={`पासवर्ड (कम से कम ${MIN_PASSWORD_LENGTH} अक्षर)`} value={pw} onChangeText={setPw} secureTextEntry autoCapitalize="none" />
       <Field label="वही पासवर्ड फिर से" value={pw2} onChangeText={setPw2} secureTextEntry autoCapitalize="none" />
       {pw2 && pw !== pw2 ? <Text style={styles.err}>दोनों पासवर्ड अलग हैं</Text> : null}
-      <BigButton icon="📤" label={busy ? 'बना रहे हैं… रुकिए' : 'फ़ाइल बनाएं'} disabled={!ok || busy} onPress={make} />
-      {msg ? <Text style={styles.body}>{msg}</Text> : null}
+      {msg ? <Card tint="haldi"><Text style={styles.body}>{msg}</Text></Card> : null}
     </Screen>
   );
 }
@@ -114,23 +117,26 @@ function Restore() {
 
   if (done) {
     return (
-      <Screen title="हिसाब वापस आ गया">
-        <Text style={styles.body}>{describeMerge(done)}</Text>
+      <Screen title="हिसाब वापस आ गया" action={{ icon: 'check', label: 'ठीक है', onPress: () => back() }}>
+        <Card tint="success"><Text style={styles.body}>{describeMerge(done)}</Text></Card>
       </Screen>
     );
   }
   return (
-    <Screen title="फ़ाइल से वापस लाएं">
+    <Screen
+      title="फ़ाइल से वापस लाएं"
+      action={
+        text === null
+          ? { icon: 'doc', label: 'फ़ाइल चुनें', onPress: pick }
+          : { icon: 'check', label: busy ? 'खोल रहे हैं… रुकिए' : 'वापस लाएं', disabled: !pw || busy, onPress: restore }
+      }
+    >
       {text === null ? (
-        <>
-          <Text style={styles.body}>बैकअप फ़ाइल चुनिए। जो हिसाब फ़ोन में पहले से है वह नहीं बदलेगा, सिर्फ़ नया जुड़ेगा।</Text>
-          <BigButton icon="📂" label="फ़ाइल चुनें" onPress={pick} />
-        </>
+        <Text style={styles.body}>बैकअप फ़ाइल चुनिए। जो हिसाब फ़ोन में पहले से है वह नहीं बदलेगा, सिर्फ़ नया जुड़ेगा।</Text>
       ) : (
         <>
           <Text style={styles.body}>फ़ाइल मिल गई। अब उसका पासवर्ड डालिए।</Text>
           <Field label="फ़ाइल का पासवर्ड" value={pw} onChangeText={setPw} secureTextEntry autoCapitalize="none" />
-          <BigButton icon="📥" label={busy ? 'खोल रहे हैं… रुकिए' : 'वापस लाएं'} disabled={!pw || busy} onPress={restore} />
         </>
       )}
       {msg ? <Text style={styles.err}>{msg}</Text> : null}
@@ -139,6 +145,6 @@ function Restore() {
 }
 
 const styles = StyleSheet.create({
-  body: { ...type.body, color: colors.text, marginBottom: spacing.xs },
-  err: { ...type.body, color: colors.inkRed, fontWeight: '700' },
+  body: { ...type.body, color: colors.ink },
+  err: { ...type.bodyBold, color: colors.given },
 });

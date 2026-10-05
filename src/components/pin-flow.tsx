@@ -82,12 +82,12 @@ export function PinFlow({ verify, askNew, check, verifyTitle = 'पिन डा
         </Text>
       ) : null}
       <PinPad onComplete={onPin} disabled={busy || s.step === 'done'} />
-      {s.step === 'confirm' ? <BigButton icon="↺" label="पिन दोबारा चुनें" tone="plain" onPress={() => { setS({ step: 'new' }); setMsg(''); }} /> : null}
+      {s.step === 'confirm' ? <BigButton icon="undo" label="पिन दोबारा चुनें" tone="plain" onPress={() => { setS({ step: 'new' }); setMsg(''); }} /> : null}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  title: { ...type.label, color: colors.text },
-  msg: { ...type.body, fontWeight: '700', color: colors.inkRed, marginBottom: spacing.xs },
+  title: { ...type.heading, color: colors.ink },
+  msg: { ...type.bodyBold, color: colors.given, marginBottom: spacing.xs },
 });

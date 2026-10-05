@@ -1,7 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { BigButton } from '@/components/big-button';
+import { Card } from '@/components/card';
+import { Icon } from '@/components/icons';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { afterSignIn, CANCELLED_MESSAGE } from '@/auth/after-signin';
@@ -46,23 +48,33 @@ export default function SignIn() {
   };
 
   return (
-    <Screen title="साइन इन" noBack={!!first}>
-      <Text style={styles.body}>
-        साइन इन करने से आपका हिसाब सुरक्षित रहेगा, और फ़ोन बदलने पर वापस मिल जाएगा। बिना साइन इन के भी ऐप पूरा चलता है, बिना इंटरनेट के भी।
-      </Text>
-      <BigButton icon="G" label={busy ? 'रुकिए…' : 'Google से साइन इन'} hint="Google खाते से साइन इन" onPress={google} disabled={busy} />
-      {link ? null : <BigButton icon="📱" label="मोबाइल नंबर से" tone="red" onPress={() => go('/phone')} disabled={busy} />}
-      {err ? <Text style={styles.err}>{err}</Text> : null}
-      {first ? <BigButton icon="⏭" label="बाद में" tone="plain" onPress={later} disabled={busy} /> : null}
-      <Text style={styles.small}>साइन इन करने का मतलब है कि आप ये मानते हैं:</Text>
-      <BigButton icon="🔒" label="गोपनीयता नीति" tone="plain" onPress={() => go('/legal/privacy')} />
-      <BigButton icon="📄" label="नियम व शर्तें" tone="plain" onPress={() => go('/legal/terms')} />
+    <Screen
+      title="साइन इन"
+      noBack={!!first}
+      action={{ label: busy ? 'रुकिए…' : 'गूगल से साइन इन', hint: 'गूगल खाते से साइन इन', onPress: google, disabled: busy }}
+    >
+      <Card tint="haldi" style={styles.why}>
+        <Icon name="cloud" size={40} color={colors.ink} />
+        <Text style={[type.body, styles.body]}>
+          साइन इन करने से आपका हिसाब सुरक्षित रहेगा, और फ़ोन बदलने पर वापस मिल जाएगा। बिना साइन इन के भी ऐप पूरा चलता है, बिना इंटरनेट के भी।
+        </Text>
+      </Card>
+      {link ? null : <BigButton icon="phone" label="मोबाइल नंबर से" onPress={() => go('/phone')} disabled={busy} />}
+      {err ? <Text style={[type.bodyBold, styles.err]}>{err}</Text> : null}
+      {first ? <BigButton label="बाद में" tone="plain" onPress={later} disabled={busy} /> : null}
+      <Text style={[type.caption, styles.small]}>साइन इन करने का मतलब है कि आप ये मानते हैं:</Text>
+      <View style={styles.row}>
+        <BigButton compact icon="lock" label="गोपनीयता नीति" onPress={() => go('/legal/privacy')} />
+        <BigButton compact icon="doc" label="नियम व शर्तें" onPress={() => go('/legal/terms')} />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { ...type.body, color: colors.text, marginBottom: spacing.sm },
-  small: { ...type.body, color: colors.textMuted },
-  err: { ...type.body, color: colors.inkRed, fontWeight: '700' },
+  why: { gap: spacing.sm, alignItems: 'flex-start' },
+  body: { color: colors.ink },
+  small: { color: colors.muted },
+  err: { color: colors.given },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

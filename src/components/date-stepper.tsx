@@ -1,26 +1,44 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Icon } from '@/components/icons';
+import { PressableScale } from '@/components/pressable-scale';
 import { Text } from '@/components/text';
 import { MONTHS_HI, shiftDate } from '@/core';
-import { colors, MIN_TOUCH, spacing } from '@/theme';
+import { BORDER, colors, MIN_TOUCH, radius, spacing, type } from '@/theme';
 
 interface Props {
   value: string;
   onChange: (iso: string) => void;
 }
 
+function Step({ label, name, shown, plus, onPress }: { label: string; name: string; shown: string; plus: boolean; onPress: () => void }) {
+  return (
+    <PressableScale
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={`अभी ${shown}`}
+      onPress={onPress}
+      outerStyle={styles.stepOuter}
+      style={styles.step}
+    >
+      <Icon name={plus ? 'plus' : 'minus'} size={28} color={colors.received} />
+      <Text style={[type.caption, styles.stepName]} importantForAccessibility="no">
+        {name}
+      </Text>
+    </PressableScale>
+  );
+}
+
 function Part({ name, label, onUp, onDown }: { name: string; label: string; onUp: () => void; onDown: () => void }) {
   return (
     <View style={styles.part}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${name} बढ़ाएँ`} accessibilityHint={`अभी ${label}`} onPress={onUp} style={styles.step}>
-        <Text style={styles.stepText}>＋</Text>
-      </Pressable>
-      <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>
-        {label}
-      </Text>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${name} घटाएँ`} accessibilityHint={`अभी ${label}`} onPress={onDown} style={styles.step}>
-        <Text style={styles.stepText}>－</Text>
-      </Pressable>
+      <Step label={`${name} बढ़ाएँ`} name={name} shown={label} plus onPress={onUp} />
+      <View style={styles.valueBox}>
+        <Text style={[type.heading, styles.value]} numberOfLines={1} adjustsFontSizeToFit>
+          {label}
+        </Text>
+      </View>
+      <Step label={`${name} घटाएँ`} name={name} shown={label} plus={false} onPress={onDown} />
     </View>
   );
 }
@@ -39,17 +57,18 @@ export function DateStepper({ value, onChange }: Props) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing.sm },
-  part: { flex: 1, alignItems: 'center', gap: spacing.xs },
+  part: { flex: 1, gap: spacing.xs },
+  stepOuter: { width: '100%' },
   step: {
-    width: '100%',
-    height: MIN_TOUCH,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.inkBlue,
+    minHeight: MIN_TOUCH,
+    borderRadius: radius.button,
+    borderWidth: BORDER,
+    borderColor: colors.hairline,
     backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  stepText: { fontSize: 32, color: colors.inkBlue, fontWeight: '700' },
-  value: { fontSize: 28, fontWeight: '700', color: colors.text, height: 40 },
+  stepName: { color: colors.muted },
+  valueBox: { minHeight: 48, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.haldiTint, borderRadius: radius.button },
+  value: { color: colors.ink },
 });

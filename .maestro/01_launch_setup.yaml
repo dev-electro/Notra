@@ -36,9 +36,13 @@ name: 01 - launch, skip sign-in, first-launch setup
     element: ".*शुरू करें"
     timeout: 20000
 - tapOn: ".*शुरू करें"
+# Home: greeting, the summary strip (कुल मिला / कुल दिया) and the four tiles.
 - extendedWaitUntil:
-    visible: "नोतरा डायरी"
+    visible: "नोतरा लिखें"
     timeout: 30000
-- assertVisible: ".*मेरा नोतरा.*"
-- assertVisible: ".*दूसरों का नोतरा.*"
+- assertVisible: ".*कुल मिला.*"
+- assertVisible: ".*कुल दिया.*"
+- assertVisible: "कार्यक्रम"
+- assertVisible: "परिवार"
+- assertVisible: "हिसाब"
 - takeScreenshot: screenshots/01-home-after-setup

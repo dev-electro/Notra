@@ -2,7 +2,7 @@ appId: app.notra.diary
 name: 05 - create event, open its ledger, 2 givers, summary total
 ---
 - runFlow: subflows/launch-home.yaml
-- tapOn: ".*नोतरा कार्यक्रम"
+- tapOn: "कार्यक्रम"
 - extendedWaitUntil:
     visible: ".*नया कार्यक्रम"
     timeout: 20000
@@ -49,7 +49,10 @@ name: 05 - create event, open its ledger, 2 givers, summary total
 - extendedWaitUntil:
     visible: ".*पूरा करें"
     timeout: 20000
-- assertVisible: "2 परिवार"
+# The header total updates a moment after the list returns.
+- extendedWaitUntil:
+    visible: "2 परिवार"
+    timeout: 20000
 - takeScreenshot: screenshots/05-two-givers
 - tapOn: ".*पूरा करें"
 - extendedWaitUntil:

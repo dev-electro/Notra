@@ -1,9 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useRef } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
-import { Text } from '@/components/text';
+import { FlatList, StyleSheet } from 'react-native';
+import { Card } from '@/components/card';
+import { DirectionTag } from '@/components/direction';
+import { EmptyState } from '@/components/empty-state';
 import { ENTRY_ROW_HEIGHT, EntryRow } from '@/components/entry-row';
-import { Screen } from '@/components/screen';
+import { listContent, Screen } from '@/components/screen';
+import { Text } from '@/components/text';
 import { formatINR } from '@/core';
 import { listEntriesPage, sqlTotals, type EntryWithState } from '@/db';
 import { useLoad } from '@/hooks/use-load';
@@ -14,12 +17,12 @@ const PAGE = 30;
 const keyOf = (e: EntryWithState) => e.id;
 const layout = (_: unknown, index: number) => ({ length: ENTRY_ROW_HEIGHT, offset: ENTRY_ROW_HEIGHT * index, index });
 
-/** "मेरा नोतरा" (aaya) / "दूसरों का नोतरा" (gaya): newest first, active entries only. */
+/** "मिला (आया)" / "दिया (गया)" list: newest first, active entries only. */
 export default function LedgerList() {
   const { direction } = useLocalSearchParams<{ direction: string }>();
   const aaya = direction !== 'gaya';
   const limit = useRef(PAGE);
-  const { data, reload } = useLoad(
+  const { data, loading, reload } = useLoad(
     async (db, ledgerId) => {
       const [t, entries] = await Promise.all([
         sqlTotals(db, ledgerId),
@@ -38,34 +41,36 @@ export default function LedgerList() {
       reload();
     }
   }, [data.entries.length, reload]);
-  const ink = aaya ? colors.inkBlue : colors.inkRed;
+  const ink = aaya ? colors.received : colors.given;
 
   return (
-    <Screen title={aaya ? 'मेरा नोतरा' : 'दूसरों का नोतरा'} scroll={false}>
-      <View style={styles.total}>
-        <Text style={styles.sub}>{aaya ? 'कुल आया' : 'कुल दिया'}</Text>
-        <Text style={[styles.amount, { color: ink }]}>{formatINR(data.total)}</Text>
-      </View>
+    <Screen title={aaya ? 'मिला (आया)' : 'दिया (गया)'} scroll={false}>
       <FlatList
         data={data.entries}
         keyExtractor={keyOf}
         renderItem={renderItem}
         getItemLayout={layout}
+        ListHeaderComponent={
+          <Card tint={aaya ? 'received' : 'given'} style={styles.total}>
+            <DirectionTag direction={aaya ? 'AAYA' : 'GAYA'} paired iconSize={28} />
+            <Text style={[type.amount, { color: ink }]} adjustsFontSizeToFit numberOfLines={1}>
+              {formatINR(data.total)}
+            </Text>
+          </Card>
+        }
+        ListEmptyComponent={loading ? null : <EmptyState icon={aaya ? 'moneyIn' : 'moneyOut'} text={aaya ? 'अभी कुछ मिला नहीं लिखा' : 'अभी कुछ दिया नहीं लिखा'} />}
         initialNumToRender={10}
         windowSize={5}
         maxToRenderPerBatch={10}
         removeClippedSubviews
         onEndReached={more}
         onEndReachedThreshold={0.5}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={listContent}
       />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  total: { paddingLeft: 44, paddingRight: spacing.md, paddingBottom: spacing.sm },
-  sub: { ...type.body, color: colors.textMuted },
-  amount: { ...type.amount },
-  list: { paddingLeft: 44, paddingRight: spacing.md, paddingBottom: spacing.xl },
+  total: { marginBottom: spacing.md, gap: spacing.xs },
 });

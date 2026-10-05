@@ -1,6 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { BigButton } from '@/components/big-button';
+import { Card } from '@/components/card';
+import { Icon } from '@/components/icons';
 import { PinFlow } from '@/components/pin-flow';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
@@ -9,7 +11,7 @@ import { useLoad } from '@/hooks/use-load';
 import { guarded } from '@/services/guard';
 import { newPinHash } from '@/services/pin-hash';
 import { showToast } from '@/services/toast';
-import { colors, type } from '@/theme';
+import { colors, spacing, type } from '@/theme';
 
 type Mode = 'home' | 'on' | 'off' | 'change';
 const dbOf = async () => (await getDb()) as unknown as Db;
@@ -49,20 +51,22 @@ export default function AppLock() {
   }
 
   return (
-    <Screen title="ऐप का ताला">
-      <Text style={styles.body}>
-        {on ? 'ताला लगा है। ऐप खोलते समय, और 2 मिनट बाहर रहने के बाद, पिन पूछा जाएगा।' : 'ताला बंद है। चालू करने पर ऐप खोलते समय पिन पूछा जाएगा।'}
-      </Text>
-      {on ? (
-        <>
-          <BigButton icon="🔓" label="ताला हटाएं" onPress={() => setMode('off')} />
-          <BigButton icon="🔁" label="पिन बदलें" tone="plain" onPress={() => setMode('change')} />
-        </>
-      ) : (
-        <BigButton icon="🔒" label="ताला लगाएं" onPress={() => setMode('on')} />
-      )}
+    <Screen
+      title="ऐप का ताला"
+      action={on ? { label: 'ताला हटाएं', icon: 'unlock', onPress: () => setMode('off') } : { label: 'ताला लगाएं', icon: 'lock', onPress: () => setMode('on') }}
+    >
+      <Card tint={on ? 'success' : 'haldi'} style={styles.card}>
+        <Icon name={on ? 'lock' : 'unlock'} size={44} color={on ? colors.successInk : colors.ink} />
+        <Text style={[type.body, styles.body]}>
+          {on ? 'ताला लगा है। ऐप खोलते समय, और 2 मिनट बाहर रहने के बाद, पिन पूछा जाएगा।' : 'ताला बंद है। चालू करने पर ऐप खोलते समय पिन पूछा जाएगा।'}
+        </Text>
+      </Card>
+      {on ? <BigButton icon="refresh" label="पिन बदलें" tone="plain" onPress={() => setMode('change')} /> : null}
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({ body: { ...type.body, color: colors.text } });
+const styles = StyleSheet.create({
+  card: { gap: spacing.sm, alignItems: 'flex-start' },
+  body: { color: colors.ink },
+});

@@ -1,43 +1,62 @@
 import React, { useCallback } from 'react';
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { Text } from '@/components/text';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { BigButton } from '@/components/big-button';
-import { Screen } from '@/components/screen';
-import { displayDate, formatINR, OCCASION_ICON, OCCASION_LABEL, STATUS_LABEL, type NotraEvent } from '@/core';
+import { DirectionTag } from '@/components/direction';
+import { EmptyState } from '@/components/empty-state';
+import { OccasionBadge } from '@/components/occasion';
+import { PressableScale } from '@/components/pressable-scale';
+import { listContent, Screen } from '@/components/screen';
+import { Text } from '@/components/text';
+import { displayDate, formatINR, OCCASION_LABEL, STATUS_LABEL, type NotraEvent } from '@/core';
 import { listEvents, sqlEventSummaries, type EventSummary } from '@/db';
 import { useLoad } from '@/hooks/use-load';
 import { go } from '@/nav';
-import { colors, spacing } from '@/theme';
+import { BORDER, colors, radius, spacing, type } from '@/theme';
 
-const ROW = 104;
 const keyOf = (e: NotraEvent) => e.id;
-const layout = (_: unknown, index: number) => ({ length: ROW, offset: ROW * index, index });
 
 interface RowProps {
   event: NotraEvent;
   summary?: EventSummary;
-  onPress: (e: NotraEvent) => void;
+  onOpen: (e: NotraEvent) => void;
+  onLedger: (e: NotraEvent) => void;
 }
 
-const Row = React.memo(function Row({ event: e, summary, onPress }: RowProps) {
+/** Event card: occasion picture, date and status, how much came, and a big "खाता खोलें" straight to its ledger. */
+const Card = React.memo(function EventCard({ event: e, summary, onOpen, onLedger }: RowProps) {
   return (
-    <Pressable accessibilityRole="button" onPress={() => onPress(e)} style={styles.row}>
-      <Text style={styles.icon}>{OCCASION_ICON[e.occasion]}</Text>
-      <View style={styles.flex}>
-        <Text style={styles.title}>{OCCASION_LABEL[e.occasion]}</Text>
-        <Text style={styles.sub}>
-          {displayDate(e.date)} · {STATUS_LABEL[e.status]}
-          {e.panchApproved ? ' · पंच ✔' : ''}
-        </Text>
-      </View>
-      {summary ? <Text style={styles.amount}>{formatINR(summary.receivedPaise)}</Text> : null}
-    </Pressable>
+    <View style={styles.card}>
+      <PressableScale
+        accessibilityRole="button"
+        accessibilityLabel={`${OCCASION_LABEL[e.occasion]}, ${displayDate(e.date)}, ${STATUS_LABEL[e.status]}`}
+        accessibilityHint="कार्यक्रम की पूरी जानकारी खोलें"
+        onPress={() => onOpen(e)}
+        style={styles.top}
+      >
+        <OccasionBadge occasion={e.occasion} />
+        <View style={styles.flex}>
+          <Text style={[type.heading, styles.title]}>{OCCASION_LABEL[e.occasion]}</Text>
+          <Text style={[type.caption, styles.sub]}>
+            {displayDate(e.date)} · {STATUS_LABEL[e.status]}
+            {e.panchApproved ? ' · पंच की मंज़ूरी' : ''}
+          </Text>
+          {summary ? (
+            <View style={styles.sum}>
+              <DirectionTag direction="AAYA" />
+              <Text style={[type.money, styles.amount]}>{formatINR(summary.receivedPaise)}</Text>
+              <Text style={[type.caption, styles.sub]}>· {summary.giverCount} परिवार</Text>
+            </View>
+          ) : null}
+        </View>
+      </PressableScale>
+      <BigButton icon="hisaab" label="खाता खोलें" onPress={() => onLedger(e)} hint="इस कार्यक्रम में नोतरा लिखें" />
+    </View>
   );
 });
 
 /** Events list. Totals come from one grouped SQL query. */
 export default function Events() {
-  const { data } = useLoad(
+  const { data, loading } = useLoad(
     async (db, ledgerId) => {
       const [events, summaries] = await Promise.all([listEvents(db, ledgerId), sqlEventSummaries(db, ledgerId)]);
       return { events, summaries };
@@ -45,37 +64,39 @@ export default function Events() {
     { events: [] as NotraEvent[], summaries: {} as Record<string, EventSummary> },
   );
   const open = useCallback((e: NotraEvent) => go(`/events/${e.id}`), []);
+  const ledger = useCallback((e: NotraEvent) => go(`/events/${e.id}/ledger`), []);
   const renderItem = useCallback(
-    ({ item }: { item: NotraEvent }) => <Row event={item} summary={data.summaries[item.id]} onPress={open} />,
-    [open, data.summaries],
+    ({ item }: { item: NotraEvent }) => <Card event={item} summary={data.summaries[item.id]} onOpen={open} onLedger={ledger} />,
+    [open, ledger, data.summaries],
   );
   return (
-    <Screen title="नोतरा कार्यक्रम" scroll={false}>
-      <View style={styles.top}>
-        <BigButton icon="＋" label="नया कार्यक्रम" onPress={() => go('/events/new')} />
-      </View>
+    <Screen
+      title="मेरे कार्यक्रम"
+      scroll={false}
+      action={{ icon: 'plus', label: 'नया कार्यक्रम', onPress: () => go('/events/new') }}
+    >
       <FlatList
         data={data.events}
         keyExtractor={keyOf}
         renderItem={renderItem}
-        getItemLayout={layout}
-        initialNumToRender={10}
+        ListEmptyComponent={loading ? null : <EmptyState icon="events" text="अभी कोई कार्यक्रम नहीं। शादी जैसे मौके का खाता यहाँ खुलेगा।" />}
+        initialNumToRender={6}
         windowSize={5}
-        maxToRenderPerBatch={10}
+        maxToRenderPerBatch={6}
         removeClippedSubviews
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[listContent, styles.list]}
       />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  top: { paddingLeft: 44, paddingRight: spacing.md, paddingBottom: spacing.sm },
-  list: { paddingLeft: 44, paddingRight: spacing.md, paddingBottom: spacing.xl },
+  list: { gap: spacing.md },
   flex: { flex: 1 },
-  row: { height: ROW, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.rule },
-  icon: { fontSize: 40 },
-  title: { fontSize: 26, fontWeight: '700', color: colors.text },
-  sub: { fontSize: 18, color: colors.textMuted },
-  amount: { fontSize: 24, fontWeight: '700', color: colors.inkBlue },
+  card: { gap: spacing.sm, padding: spacing.md, backgroundColor: colors.card, borderWidth: BORDER, borderColor: colors.hairline, borderRadius: radius.card },
+  top: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  title: { color: colors.ink },
+  sub: { color: colors.muted },
+  sum: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: spacing.xs },
+  amount: { color: colors.received },
 });

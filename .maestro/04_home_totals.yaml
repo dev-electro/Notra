@@ -3,7 +3,7 @@ name: 04 - home totals show 501
 ---
 - runFlow: subflows/launch-home.yaml
 - extendedWaitUntil:
-    visible: ".*मेरा नोतरा.*₹501.*"
+    visible: ".*कुल मिला.*₹501.*"
     timeout: 20000
-- assertVisible: ".*मेरा नोतरा.*₹501.*"
+- assertVisible: ".*कुल मिला.*₹501.*"
 - takeScreenshot: screenshots/04-home-totals

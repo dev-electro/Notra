@@ -8,7 +8,7 @@ import { authErrorMessage } from '@/auth/messages';
 import { afterSignIn, CANCELLED_MESSAGE } from '@/auth/after-signin';
 import { back, replace } from '@/nav';
 import { linkPhone, otpStart, otpVerify } from '@/sync/runtime';
-import { colors, MIN_TOUCH, spacing } from '@/theme';
+import { BORDER_TONE, colors, MIN_TOUCH, radius, spacing, type } from '@/theme';
 
 const RESEND_S = 30;
 
@@ -72,10 +72,14 @@ export default function Phone() {
 
   if (step === 'number') {
     return (
-      <Screen title="मोबाइल नंबर" onBack={back}>
-        <Text style={styles.q}>अपना 10 अंकों का मोबाइल नंबर डालें</Text>
+      <Screen
+        title="मोबाइल नंबर"
+        onBack={back}
+        action={{ label: 'कोड भेजें', icon: 'chevron', onPress: send, disabled: num.length !== 10 || busy }}
+      >
+        <Text style={[type.heading, styles.q]}>अपना 10 अंकों का मोबाइल नंबर डालें</Text>
         <View style={styles.numRow}>
-          <Text style={styles.prefix}>+91</Text>
+          <Text style={[type.title, styles.prefix]}>+91</Text>
           <TextInput
             style={styles.number}
             value={num}
@@ -87,19 +91,22 @@ export default function Phone() {
             accessibilityHint="10 अंकों का नंबर डालें"
           />
         </View>
-        {err ? <Text style={styles.err}>{err}</Text> : null}
-        <BigButton icon="➡️" label="कोड भेजें" onPress={send} disabled={num.length !== 10 || busy} />
+        {err ? <Text style={[type.bodyBold, styles.err]}>{err}</Text> : null}
       </Screen>
     );
   }
 
   return (
-    <Screen title="कोड डालें" onBack={() => setStep('number')}>
-      <Text style={styles.q}>+91 {num} पर 6 अंकों का कोड भेजा गया है</Text>
+    <Screen
+      title="कोड डालें"
+      onBack={() => setStep('number')}
+      action={{ label: busy ? 'डेटा देख रहे हैं…' : 'आगे बढ़ें', icon: 'check', onPress: () => verify(code), disabled: code.length !== 6 || busy }}
+    >
+      <Text style={[type.heading, styles.q]}>+91 {num} पर 6 अंकों का कोड भेजा गया है</Text>
       <Pressable onPress={() => codeRef.current?.focus()} style={styles.boxes} accessibilityLabel="6 अंकों का कोड" accessibilityHint="कोड डालने के लिए दबाएँ">
         {Array.from({ length: 6 }, (_, i) => (
           <View key={i} style={[styles.box, i === code.length && styles.boxActive]}>
-            <Text style={styles.digit}>{code[i] ?? ''}</Text>
+            <Text style={[type.title, styles.digit]}>{code[i] ?? ''}</Text>
           </View>
         ))}
       </Pressable>
@@ -114,28 +121,27 @@ export default function Phone() {
         caretHidden
         accessibilityLabel="6 अंकों का कोड"
       />
-      {err ? <Text style={styles.err}>{err}</Text> : null}
-      <BigButton icon="✔" label={busy ? 'डेटा देख रहे हैं…' : 'आगे बढ़ें'} onPress={() => verify(code)} disabled={code.length !== 6 || busy} />
-      <BigButton icon="🔁" label={left > 0 ? `दोबारा कोड भेजें (${left})` : 'दोबारा कोड भेजें'} tone="plain" onPress={send} disabled={left > 0 || busy} />
+      {err ? <Text style={[type.bodyBold, styles.err]}>{err}</Text> : null}
+      <BigButton icon="refresh" label={left > 0 ? `दोबारा कोड भेजें (${left})` : 'दोबारा कोड भेजें'} tone="plain" onPress={send} disabled={left > 0 || busy} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  q: { fontSize: 22, lineHeight: 32, fontWeight: '700', color: colors.text },
+  q: { color: colors.ink },
   numRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  prefix: { fontSize: 32, fontWeight: '700', color: colors.inkBlue },
+  prefix: { color: colors.received },
   number: {
-    flex: 1, minHeight: 72, borderWidth: 2, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card,
-    paddingHorizontal: spacing.md, fontSize: 36, letterSpacing: 2, color: colors.text,
+    flex: 1, minHeight: 72, borderWidth: 1.5, borderColor: colors.outline, borderRadius: radius.card, backgroundColor: colors.card,
+    paddingHorizontal: spacing.md, ...type.key, letterSpacing: 1, color: colors.ink,
   },
   boxes: { flexDirection: 'row', gap: spacing.xs, justifyContent: 'space-between' },
   box: {
-    flex: 1, minHeight: MIN_TOUCH + 16, borderWidth: 2, borderColor: colors.border, borderRadius: 10,
+    flex: 1, minHeight: MIN_TOUCH + spacing.md, borderWidth: 1.5, borderColor: colors.outline, borderRadius: radius.card,
     backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center',
   },
-  boxActive: { borderColor: colors.inkBlue },
-  digit: { fontSize: 36, fontWeight: '700', color: colors.inkBlue },
+  boxActive: { borderColor: colors.received, borderWidth: BORDER_TONE + 1 },
+  digit: { color: colors.received },
   hidden: { position: 'absolute', width: 1, height: 1, opacity: 0 },
-  err: { fontSize: 20, lineHeight: 28, color: colors.inkRed, fontWeight: '700' },
+  err: { color: colors.given },
 });

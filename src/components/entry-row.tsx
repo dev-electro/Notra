@@ -1,11 +1,14 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { DIRECTION_INK, DirectionTag, DIRECTION_WORD } from '@/components/direction';
+import { PressableScale } from '@/components/pressable-scale';
 import { Text } from '@/components/text';
-import { DIRECTION_LABEL, displayDate, entryValuePaise, formatINR } from '@/core';
+import { displayDate, entryValuePaise, formatINR } from '@/core';
 import type { EntryWithState } from '@/db';
-import { colors, MIN_TOUCH, spacing } from '@/theme';
+import { BORDER, colors, MIN_TOUCH, radius, spacing, type } from '@/theme';
 
-export const ENTRY_ROW_HEIGHT = 112;
+const GAP = spacing.sm;
+export const ENTRY_ROW_HEIGHT = 128 + GAP;
 
 interface Props {
   entry: EntryWithState;
@@ -16,61 +19,81 @@ interface Props {
   onAction?: (e: EntryWithState) => void;
 }
 
-/** One ledger line: ink colour = direction; corrected (superseded) lines are greyed, never deleted. */
+/** One ledger line: arrow + word + amount. Corrected (superseded) lines are greyed and struck, never deleted. */
 export const EntryRow = React.memo(function EntryRow({ entry: e, showWho, onPress, actionLabel, onAction }: Props) {
-  const ink = e.direction === 'AAYA' ? colors.inkBlue : colors.inkRed;
+  const ink = e.direction === 'AAYA' ? colors.received : colors.given;
   const muted = e.superseded;
   const detail = [displayDate(e.createdAt), e.inKindItem, e.correctsEntryId ? 'सुधारी हुई' : '', muted ? 'बदली गई' : '']
     .filter(Boolean)
     .join(' · ');
   return (
-    <Pressable
-      accessibilityRole={onPress ? 'button' : 'text'}
-      accessibilityLabel={`${DIRECTION_LABEL[e.direction]}${showWho ? ` ${e.who.headName}` : ''}, ${formatINR(entryValuePaise(e))}${muted ? ', बदली गई' : ''}`}
-      accessibilityHint={onPress ? 'इस परिवार का पूरा हिसाब खोलें' : undefined}
-      onPress={onPress ? () => onPress(e) : undefined}
-      style={[styles.row, muted && styles.muted]}
-    >
-      <View style={styles.main}>
-        <Text style={[styles.top, { color: muted ? colors.neutral : ink }]} numberOfLines={1}>
-          {DIRECTION_LABEL[e.direction]}
-          {showWho ? `  ${e.who.headName}` : ''}
-        </Text>
-        <Text style={styles.sub} numberOfLines={1}>
-          {showWho ? `${[e.who.fatherName && `${e.who.fatherName} का`, e.who.village].filter(Boolean).join(' · ')} — ` : ''}
-          {detail}
-        </Text>
-      </View>
-      <View style={styles.side}>
-        <Text style={[styles.amount, { color: muted ? colors.neutral : ink }, muted && styles.struck]}>
-          {formatINR(entryValuePaise(e))}
-        </Text>
-        {actionLabel && onAction && !muted ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={`${actionLabel}: ${formatINR(entryValuePaise(e))}`} accessibilityHint="इस एंट्री को सुधारें" hitSlop={{ top: 8, bottom: 8 }} onPress={() => onAction(e)} style={styles.action}>
-            <Text style={styles.actionText}>{actionLabel}</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </Pressable>
+    <View style={styles.cell}>
+      <PressableScale
+        accessibilityRole={onPress ? 'button' : 'text'}
+        accessibilityLabel={`${DIRECTION_WORD[e.direction]}${showWho ? ` ${e.who.headName}` : ''}, ${formatINR(entryValuePaise(e))}${muted ? ', बदली गई' : ''}`}
+        accessibilityHint={onPress ? 'इस परिवार का पूरा हिसाब खोलें' : undefined}
+        disabled={!onPress}
+        onPress={onPress ? () => onPress(e) : undefined}
+        outerStyle={styles.fill}
+        style={[styles.row, muted && styles.muted]}
+      >
+        <View style={styles.main}>
+          <View style={styles.top}>
+            <DirectionTag direction={e.direction} color={muted ? colors.muted : DIRECTION_INK[e.direction]} />
+          </View>
+          {showWho ? (
+            <Text style={[type.bodyBold, styles.who]} numberOfLines={1}>
+              {e.who.headName}
+            </Text>
+          ) : null}
+          <Text style={[type.caption, styles.sub]} numberOfLines={showWho ? 2 : 1}>
+            {showWho ? `${[e.who.fatherName && `${e.who.fatherName} का`, e.who.village].filter(Boolean).join(' · ')} — ` : ''}
+            {detail}
+          </Text>
+        </View>
+        <View style={styles.side}>
+          <Text style={[type.money, { color: muted ? colors.muted : ink }, muted && styles.struck]}>{formatINR(entryValuePaise(e))}</Text>
+          {actionLabel && onAction && !muted ? (
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={`${actionLabel}: ${formatINR(entryValuePaise(e))}`}
+              accessibilityHint="इस एंट्री को सुधारें"
+              hitSlop={{ top: 8, bottom: 8 }}
+              onPress={() => onAction(e)}
+              outerStyle={styles.actionOuter}
+              style={styles.action}
+            >
+              <Text style={[type.captionBold, styles.actionText]}>{actionLabel}</Text>
+            </PressableScale>
+          ) : null}
+        </View>
+      </PressableScale>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
+  cell: { height: ENTRY_ROW_HEIGHT, paddingBottom: GAP },
   row: {
-    height: ENTRY_ROW_HEIGHT,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.rule,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.card,
+    borderWidth: BORDER,
+    borderColor: colors.hairline,
+    borderRadius: radius.card,
   },
-  muted: { opacity: 0.6 },
+  muted: { opacity: 0.65 },
   main: { flex: 1 },
-  top: { fontSize: 22, lineHeight: 30, fontWeight: '700' },
-  sub: { fontSize: 16, lineHeight: 24, color: colors.textMuted },
+  top: { flexDirection: 'row' },
+  who: { color: colors.ink },
+  sub: { color: colors.muted },
   side: { alignItems: 'flex-end' },
-  amount: { fontSize: 26, fontWeight: '700' },
   struck: { textDecorationLine: 'line-through' },
-  action: { minHeight: MIN_TOUCH - 16, minWidth: MIN_TOUCH, justifyContent: 'center', paddingHorizontal: spacing.sm },
-  actionText: { fontSize: 18, color: colors.inkBlue, fontWeight: '700', textDecorationLine: 'underline' },
+  actionOuter: { minHeight: MIN_TOUCH - 16, minWidth: MIN_TOUCH, justifyContent: 'center' },
+  action: { minHeight: MIN_TOUCH - 16, justifyContent: 'center', alignItems: 'flex-end' },
+  actionText: { color: colors.received, textDecorationLine: 'underline' },
 });

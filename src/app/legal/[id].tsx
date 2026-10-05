@@ -1,7 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { BigButton } from '@/components/big-button';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { LEGAL, type LegalId } from '@/legal/content';
@@ -15,13 +14,12 @@ export default function Legal() {
   const [open, setOpen] = useState(false);
   const doc = SHOWN.includes(id as LegalId) ? LEGAL[id as LegalId] : LEGAL.privacy;
   return (
-    <Screen title={doc.titleHi}>
+    <Screen title={doc.titleHi} action={{ icon: 'doc', label: open ? 'छोटा करें' : 'पूरा पढ़ें', onPress: () => setOpen(!open), hint: 'पूरा लिखा हुआ पन्ना खोलता है' }}>
       {doc.summary.hi.map((b) => (
         <Text key={b} style={styles.bullet}>
           • {b}
         </Text>
       ))}
-      <BigButton icon={open ? '🔼' : '📖'} label={open ? 'छोटा करें' : 'पूरा पढ़ें'} tone="plain" onPress={() => setOpen(!open)} hint="पूरा लिखा हुआ पन्ना खोलता है" />
       {open ? (
         <View style={styles.full}>
           {doc.sections.map((s) => (
@@ -63,12 +61,12 @@ export default function Legal() {
 }
 
 const styles = StyleSheet.create({
-  bullet: { ...type.label, fontWeight: '400', color: colors.text },
+  bullet: { ...type.bodyBold, color: colors.ink },
   full: { gap: spacing.md },
   sec: { gap: spacing.xs },
-  h: { ...type.label, color: colors.inkBlue },
-  p: { ...type.body, color: colors.text },
-  en: { ...type.label, color: colors.inkRed, marginTop: spacing.lg },
-  hEn: { ...type.body, fontWeight: '700', color: colors.inkBlue },
-  pEn: { ...type.body, color: colors.textMuted },
+  h: { ...type.heading, color: colors.received },
+  p: { ...type.body, color: colors.ink },
+  en: { ...type.heading, color: colors.given, marginTop: spacing.lg },
+  hEn: { ...type.bodyBold, color: colors.received },
+  pEn: { ...type.body, color: colors.muted },
 });

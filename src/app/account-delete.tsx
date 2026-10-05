@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet } from 'react-native';
-import { BigButton } from '@/components/big-button';
+import { Card } from '@/components/card';
 import { Field } from '@/components/field';
+import { Icon } from '@/components/icons';
 import { Screen } from '@/components/screen';
 import { Text } from '@/components/text';
 import { DELETE_PHRASE, isDeleteConfirmed } from '@/core';
@@ -44,20 +45,33 @@ export default function AccountDelete() {
     );
 
   return (
-    <Screen title="खाता हटाएं">
-      <Text style={styles.warn}>⚠️ ध्यान दें</Text>
-      <Text style={styles.body}>
-        आपका क्लाउड खाता और उसमें रखा सारा हिसाब (परिवार, कार्यक्रम, एंट्री, खाते) हमारे सर्वर से हमेशा के लिए हट जाएगा। यह वापस नहीं हो सकता।
-      </Text>
+    <Screen
+      title="खाता हटाएं"
+      action={{
+        label: busy ? 'रुकिए…' : 'खाता हटाएं',
+        icon: 'trash',
+        tone: 'danger',
+        disabled: !isDeleteConfirmed(word) || busy,
+        onPress: askPhone,
+        hint: 'पहले यह पूछेगा कि फ़ोन का हिसाब भी मिटाना है या नहीं',
+      }}
+    >
+      <Card tint="given" style={styles.warn}>
+        <Icon name="warn" size={36} color={colors.given} />
+        <Text style={[type.heading, styles.warnTitle]}>ध्यान दें</Text>
+        <Text style={[type.body, styles.body]}>
+          आपका क्लाउड खाता और उसमें रखा सारा हिसाब (परिवार, कार्यक्रम, एंट्री, खाते) हमारे सर्वर से हमेशा के लिए हट जाएगा। यह वापस नहीं हो सकता।
+        </Text>
+      </Card>
       <Field label={`पक्का करने के लिए "${DELETE_PHRASE}" लिखें`} value={word} onChangeText={setWord} autoCapitalize="none" />
-      {err ? <Text style={styles.err}>{err}</Text> : null}
-      <BigButton icon="🗑" label={busy ? 'रुकिए…' : 'खाता हटाएं'} tone="red" disabled={!isDeleteConfirmed(word) || busy} onPress={askPhone} hint="पहले यह पूछेगा कि फ़ोन का हिसाब भी मिटाना है या नहीं" />
+      {err ? <Text style={[type.bodyBold, styles.err]}>{err}</Text> : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  warn: { ...type.label, color: colors.inkRed },
-  body: { ...type.body, color: colors.text, marginBottom: spacing.xs },
-  err: { ...type.body, color: colors.inkRed, fontWeight: '700' },
+  warn: { gap: spacing.sm, alignItems: 'flex-start' },
+  warnTitle: { color: colors.given },
+  body: { color: colors.ink },
+  err: { color: colors.given },
 });

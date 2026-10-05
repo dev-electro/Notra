@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { Field } from '@/components/field';
 import { Screen } from '@/components/screen';
+import { Text } from '@/components/text';
 import type { Increment } from '@/core';
 import { createHousehold, getDb, getMyHouseholdId, setIncrement, setMyHouseholdId, type Db } from '@/db';
 import { replace } from '@/nav';
 import { guarded } from '@/services/guard';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, type } from '@/theme';
 
 const CHOICES: { label: string; value: Increment }[] = [
   { label: '₹51', value: { type: 'FIXED', rupees: 51 } },
@@ -49,25 +49,24 @@ export default function Setup() {
   };
 
   return (
-    <Screen title="मेरा परिवार" noBack>
+    <Screen title="मेरा परिवार" noBack action={{ label: 'शुरू करें', icon: 'check', onPress: save, disabled: !f.name.trim() }}>
       <Field label="नाम" value={f.name} onChangeText={set('name')} />
       <Field label="पिता का नाम" value={f.father} onChangeText={set('father')} />
       <Field label="जाति" value={f.jati} onChangeText={set('jati')} />
       <Field label="गाँव" value={f.village} onChangeText={set('village')} />
       <Field label="फला" value={f.fala} onChangeText={set('fala')} />
       <Field label="अटक" value={f.atak} onChangeText={set('atak')} />
-      <Text style={styles.q}>हमारे गाँव में लौटाते समय कितना ज़्यादा देते हैं?</Text>
+      <Text style={[type.heading, styles.q]}>हमारे गाँव में लौटाते समय कितना ज़्यादा देते हैं?</Text>
       <View style={styles.row}>
         {CHOICES.map((c, i) => (
-          <BigButton key={c.label} compact label={c.label} selected={inc === i} onPress={() => setInc(i)} />
+          <BigButton key={c.label} third label={c.label} selected={inc === i} onPress={() => setInc(i)} />
         ))}
       </View>
-      <BigButton icon="✔" label="शुरू करें" onPress={save} disabled={!f.name.trim()} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  q: { fontSize: 22, lineHeight: 30, fontWeight: '700', color: colors.text },
+  q: { color: colors.ink },
   row: { flexDirection: 'row', gap: spacing.sm },
 });

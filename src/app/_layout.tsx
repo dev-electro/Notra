@@ -1,4 +1,6 @@
+import { useFonts } from 'expo-font';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, StyleSheet, View } from 'react-native';
@@ -9,7 +11,10 @@ import { ToastHost } from '@/components/toast-host';
 import { getDb, isAppLockOn, type Db } from '@/db';
 import { relockLedgers, shouldRelock } from '@/ledgers/session';
 import { startSync } from '@/sync/runtime';
-import { colors, spacing, type } from '@/theme';
+import { colors, fonts, GUTTER, spacing, type } from '@/theme';
+
+// Hold the splash only until the two font files are in (they are bundled, so this is a few milliseconds).
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 /**
  * Shown instead of a crash. Plain views only (it must work even if the database or a screen is what broke) and no error
@@ -22,7 +27,7 @@ export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
         कुछ गड़बड़ हुई, आपका डेटा सुरक्षित है
       </Text>
       <Text style={styles.errBody}>आपका हिसाब फ़ोन में जैसा था वैसा ही है। नीचे दबाकर फिर कोशिश करें।</Text>
-      <BigButton icon="🔄" label="फिर कोशिश करें" onPress={() => void retry()} hint="ऐप का पन्ना फिर से खोलता है" />
+      <BigButton tone="primary" icon="refresh" label="फिर कोशिश करें" onPress={() => void retry()} hint="ऐप का पन्ना फिर से खोलता है" />
     </View>
   );
 }
@@ -64,8 +69,17 @@ function useAppLock() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    [fonts.medium]: require('../../assets/fonts/Mukta-500Medium.ttf'),
+    [fonts.bold]: require('../../assets/fonts/Mukta-700Bold.ttf'),
+  });
+  const ready = fontsLoaded || !!fontError; // on a font error the system font is used rather than a blank screen
+  useEffect(() => {
+    if (ready) void SplashScreen.hideAsync().catch(() => undefined);
+  }, [ready]);
   useEffect(() => startSync(), []);
   const [locked, setLocked] = useAppLock();
+  if (!ready) return null;
   return (
     <>
       <StatusBar style="dark" />
@@ -80,7 +94,7 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  error: { flex: 1, backgroundColor: colors.paper, padding: spacing.lg, gap: spacing.md, justifyContent: 'center' },
-  errTitle: { ...type.title, color: colors.inkBlue },
-  errBody: { ...type.body, color: colors.text },
+  error: { flex: 1, backgroundColor: colors.paper, padding: GUTTER, gap: spacing.md, justifyContent: 'center' },
+  errTitle: { ...type.title, color: colors.received },
+  errBody: { ...type.body, color: colors.ink },
 });

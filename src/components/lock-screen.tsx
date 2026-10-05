@@ -2,12 +2,13 @@ import React, { useCallback } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BigButton } from '@/components/big-button';
+import { Icon } from '@/components/icons';
+import { DotBorder } from '@/components/motifs';
 import { PinFlow } from '@/components/pin-flow';
-import { RuledPaper } from '@/components/ruled-paper';
 import { Text } from '@/components/text';
 import { clearAllLocalData, getDb, verifyAppLockPin, type Db } from '@/db';
 import { relockLedgers } from '@/ledgers/session';
-import { colors, spacing, type } from '@/theme';
+import { colors, GUTTER, spacing, type } from '@/theme';
 
 interface Props {
   onUnlock: () => void;
@@ -35,21 +36,28 @@ export function LockScreen({ onUnlock, onWiped }: Props) {
       ],
     );
   return (
-    <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
-      <RuledPaper>
-        <SafeAreaView style={styles.safe}>
-          <Text style={styles.name} accessibilityRole="header">
-            🔒 नोतरा डायरी
-          </Text>
+    <View style={styles.page} accessibilityViewIsModal>
+      <SafeAreaView style={styles.safe}>
+        <DotBorder />
+        <View style={styles.body}>
+          <View style={styles.head}>
+            <Icon name="lock" size={40} color={colors.received} />
+            <Text style={[type.title, styles.name]} accessibilityRole="header">
+              नोतरा डायरी
+            </Text>
+          </View>
           <PinFlow verify askNew={false} check={check} verifyTitle="पिन डालें" onDone={onUnlock} />
-          <BigButton icon="❓" label="पिन भूल गए?" tone="plain" onPress={forgot} />
-        </SafeAreaView>
-      </RuledPaper>
+          <BigButton label="पिन भूल गए?" tone="plain" onPress={forgot} />
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, padding: spacing.md, paddingLeft: 44, gap: spacing.md, justifyContent: 'center' },
-  name: { ...type.title, color: colors.inkBlue },
+  page: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.paper },
+  safe: { flex: 1 },
+  body: { flex: 1, padding: GUTTER, gap: spacing.md, justifyContent: 'center' },
+  head: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  name: { color: colors.received },
 });

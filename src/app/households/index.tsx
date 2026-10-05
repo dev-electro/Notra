@@ -1,14 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
-import { BigButton } from '@/components/big-button';
+import { EmptyState } from '@/components/empty-state';
 import { Field } from '@/components/field';
 import { HOUSEHOLD_ROW_HEIGHT, HouseholdRow } from '@/components/household-row';
-import { Screen } from '@/components/screen';
+import { listContent, Screen } from '@/components/screen';
 import type { Household } from '@/core';
 import { searchHouseholds } from '@/db';
 import { useLoad } from '@/hooks/use-load';
 import { go } from '@/nav';
-import { spacing } from '@/theme';
+import { GUTTER, spacing } from '@/theme';
 
 const PAGE = 40;
 const keyOf = (h: Household) => h.id;
@@ -26,22 +26,27 @@ export default function Households() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const { data } = useLoad((db) => searchHouseholds(db, debounced, limit), [] as Household[]);
+  const { data, loading } = useLoad((db) => searchHouseholds(db, debounced, limit), [] as Household[]);
   const open = useCallback((h: Household) => go(`/households/${h.id}`), []);
   const renderItem = useCallback(({ item }: { item: Household }) => <HouseholdRow household={item} onPress={open} />, [open]);
   const more = useCallback(() => setLimit((l) => (data.length >= l ? l + PAGE : l)), [data.length]);
+  const empty = !loading && data.length === 0 && !debounced;
 
   return (
-    <Screen title="परिवार" scroll={false}>
+    <Screen
+      title="परिवार"
+      scroll={false}
+      action={{ icon: 'plus', label: empty ? 'पहला परिवार जोड़ें' : 'नया परिवार', onPress: () => go('/households/edit') }}
+    >
       <View style={styles.top}>
         <Field label="खोजें (नाम, पिता, गाँव)" value={query} onChangeText={setQuery} />
-        <BigButton icon="＋" label="नया परिवार" onPress={() => go('/households/edit')} />
       </View>
       <FlatList
         data={data}
         keyExtractor={keyOf}
         renderItem={renderItem}
         getItemLayout={layout}
+        ListEmptyComponent={loading ? null : <EmptyState icon="families" text={debounced ? 'कोई परिवार नहीं मिला' : 'अभी कोई परिवार नहीं'} />}
         initialNumToRender={10}
         windowSize={5}
         maxToRenderPerBatch={10}
@@ -49,13 +54,12 @@ export default function Households() {
         onEndReached={more}
         onEndReachedThreshold={0.5}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.list}
+        contentContainerStyle={listContent}
       />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  top: { gap: spacing.sm, paddingLeft: 44, paddingRight: spacing.md, paddingBottom: spacing.sm },
-  list: { paddingLeft: 44, paddingRight: spacing.md, paddingBottom: spacing.xl },
+  top: { gap: spacing.sm, paddingHorizontal: GUTTER, paddingBottom: spacing.md },
 });

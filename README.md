@@ -34,7 +34,8 @@ src/sync/                   Cloud backup: engine (push dirty / pull cursor), htt
 src/auth/                   Token storage (secure-store), lazy Google sign-in, Hindi error messages
 server/                     Cloudflare Worker (Hono) + Postgres backend, its own npm package
 src/components, src/hooks   UI pieces
-src/theme.ts                Ruled-paper theme: colours, type scale, touch targets
+src/theme.ts                Design tokens (the only place for colours, fonts, sizes, spacing) + the contrast pairs the test checks
+src/components/icons.tsx    Hand-drawn line icon set (react-native-svg); motifs.tsx: dot border, toran, rice grains, empty-state art
 .github/workflows/ci.yml    Checks + debug-signed release APK
 ```
 
@@ -84,7 +85,7 @@ device and stored in the OS keystore via expo-secure-store.
 
 ## Phase 1 screens (Stage 2)
 
-Home (मेरा नोतरा / दूसरों का नोतरा), first-launch setup (my household + village increment),
+Home (toran, greeting, मिला/दिया summary, four tiles: नोतरा लिखें / कार्यक्रम / परिवार / हिसाब), first-launch setup (my household + village increment),
 household directory with photos, household detail with Lena–Dena balance and suggested return,
 add entry (number pad, shagun buttons, in-kind, voice entry, spoken read-back), Notra events,
 Event ledger (खाता: the host opens an event and records each giver, saved instantly, undo = void), reports (person-wise, occasion-wise, self ledger, लौटाना बाकी, yearly calendar),
@@ -191,3 +192,22 @@ that data to the new account. A row the server rejects as invalid would retry fo
 - **Server tests:** `cd server && npm test` (migration `003_profile_ledgers_account.sql` must be applied before deploying the new app).
 - Store listing answers: `docs/PLAY_STORE.md`.
 
+
+## Stage 6: look, feel and navigation
+
+For a first-time smartphone user who may not read well: picture-first, plain Hindi, very few choices per screen.
+
+- **Navigation.** Home has exactly four big tiles (नोतरा लिखें, कार्यक्रम, परिवार, हिसाब) and a small gear (settings). Every primary task is at most 2 taps from
+  Home (write an entry: tile, then pick family; open an event ledger: कार्यक्रम, then the card's "खाता खोलें"). Every other screen has a big "वापस"
+  button top-left, a clear title, and its one main action as a full-width haldi button at the bottom (`Screen action`).
+- **Words.** मिला (आया) = received, दिया (गया) = given; "हिसाब" for reports; "बैकअप" never "sync"; no English in the UI. Direction is always arrow + word + colour.
+- **Tokens** (`src/theme.ts`): paper `#FBF6EC`, card `#FFFDF8`, indigo `#1F3A93` (मिला), kumkum `#9E2A2B` (दिया), haldi `#E8A317` (primary button, dark text),
+  mehendi `#4B7F52` (success), muted `#5A5148`, hairline `#E7DCC8`. Every text/background pair in use is listed in `textPairs` and asserted >= WCAG AA by
+  `src/__tests__/theme.test.ts`. Type scale: amounts 40-56, titles 26, body 20, nothing under 18; 8-pt spacing; radius 16; touch targets 64. Flat: hairlines and tints, no shadows.
+- **Font.** Mukta Medium + Bold only (`assets/fonts`, OFL), subset with fonttools to Devanagari + Latin + digits + rupee sign (215 KB each; the full files are 415 KB each).
+  Weight is the file, so no screen sets `fontWeight`. The root layout holds the splash until both load (bundled, milliseconds).
+- **Icons and motifs.** `react-native-svg` instead of emoji so every phone draws the same pictures; the Pithora-style dot border, toran and rice-grain pattern are each
+  a few paths, built once per width and memoized.
+- **Feel.** `PressableScale` (150 ms scale/fade, native driver), `expo-haptics` light tick on save and number-pad taps, an animated check on save; all animations are skipped
+  when the phone's "remove animations" setting is on (`useReduceMotion`). `core/words.ts` writes the typed amount in Hindi words ("पाँच सौ एक रुपये").
+- **E2E.** `.maestro/08_screenshots.yaml` visits every main screen and saves `screenshots/<name>.png`; flows 01-07 use the new strings.

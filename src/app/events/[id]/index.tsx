@@ -1,12 +1,12 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
-import { Text } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { EntryRow } from '@/components/entry-row';
-import { Screen } from '@/components/screen';
+import { EventHeader } from '@/components/event-header';
+import { listContent, Screen } from '@/components/screen';
 import {
-  displayDate, formatINR, INVITATION_LABEL, OCCASION_ICON, OCCASION_LABEL, STATUS_LABEL, STATUS_ORDER,
+  displayDate, INVITATION_LABEL, OCCASION_LABEL, STATUS_LABEL, STATUS_ORDER,
   type Household, type NotraEvent,
 } from '@/core';
 import {
@@ -17,7 +17,7 @@ import { useLoad } from '@/hooks/use-load';
 import { go } from '@/nav';
 import { shareEventLedger } from '@/services/export';
 import { guarded } from '@/services/guard';
-import { colors, spacing, type } from '@/theme';
+import { spacing } from '@/theme';
 
 const PAGE = 30;
 const keyOf = (e: EntryWithState) => e.id;
@@ -78,24 +78,27 @@ export default function EventDetail() {
 
   const header = e ? (
     <View style={styles.header}>
-      <Text style={styles.sub}>
-        {host?.headName ?? ''} · {displayDate(e.date)} · {INVITATION_LABEL[e.invitationType]}
-        {e.panchApproved ? ' · पंच की मंज़ूरी ✔' : ''}
-      </Text>
-      <Text style={styles.status}>{STATUS_LABEL[e.status]}</Text>
-      <Text style={styles.total}>{formatINR(summary?.receivedPaise ?? 0)}</Text>
-      <Text style={styles.sub}>{summary?.giverCount ?? 0} परिवार</Text>
-      {next ? <BigButton label={`आगे: ${STATUS_LABEL[next]}`} tone="plain" onPress={advance} /> : null}
-      <BigButton icon="📒" label="खाता खोलें" tone="red" onPress={() => go(`/events/${e.id}/ledger`)} />
+      <EventHeader
+        occasion={e.occasion}
+        status={STATUS_LABEL[e.status]}
+        subtitle={`${host?.headName ?? ''} · ${displayDate(e.date)} · ${INVITATION_LABEL[e.invitationType]}${e.panchApproved ? ' · पंच की मंज़ूरी' : ''}`}
+        totalPaise={summary?.receivedPaise ?? 0}
+        giverCount={summary?.giverCount ?? 0}
+      />
       <View style={styles.row}>
-        <BigButton compact icon="✍️" label="एंट्री" onPress={() => go(`/entry/new?eventId=${e.id}`)} />
-        <BigButton compact icon="📄" label="PDF बही" tone="plain" onPress={exportPdf} disabled={busy} />
+        <BigButton compact icon="write" label="एंट्री" onPress={() => go(`/entry/new?eventId=${e.id}`)} />
+        <BigButton compact icon="share" label="बही भेजें" onPress={exportPdf} disabled={busy} />
       </View>
+      {next ? <BigButton icon="check" label={`आगे: ${STATUS_LABEL[next]}`} onPress={advance} /> : null}
     </View>
   ) : null;
 
   return (
-    <Screen title={e ? `${OCCASION_ICON[e.occasion]} ${OCCASION_LABEL[e.occasion]}` : 'कार्यक्रम'} scroll={false}>
+    <Screen
+      title={e ? OCCASION_LABEL[e.occasion] : 'कार्यक्रम'}
+      scroll={false}
+      action={e ? { icon: 'hisaab', label: 'खाता खोलें', onPress: () => go(`/events/${e.id}/ledger`) } : undefined}
+    >
       <FlatList
         data={entries}
         keyExtractor={keyOf}
@@ -107,17 +110,13 @@ export default function EventDetail() {
         removeClippedSubviews
         onEndReached={more}
         onEndReachedThreshold={0.5}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={listContent}
       />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { paddingLeft: 44, paddingRight: spacing.md, paddingBottom: spacing.xl * 2 },
   header: { gap: spacing.md, paddingBottom: spacing.md },
-  sub: { fontSize: 20, lineHeight: 28, color: colors.textMuted },
-  status: { ...type.label, color: colors.inkRed },
-  total: { fontSize: 48, lineHeight: 60, fontWeight: '700', color: colors.inkBlue },
   row: { flexDirection: 'row', gap: spacing.sm },
 });

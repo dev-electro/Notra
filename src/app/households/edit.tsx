@@ -49,12 +49,12 @@ export default function HouseholdEdit() {
   };
 
   return (
-    <Screen title={id ? 'परिवार बदलें' : 'नया परिवार'}>
+    <Screen title={id ? 'परिवार बदलें' : 'नया परिवार'} action={{ icon: 'check', label: 'सेव करें', onPress: save, disabled: !f.headName.trim() }}>
       <View style={styles.photoRow}>
         <Avatar name={f.headName} photoUri={f.photoUri || undefined} size={96} />
         <View style={styles.photoBtns}>
-          <BigButton compact icon="📷" label="कैमरा" onPress={() => photo('camera')} />
-          <BigButton compact icon="🖼️" label="गैलरी" tone="red" onPress={() => photo('gallery')} />
+          <BigButton compact icon="camera" label="कैमरा" onPress={() => photo('camera')} />
+          <BigButton compact icon="image" label="गैलरी" onPress={() => photo('gallery')} />
         </View>
       </View>
       <Field label="नाम" value={f.headName} onChangeText={set('headName')} />
@@ -64,7 +64,6 @@ export default function HouseholdEdit() {
       <Field label="फला" value={f.fala} onChangeText={set('fala')} />
       <Field label="अटक" value={f.atak} onChangeText={set('atak')} />
       <Field label="फ़ोन (ज़रूरी नहीं)" value={f.phone} onChangeText={set('phone')} keyboardType="phone-pad" />
-      <BigButton icon="✔" label="सेव करें" onPress={save} disabled={!f.headName.trim()} />
     </Screen>
   );
 }

@@ -54,7 +54,7 @@ export default function Ledgers() {
   if (mode.kind === 'unlock') {
     const l = mode.ledger;
     return (
-      <Screen title={`🔒 ${l.name}`} onBack={list}>
+      <Screen title={l.name} onBack={list}>
         <PinFlow
           verify
           askNew={false}
@@ -72,12 +72,15 @@ export default function Ledgers() {
 
   if (mode.kind === 'name') {
     return (
-      <Screen title="नया निजी खाता" onBack={list}>
+      <Screen
+        title="नया निजी खाता"
+        onBack={list}
+        action={{ icon: 'lock', label: 'पिन लगाएं', disabled: !name.trim(), onPress: () => setMode({ kind: 'newpin', name }) }}
+      >
         <Text style={styles.note}>यह खाता सिर्फ़ उसका होगा जिसका नाम आप लिखेंगे। चाहें तो पिन भी लगा सकते हैं।</Text>
         <Field label="किसका खाता? (नाम)" value={name} onChangeText={setName} />
-        <BigButton icon="🔒" label="पिन लगाएं" disabled={!name.trim()} onPress={() => setMode({ kind: 'newpin', name })} />
         <BigButton
-          icon="✔"
+          icon="check"
           label="बिना पिन के बनाएं"
           tone="plain"
           disabled={!name.trim()}
@@ -164,34 +167,36 @@ export default function Ledgers() {
 
   const unlocked = getUnlocked();
   return (
-    <Screen title="खाते">
+    <Screen
+      title="खाते"
+      action={{ icon: 'plus', label: 'नया निजी खाता', onPress: () => setMode({ kind: 'name' }), hint: 'परिवार के किसी सदस्य का अलग खाता' }}
+    >
       {ledgers.map((l) => (
         <View key={l.id} style={styles.item}>
           <BigButton
-            icon={l.hasPin ? '🔒' : '📒'}
-            label={l.id === active ? `${l.name}  ✔` : l.name}
+            icon={l.hasPin ? 'lock' : 'hisaab'}
+            label={l.name}
             selected={l.id === active}
             hint={l.id === active ? 'यह खाता अभी खुला है' : 'इस खाते को खोलें'}
             onPress={() => open(l)}
           />
           {l.kind === 'PERSONAL' && !l.hasPin ? (
-            <BigButton icon="🔒" label="पिन लगाएं" tone="plain" onPress={() => setMode({ kind: 'setpin', ledger: l })} />
+            <BigButton icon="lock" label="पिन लगाएं" tone="plain" onPress={() => setMode({ kind: 'setpin', ledger: l })} />
           ) : null}
           {l.kind === 'PERSONAL' && l.hasPin && unlocked.has(l.id) ? (
             <View style={styles.row}>
-              <BigButton compact icon="🔁" label="पिन बदलें" tone="plain" onPress={() => setMode({ kind: 'changepin', ledger: l })} />
-              <BigButton compact icon="🔓" label="पिन हटाएँ" tone="plain" onPress={() => setMode({ kind: 'removepin', ledger: l })} />
+              <BigButton compact icon="refresh" label="पिन बदलें" tone="plain" onPress={() => setMode({ kind: 'changepin', ledger: l })} />
+              <BigButton compact icon="unlock" label="पिन हटाएँ" tone="plain" onPress={() => setMode({ kind: 'removepin', ledger: l })} />
             </View>
           ) : null}
         </View>
       ))}
-      <BigButton icon="＋" label="नया निजी खाता" tone="red" onPress={() => setMode({ kind: 'name' })} hint="परिवार के किसी सदस्य का अलग खाता" />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  note: { ...type.body, color: colors.text },
+  note: { ...type.body, color: colors.ink },
   item: { gap: spacing.sm },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

@@ -1,13 +1,21 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text, TextInput } from '@/components/text';
+import { AmountDisplay } from '@/components/amount-display';
+import { Avatar } from '@/components/avatar';
 import { BigButton } from '@/components/big-button';
+import { Card, SectionTitle } from '@/components/card';
+import { DIRECTION_INK } from '@/components/direction';
+import { inputStyle } from '@/components/field';
 import { HouseholdPicker } from '@/components/household-picker';
+import { IN_KIND_ICON } from '@/components/icons';
 import { NumberPad } from '@/components/number-pad';
+import { OCCASION_ICON_NAME } from '@/components/occasion';
+import { SaveCheck } from '@/components/save-check';
 import { Screen } from '@/components/screen';
+import { Text, TextInput } from '@/components/text';
 import {
-  displayDate, formatINR, IN_KIND_KINDS, OCCASION_ICON, OCCASION_LABEL, readBack, SHAGUN_QUICK_RUPEES,
+  displayDate, formatINR, IN_KIND_KINDS, OCCASION_LABEL, readBack, SHAGUN_QUICK_RUPEES,
   type Direction, type Entry, type Household, type NotraEvent, type PaymentMode,
 } from '@/core';
 import {
@@ -17,8 +25,9 @@ import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { back } from '@/nav';
 import { HELP_ENTRY } from '@/onboarding/help';
 import { guarded } from '@/services/guard';
+import { tapLight } from '@/services/haptics';
 import { speak } from '@/services/speech';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, type } from '@/theme';
 
 /** Add an entry (or a correction of one). Saving speaks the Hindi read-back and asks "सही है?". */
 export default function NewEntry() {
@@ -94,27 +103,33 @@ export default function NewEntry() {
         : await addEntry(db, { ...fields, ledgerId, recordedBy: (await getMyHouseholdId(db)) ?? 'self' });
     });
     if (!entry) return;
+    tapLight();
     const text = readBack(entry, household);
     setSaved({ entry, text });
     speak(text);
   };
 
   if (saved) {
+    const ink = DIRECTION_INK[saved.entry.direction];
     return (
-      <Screen title="सही है?" noBack>
-        <Text style={styles.readback}>{saved.text}</Text>
-        <Text style={styles.big}>{formatINR(saved.entry.cashPaise + saved.entry.inKindValuePaise)}</Text>
-        <BigButton icon="👍" label="हाँ, सही है" onPress={back} />
-        <BigButton
-          icon="✏️"
-          label="बदलें"
-          tone="red"
-          onPress={() => {
-            setCorrectOf(saved.entry);
-            setSaved(null);
-          }}
-        />
-        <BigButton icon="🔊" label="फिर से सुनें" tone="plain" onPress={() => speak(saved.text)} />
+      <Screen title="सही है?" noBack action={{ icon: 'check', label: 'हाँ, सही है', onPress: back }}>
+        <SaveCheck />
+        <Text style={[type.title, styles.readback]}>{saved.text}</Text>
+        <Text style={[type.amountXL, styles.big, { color: ink }]} adjustsFontSizeToFit numberOfLines={1}>
+          {formatINR(saved.entry.cashPaise + saved.entry.inKindValuePaise)}
+        </Text>
+        <View style={styles.row}>
+          <BigButton
+            compact
+            icon="write"
+            label="बदलें"
+            onPress={() => {
+              setCorrectOf(saved.entry);
+              setSaved(null);
+            }}
+          />
+          <BigButton compact icon="speaker" label="फिर से सुनें" onPress={() => speak(saved.text)} />
+        </View>
       </Screen>
     );
   }
@@ -132,28 +147,40 @@ export default function NewEntry() {
     );
   }
 
+  const ink = DIRECTION_INK[direction];
   return (
-    <Screen title={correctOf ? 'एंट्री सुधारें' : 'नई एंट्री'} speakText={HELP_ENTRY}>
-      {correctOf ? <Text style={styles.note}>सही रकम डालें। पुरानी एंट्री हिसाब से हट जाएगी, मिटेगी नहीं।</Text> : null}
-      <View style={styles.who}>
+    <Screen
+      title={correctOf ? 'एंट्री सुधारें' : 'नोतरा लिखें'}
+      speakText={HELP_ENTRY}
+      action={{ icon: 'check', label: 'सेव करें', onPress: save, disabled: !canSave }}
+    >
+      {correctOf ? (
+        <Card tint="haldi">
+          <Text style={type.body}>सही रकम डालें। पुरानी एंट्री हिसाब से हट जाएगी, मिटेगी नहीं।</Text>
+        </Card>
+      ) : null}
+      <Card style={styles.who}>
+        <Avatar name={household.headName} photoUri={household.photoUri} />
         <View style={styles.flex}>
-          <Text style={styles.name}>{household.headName}</Text>
-          <Text style={styles.sub}>{[household.fatherName && `${household.fatherName} का`, household.village].filter(Boolean).join(' · ')}</Text>
+          <Text style={[type.heading, styles.name]} numberOfLines={1}>
+            {household.headName}
+          </Text>
+          <Text style={[type.caption, styles.sub]} numberOfLines={1}>
+            {[household.fatherName && `${household.fatherName} का`, household.village].filter(Boolean).join(' · ')}
+          </Text>
         </View>
         {correctOf ? null : <BigButton compact label="बदलें" tone="plain" onPress={() => setHousehold(null)} />}
-      </View>
+      </Card>
 
       <View style={styles.row}>
-        <BigButton compact label="आया" icon="⬇️" selected={direction === 'AAYA'} onPress={() => setDirection('AAYA')} />
-        <BigButton compact label="गया" icon="⬆️" tone="red" selected={direction === 'GAYA'} onPress={() => setDirection('GAYA')} />
+        <BigButton compact tone="received" icon="arrowDown" label="मिला (आया)" selected={direction === 'AAYA'} onPress={() => setDirection('AAYA')} />
+        <BigButton compact tone="given" icon="arrowUp" label="दिया (गया)" selected={direction === 'GAYA'} onPress={() => setDirection('GAYA')} />
       </View>
 
-      <Text style={[styles.amount, { color: direction === 'AAYA' ? colors.inkBlue : colors.inkRed }]} accessibilityLabel="रकम">
-        {formatINR(cashPaise)}
-      </Text>
+      <AmountDisplay rupees={Number(digits || 0)} color={ink} />
       <View style={styles.row}>
         {SHAGUN_QUICK_RUPEES.map((r) => (
-          <BigButton key={r} compact label={formatINR(r * 100)} tone="plain" selected={digits === String(r)} onPress={() => setDigits(String(r))} />
+          <BigButton key={r} compact label={formatINR(r * 100)} selected={digits === String(r)} onPress={() => setDigits(String(r))} />
         ))}
         {direction === 'GAYA' && suggested ? (
           <BigButton compact label={`सुझाव ${formatINR(suggested)}`} selected={digits === String(suggested / 100)} onPress={() => setDigits(String(suggested / 100))} />
@@ -161,52 +188,51 @@ export default function NewEntry() {
       </View>
       <NumberPad value={digits} onChange={setDigits} />
 
-      <Text style={styles.section}>सामान (ज़रूरी नहीं)</Text>
+      <SectionTitle icon="grain">सामान (ज़रूरी नहीं)</SectionTitle>
       <View style={styles.row}>
         {IN_KIND_KINDS.map((k) => (
-          <BigButton key={k.key} compact icon={k.icon} label={k.label} tone="plain" selected={kind === k.key} onPress={() => setKind(kind === k.key ? null : k.key)} />
+          <BigButton key={k.key} compact icon={IN_KIND_ICON[k.key]} label={k.label} selected={kind === k.key} onPress={() => setKind(kind === k.key ? null : k.key)} />
         ))}
       </View>
       {kind ? (
         <>
           <TextInput
-            style={styles.input}
+            style={inputStyle}
             value={kindText}
             onChangeText={setKindText}
             accessibilityLabel="सामान का नाम या मात्रा"
             placeholder={kind === 'other' ? 'क्या दिया?' : 'कितना? (जैसे 10 किलो)'}
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.muted}
           />
           <TextInput
-            style={styles.input}
+            style={inputStyle}
             value={kindValue}
             onChangeText={(t) => setKindValue(t.replace(/\D/g, ''))}
             keyboardType="number-pad"
             accessibilityLabel="सामान की अंदाज़न कीमत, रुपये में"
             placeholder="अंदाज़न कीमत ₹"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.muted}
           />
         </>
       ) : null}
 
-      <Text style={styles.section}>कैसे?</Text>
+      <SectionTitle icon="cash">कैसे?</SectionTitle>
       <View style={styles.row}>
-        <BigButton compact label="नकद" icon="💵" tone="plain" selected={mode === 'CASH'} onPress={() => setMode('CASH')} />
-        <BigButton compact label="UPI" icon="📱" tone="plain" selected={mode === 'UPI'} onPress={() => setMode('UPI')} />
+        <BigButton compact label="नकद" icon="cash" selected={mode === 'CASH'} onPress={() => setMode('CASH')} />
+        <BigButton compact label="यूपीआई" icon="phone" selected={mode === 'UPI'} onPress={() => setMode('UPI')} />
       </View>
 
       {events.length ? (
         <>
-          <Text style={styles.section}>कार्यक्रम (ज़रूरी नहीं)</Text>
+          <SectionTitle icon="events">कार्यक्रम (ज़रूरी नहीं)</SectionTitle>
           <View style={styles.row}>
-            <BigButton compact label="कोई नहीं" tone="plain" selected={!eventId} onPress={() => setEventId(undefined)} />
+            <BigButton compact label="कोई नहीं" selected={!eventId} onPress={() => setEventId(undefined)} />
             {events.map((e) => (
               <BigButton
                 key={e.id}
                 compact
-                icon={OCCASION_ICON[e.occasion]}
+                icon={OCCASION_ICON_NAME[e.occasion]}
                 label={`${OCCASION_LABEL[e.occasion]} ${displayDate(e.date)}`}
-                tone="plain"
                 selected={eventId === e.id}
                 onPress={() => setEventId(e.id)}
               />
@@ -214,8 +240,6 @@ export default function NewEntry() {
           </View>
         </>
       ) : null}
-
-      <BigButton icon="✔" label="सेव करें" onPress={save} disabled={!canSave} />
     </Screen>
   );
 }
@@ -223,16 +247,9 @@ export default function NewEntry() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  who: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { fontSize: 28, lineHeight: 36, fontWeight: '700', color: colors.text },
-  sub: { fontSize: 18, color: colors.textMuted },
-  amount: { fontSize: 52, lineHeight: 64, fontWeight: '700', textAlign: 'right' },
-  section: { fontSize: 22, fontWeight: '700', color: colors.inkBlue },
-  note: { fontSize: 20, lineHeight: 28, color: colors.neutral },
-  input: {
-    minHeight: 64, borderWidth: 2, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card,
-    paddingHorizontal: spacing.md, fontSize: 24, color: colors.text,
-  },
-  readback: { fontSize: 30, lineHeight: 42, fontWeight: '700', color: colors.text },
-  big: { fontSize: 52, lineHeight: 64, fontWeight: '700', color: colors.inkBlue },
+  who: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  name: { color: colors.ink },
+  sub: { color: colors.muted },
+  readback: { color: colors.ink, textAlign: 'center' },
+  big: { textAlign: 'center' },
 });

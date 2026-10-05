@@ -1,42 +1,41 @@
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
-import { Text } from '@/components/text';
+import { StyleSheet } from 'react-native';
+import { Icon } from '@/components/icons';
+import { PressableScale } from '@/components/pressable-scale';
 import { speak } from '@/services/speech';
-import { colors, MIN_TOUCH } from '@/theme';
+import { BORDER, colors, MIN_TOUCH, radius } from '@/theme';
 
 interface Props {
   /** What this screen is for, in plain Hindi. Spoken aloud when the button is tapped. */
   text: string;
 }
 
-/** Small round speaker button: tap to hear what this screen is for (for people who read slowly). */
+/** Speaker button: tap to hear what this screen is for (for people who read slowly). */
 export const SpeakerButton = React.memo(function SpeakerButton({ text }: Props) {
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel="इस स्क्रीन के बारे में सुनें"
       accessibilityHint="यह स्क्रीन किस काम की है, यह बोलकर बताता है"
       onPress={() => void speak(text)}
-      style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
+      outerStyle={styles.outer}
+      style={styles.btn}
     >
-      <Text style={styles.icon} importantForAccessibility="no">
-        🔊
-      </Text>
-    </Pressable>
+      <Icon name="speaker" size={30} color={colors.given} />
+    </PressableScale>
   );
 });
 
 const styles = StyleSheet.create({
+  outer: { width: MIN_TOUCH, height: MIN_TOUCH },
   btn: {
-    width: MIN_TOUCH - 8,
-    height: MIN_TOUCH - 8,
-    borderRadius: (MIN_TOUCH - 8) / 2,
-    borderWidth: 3,
-    borderColor: colors.inkRed,
-    backgroundColor: colors.card,
+    width: MIN_TOUCH,
+    height: MIN_TOUCH,
+    borderRadius: radius.button,
+    borderWidth: BORDER,
+    borderColor: colors.hairline,
+    backgroundColor: colors.givenTint,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pressed: { opacity: 0.7 },
-  icon: { fontSize: 26 },
 });

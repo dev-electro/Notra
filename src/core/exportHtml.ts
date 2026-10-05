@@ -10,18 +10,18 @@ export function escapeHtml(s: string): string {
 
 const CSS = `
 @page { margin: 14mm; }
-body { font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif; color: #1B1B1F; font-size: 14pt; }
-.page { background-color: #FBF7EC; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, #CFD8E6 31px, #CFD8E6 32px); padding: 8px 8px 8px 36px; border-left: 3px solid #E8A9A0; }
-h1 { color: #1F3A8A; font-size: 22pt; margin: 0 0 4px; }
-.sub { color: #5B5B66; margin: 0 0 12px; }
+body { font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif; color: #2A2118; font-size: 14pt; }
+.page { background-color: #FBF6EC; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, #E7DCC8 31px, #E7DCC8 32px); padding: 8px 8px 8px 36px; border-left: 3px solid #E8A317; }
+h1 { color: #1F3A93; font-size: 22pt; margin: 0 0 4px; }
+.sub { color: #5A5148; margin: 0 0 12px; }
 table { width: 100%; border-collapse: collapse; }
-th { color: #1F3A8A; text-align: left; border-bottom: 2px solid #1F3A8A; padding: 4px; }
-td { padding: 4px; border-bottom: 1px solid #CFD8E6; vertical-align: top; }
+th { color: #1F3A93; text-align: left; border-bottom: 2px solid #1F3A93; padding: 4px; }
+td { padding: 4px; border-bottom: 1px solid #E7DCC8; vertical-align: top; }
 td.n, th.n { text-align: right; white-space: nowrap; }
-.small { font-size: 11pt; color: #5B5B66; }
-.blue { color: #1F3A8A; } .red { color: #B3261E; }
+.small { font-size: 11pt; color: #5A5148; }
+.blue { color: #1F3A93; } .red { color: #9E2A2B; }
 .total { font-size: 18pt; font-weight: 700; margin-top: 12px; }
-.foot { margin-top: 16px; font-size: 10pt; color: #5B5B66; }
+.foot { margin-top: 16px; font-size: 10pt; color: #5A5148; }
 `;
 
 function wrap(title: string, body: string): string {

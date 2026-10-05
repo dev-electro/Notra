@@ -1,11 +1,13 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
-import { Text } from '@/components/text';
 import { Avatar } from '@/components/avatar';
 import { BigButton } from '@/components/big-button';
+import { Card, SectionTitle } from '@/components/card';
+import { DirectionTag } from '@/components/direction';
 import { EntryRow } from '@/components/entry-row';
-import { Screen } from '@/components/screen';
+import { listContent, Screen } from '@/components/screen';
+import { Text } from '@/components/text';
 import { explainSuggestion, formatINR, type Balance, type Household, type Increment, DEFAULT_INCREMENT } from '@/core';
 import {
   getDb, getHousehold, getIncrement, listEntriesForHousehold, listEntriesPage, sqlBalances, type Db, type EntryWithState,
@@ -76,34 +78,53 @@ export default function HouseholdDetail() {
         <View style={styles.who}>
           <Avatar name={h.headName} photoUri={h.photoUri} size={80} />
           <View style={styles.flex}>
-            <Text style={styles.name}>{h.headName}</Text>
-            <Text style={styles.sub}>{[h.fatherName && `${h.fatherName} का`, h.village].filter(Boolean).join(' · ')}</Text>
-            <Text style={styles.sub}>{[h.jati, h.fala, h.atak].filter(Boolean).join(' · ')}</Text>
+            <Text style={[type.title, styles.name]}>{h.headName}</Text>
+            <Text style={[type.caption, styles.sub]}>{[h.fatherName && `${h.fatherName} का`, h.village].filter(Boolean).join(' · ')}</Text>
+            {[h.jati, h.fala, h.atak].some(Boolean) ? (
+              <Text style={[type.caption, styles.sub]}>{[h.jati, h.fala, h.atak].filter(Boolean).join(' · ')}</Text>
+            ) : null}
           </View>
         </View>
       ) : null}
-      <View style={styles.box}>
-        <Text style={[styles.line, { color: colors.inkRed }]}>कुल दिया: {formatINR(given)}</Text>
-        <Text style={[styles.line, { color: colors.inkBlue }]}>कुल आया: {formatINR(received)}</Text>
-        {pending > 0 ? <Text style={styles.pending}>लौटाना बाकी: {formatINR(pending)}</Text> : null}
-      </View>
-      <View style={styles.box}>
-        <Text style={styles.suggest}>
+      <Card>
+        <View style={styles.line} accessible accessibilityLabel={`कुल मिला, ${formatINR(received)}`}>
+          <DirectionTag direction="AAYA" paired iconSize={26} />
+          <Text style={[type.amount, styles.received]} numberOfLines={1} adjustsFontSizeToFit>
+            {formatINR(received)}
+          </Text>
+        </View>
+        <View style={styles.line} accessible accessibilityLabel={`कुल दिया, ${formatINR(given)}`}>
+          <DirectionTag direction="GAYA" paired iconSize={26} />
+          <Text style={[type.amount, styles.given]} numberOfLines={1} adjustsFontSizeToFit>
+            {formatINR(given)}
+          </Text>
+        </View>
+      </Card>
+      {pending > 0 ? (
+        <Card tint="haldi">
+          <Text style={[type.heading, styles.ink]}>लौटाना बाकी: {formatINR(pending)}</Text>
+        </Card>
+      ) : null}
+      <Card>
+        <Text style={[type.heading, styles.suggest]}>
           {b?.suggestedNext != null ? `अगली बार सुझाव: ${formatINR(b.suggestedNext)}` : 'अगली बार सुझाव: अभी नहीं'}
         </Text>
-        <Text style={styles.sub}>{explainSuggestion(b?.lastReceived ?? 0, b?.suggestedNext ?? null, increment)}</Text>
-      </View>
-      <BigButton icon="✍️" label="नई एंट्री" onPress={() => go(`/entry/new?householdId=${id}`)} />
+        <Text style={[type.caption, styles.sub]}>{explainSuggestion(b?.lastReceived ?? 0, b?.suggestedNext ?? null, increment)}</Text>
+      </Card>
       <View style={styles.row}>
-        <BigButton compact icon="✏️" label="बदलें" tone="plain" onPress={() => go(`/households/edit?id=${id}`)} />
-        <BigButton compact icon="📄" label="PDF भेजें" tone="red" onPress={exportPdf} disabled={busy} />
+        <BigButton compact icon="write" label="बदलें" onPress={() => go(`/households/edit?id=${id}`)} />
+        <BigButton compact icon="share" label="हिसाब भेजें" onPress={exportPdf} disabled={busy} />
       </View>
-      <Text style={styles.section}>पूरा हिसाब</Text>
+      <SectionTitle icon="hisaab">पूरा हिसाब</SectionTitle>
     </View>
   );
 
   return (
-    <Screen title={h?.headName ?? 'परिवार'} scroll={false}>
+    <Screen
+      title={h?.headName ?? 'परिवार'}
+      scroll={false}
+      action={{ icon: 'write', label: 'नोतरा लिखें', onPress: () => go(`/entry/new?householdId=${id}`) }}
+    >
       <FlatList
         data={entries}
         keyExtractor={keyOf}
@@ -114,23 +135,22 @@ export default function HouseholdDetail() {
         windowSize={5}
         maxToRenderPerBatch={10}
         removeClippedSubviews
-        contentContainerStyle={styles.list}
+        contentContainerStyle={listContent}
       />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { paddingLeft: 44, paddingRight: spacing.md, paddingBottom: spacing.xl * 2 },
   header: { gap: spacing.md, paddingBottom: spacing.md },
   flex: { flex: 1 },
   who: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  name: { ...type.label, color: colors.text },
-  sub: { fontSize: 18, lineHeight: 26, color: colors.textMuted },
-  box: { borderWidth: 2, borderColor: colors.border, borderRadius: 12, padding: spacing.md, backgroundColor: colors.card, gap: spacing.xs },
-  line: { fontSize: 30, lineHeight: 40, fontWeight: '700' },
-  pending: { fontSize: 24, lineHeight: 32, fontWeight: '700', color: colors.neutral },
-  suggest: { fontSize: 26, lineHeight: 34, fontWeight: '700', color: colors.inkBlue },
+  name: { color: colors.ink },
+  sub: { color: colors.muted },
+  ink: { color: colors.ink },
+  line: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, minHeight: 64 },
+  received: { flex: 1, textAlign: 'right', color: colors.received },
+  given: { flex: 1, textAlign: 'right', color: colors.given },
+  suggest: { color: colors.received },
   row: { flexDirection: 'row', gap: spacing.sm },
-  section: { ...type.label, color: colors.inkBlue },
 });
