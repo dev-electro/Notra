@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { DIRECTION_LABEL, displayDate, entryValuePaise, formatINR } from '@/core';
 import type { EntryWithState } from '@/db';
 import { colors, MIN_TOUCH, spacing } from '@/theme';
@@ -23,7 +24,13 @@ export const EntryRow = React.memo(function EntryRow({ entry: e, showWho, onPres
     .filter(Boolean)
     .join(' · ');
   return (
-    <Pressable onPress={onPress ? () => onPress(e) : undefined} style={[styles.row, muted && styles.muted]}>
+    <Pressable
+      accessibilityRole={onPress ? 'button' : 'text'}
+      accessibilityLabel={`${DIRECTION_LABEL[e.direction]}${showWho ? ` ${e.who.headName}` : ''}, ${formatINR(entryValuePaise(e))}${muted ? ', बदली गई' : ''}`}
+      accessibilityHint={onPress ? 'इस परिवार का पूरा हिसाब खोलें' : undefined}
+      onPress={onPress ? () => onPress(e) : undefined}
+      style={[styles.row, muted && styles.muted]}
+    >
       <View style={styles.main}>
         <Text style={[styles.top, { color: muted ? colors.neutral : ink }]} numberOfLines={1}>
           {DIRECTION_LABEL[e.direction]}
@@ -39,7 +46,7 @@ export const EntryRow = React.memo(function EntryRow({ entry: e, showWho, onPres
           {formatINR(entryValuePaise(e))}
         </Text>
         {actionLabel && onAction && !muted ? (
-          <Pressable accessibilityRole="button" hitSlop={{ top: 8, bottom: 8 }} onPress={() => onAction(e)} style={styles.action}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${actionLabel}: ${formatINR(entryValuePaise(e))}`} accessibilityHint="इस एंट्री को सुधारें" hitSlop={{ top: 8, bottom: 8 }} onPress={() => onAction(e)} style={styles.action}>
             <Text style={styles.actionText}>{actionLabel}</Text>
           </Pressable>
         ) : null}

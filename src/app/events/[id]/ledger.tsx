@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { HouseholdPicker } from '@/components/household-picker';
 import { NumberPad } from '@/components/number-pad';
@@ -10,8 +11,11 @@ import {
   addEntry, getDb, getEvent, getHousehold, getMyHouseholdId, lastActiveEntryForEvent, listEntriesForEvent, listHouseholds, setEventStatus,
   sqlEventTotals, voidEntry, type Db, type EventTotals,
 } from '@/db';
+import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { replace } from '@/nav';
+import { HELP_EVENT_LEDGER } from '@/onboarding/help';
 import { shareEventLedger } from '@/services/export';
+import { guarded } from '@/services/guard';
 import { speak } from '@/services/speech';
 import { colors, spacing } from '@/theme';
 
@@ -26,6 +30,7 @@ const getDbTyped = async () => (await getDb()) as unknown as Db;
  */
 export default function EventLedger() {
   const { id: eventId } = useLocalSearchParams<{ id: string }>();
+  const ledgerId = useActiveLedgerId();
   const [step, setStep] = useState<Step>('pick');
   const [event, setEvent] = useState<NotraEvent | null>(null);
   const [who, setWho] = useState<Household | null>(null);
@@ -62,11 +67,14 @@ export default function EventLedger() {
     if (!who || cash <= 0 || busy) return;
     setBusy(true);
     try {
-      const db = await getDbTyped();
-      const e = await addEntry(db, {
-        eventId, otherHouseholdId: who.id, direction: 'AAYA', cashPaise: cash, inKindValuePaise: 0,
-        paymentMode: 'CASH', recordedBy: (await getMyHouseholdId(db)) ?? 'self',
+      const e = await guarded(async () => {
+        const db = await getDbTyped();
+        return addEntry(db, {
+          eventId, ledgerId, otherHouseholdId: who.id, direction: 'AAYA', cashPaise: cash, inKindValuePaise: 0,
+          paymentMode: 'CASH', recordedBy: (await getMyHouseholdId(db)) ?? 'self',
+        });
       });
+      if (!e) return; // a toast told the person; the amount stays on screen so they can press save again
       speak(readBack(e, who));
       setWho(null);
       setDigits('');
@@ -80,12 +88,14 @@ export default function EventLedger() {
     if (busy) return;
     setBusy(true);
     try {
-      const db = await getDbTyped();
-      const e = await lastActiveEntryForEvent(db, eventId);
-      if (e) {
-        await voidEntry(db, e);
-        speak('आखिरी एंट्री हटा दी');
-      }
+      await guarded(async () => {
+        const db = await getDbTyped();
+        const e = await lastActiveEntryForEvent(db, eventId);
+        if (e) {
+          await voidEntry(db, e);
+          speak('आखिरी एंट्री हटा दी');
+        }
+      });
       await refresh();
     } finally {
       setBusy(false);
@@ -96,10 +106,13 @@ export default function EventLedger() {
     if (busy) return;
     setBusy(true);
     try {
-      const db = await getDbTyped();
-      if (event?.status === 'PLANNED') await setEventStatus(db, eventId, 'HELD');
+      const ok = await guarded(async () => {
+        const db = await getDbTyped();
+        if (event?.status === 'PLANNED') await setEventStatus(db, eventId, 'HELD');
+        return true;
+      });
       await refresh();
-      setStep('summary');
+      if (ok) setStep('summary');
     } finally {
       setBusy(false);
     }
@@ -148,7 +161,7 @@ export default function EventLedger() {
 
   if (step === 'pick') {
     return (
-      <Screen title={title} scroll={false}>
+      <Screen title={title} scroll={false} speakText={HELP_EVENT_LEDGER}>
         {bar}
         <HouseholdPicker onPick={onPick} />
       </Screen>
@@ -156,7 +169,7 @@ export default function EventLedger() {
   }
 
   return (
-    <Screen title={title}>
+    <Screen title={title} speakText={HELP_EVENT_LEDGER}>
       {bar}
       {who ? (
         <Text style={styles.who}>

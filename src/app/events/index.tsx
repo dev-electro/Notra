@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { Screen } from '@/components/screen';
 import { displayDate, formatINR, OCCASION_ICON, OCCASION_LABEL, STATUS_LABEL, type NotraEvent } from '@/core';
@@ -37,8 +38,8 @@ const Row = React.memo(function Row({ event: e, summary, onPress }: RowProps) {
 /** Events list. Totals come from one grouped SQL query. */
 export default function Events() {
   const { data } = useLoad(
-    async (db) => {
-      const [events, summaries] = await Promise.all([listEvents(db), sqlEventSummaries(db)]);
+    async (db, ledgerId) => {
+      const [events, summaries] = await Promise.all([listEvents(db, ledgerId), sqlEventSummaries(db, ledgerId)]);
       return { events, summaries };
     },
     { events: [] as NotraEvent[], summaries: {} as Record<string, EventSummary> },

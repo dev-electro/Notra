@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { colors, MIN_TOUCH, spacing, type } from '@/theme';
 
 interface Props {
@@ -17,6 +18,7 @@ export function TotalCard({ title, subtitle, amount, ink, onPress }: Props) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${amount}`}
+      accessibilityHint="पूरी सूची खोलें"
       onPress={onPress}
       style={({ pressed }) => [styles.card, { borderColor: color }, pressed && styles.pressed]}
     >

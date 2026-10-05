@@ -4,7 +4,7 @@ Flows live in `.maestro/` (numbered; they run in order and share app data, only 
 
 | Flow | What it checks |
 | --- | --- |
-| `01_launch_setup` | clean launch, skip sign-in (`बाद में`), first-launch setup |
+| `01_launch_setup` | clean launch, skip the picture cards (`छोड़ें`) and sign-in (`बाद में`), first-launch setup |
 | `02_add_household` | add household (name, father, village) |
 | `03_add_aaya_entry` | AAYA Rs 501 via number pad, read-back confirmed (`हाँ`) |
 | `04_home_totals` | home card shows Rs 501 |

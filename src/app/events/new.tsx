@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { DateStepper } from '@/components/date-stepper';
 import { HouseholdPicker } from '@/components/household-picker';
@@ -9,7 +10,9 @@ import {
   type Household, type InvitationType, type Occasion,
 } from '@/core';
 import { createEvent, getDb, getMyHousehold, type Db } from '@/db';
+import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { replace } from '@/nav';
+import { guarded } from '@/services/guard';
 import { colors, spacing } from '@/theme';
 
 const INVITES: InvitationType[] = ['YELLOW_RICE', 'KUMKUM', 'CARD'];
@@ -22,6 +25,7 @@ export default function NewEvent() {
   const [panch, setPanch] = useState(false);
   const [invite, setInvite] = useState<InvitationType>('YELLOW_RICE');
   const [created, setCreated] = useState<string | null>(null);
+  const ledgerId = useActiveLedgerId();
 
   useEffect(() => {
     (async () => setHost(await getMyHousehold((await getDb()) as unknown as Db)))();
@@ -52,12 +56,14 @@ export default function NewEvent() {
 
   const save = async () => {
     if (!host) return;
-    const db = (await getDb()) as unknown as Db;
-    const e = await createEvent(db, {
-      hostHouseholdId: host.id, occasion, date, panchApproved: panch, invitationType: invite,
-      status: 'PLANNED',
+    const e = await guarded(async () => {
+      const db = (await getDb()) as unknown as Db;
+      return createEvent(db, {
+        hostHouseholdId: host.id, occasion, date, panchApproved: panch, invitationType: invite,
+        status: 'PLANNED', ledgerId,
+      });
     });
-    setCreated(e.id);
+    if (e) setCreated(e.id);
   };
 
   return (

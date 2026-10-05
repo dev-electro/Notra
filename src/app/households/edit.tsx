@@ -8,6 +8,7 @@ import { Screen } from '@/components/screen';
 import type { Household } from '@/core';
 import { createHousehold, getDb, getHousehold, updateHousehold, type Db } from '@/db';
 import { back } from '@/nav';
+import { guarded } from '@/services/guard';
 import { pickPhoto } from '@/services/photo';
 import { spacing } from '@/theme';
 
@@ -34,14 +35,17 @@ export default function HouseholdEdit() {
   };
 
   const save = async () => {
-    const db = (await getDb()) as unknown as Db;
     const data = {
       headName: f.headName.trim(), fatherName: f.fatherName.trim(), jati: f.jati.trim(), village: f.village.trim(),
       fala: f.fala.trim(), atak: f.atak.trim(), phone: f.phone.trim() || undefined, photoUri: f.photoUri || undefined,
     };
-    if (id) await updateHousehold(db, { ...(data as Household), id });
-    else await createHousehold(db, data);
-    back();
+    const ok = await guarded(async () => {
+      const db = (await getDb()) as unknown as Db;
+      if (id) await updateHousehold(db, { ...(data as Household), id });
+      else await createHousehold(db, data);
+      return true;
+    });
+    if (ok) back();
   };
 
   return (

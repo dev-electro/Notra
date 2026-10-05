@@ -1,14 +1,16 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { BigButton } from '@/components/big-button';
 import { Screen } from '@/components/screen';
+import { Text } from '@/components/text';
+import { afterSignIn, CANCELLED_MESSAGE } from '@/auth/after-signin';
 import { getGoogleIdToken } from '@/auth/google';
 import { authErrorMessage } from '@/auth/messages';
 import { getDb, setSetting, type Db } from '@/db';
 import { back, go, replace } from '@/nav';
 import { linkGoogle, signInGoogle } from '@/sync/runtime';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, type } from '@/theme';
 
 const SIGNIN_PROMPTED = 'signin_prompted';
 
@@ -18,10 +20,11 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  const done = async () => {
+  const leave = () => (first ? replace('/') : back());
+
+  const later = async () => {
     await setSetting((await getDb()) as unknown as Db, SIGNIN_PROMPTED, '1');
-    if (first) replace('/');
-    else back();
+    leave();
   };
 
   const google = async () => {
@@ -30,8 +33,11 @@ export default function SignIn() {
     try {
       const idToken = await getGoogleIdToken();
       if (!idToken) return;
-      await (link ? linkGoogle(idToken) : signInGoogle(idToken));
-      await done();
+      if (link) {
+        await linkGoogle(idToken);
+        leave();
+      } else if (await afterSignIn(await signInGoogle(idToken))) leave();
+      else setErr(CANCELLED_MESSAGE);
     } catch (e) {
       setErr(authErrorMessage(e));
     } finally {
@@ -42,17 +48,21 @@ export default function SignIn() {
   return (
     <Screen title="साइन इन" noBack={!!first}>
       <Text style={styles.body}>
-        साइन इन करने से आपका नोतरा क्लाउड पर सुरक्षित रहेगा और फ़ोन बदलने पर वापस मिल जाएगा। बिना साइन इन के भी ऐप पूरा चलता है, बिना इंटरनेट के भी।
+        साइन इन करने से आपका हिसाब सुरक्षित रहेगा, और फ़ोन बदलने पर वापस मिल जाएगा। बिना साइन इन के भी ऐप पूरा चलता है, बिना इंटरनेट के भी।
       </Text>
-      <BigButton icon="G" label="Google से साइन इन" onPress={google} disabled={busy} />
+      <BigButton icon="G" label={busy ? 'रुकिए…' : 'Google से साइन इन'} hint="Google खाते से साइन इन" onPress={google} disabled={busy} />
       {link ? null : <BigButton icon="📱" label="मोबाइल नंबर से" tone="red" onPress={() => go('/phone')} disabled={busy} />}
       {err ? <Text style={styles.err}>{err}</Text> : null}
-      {first ? <BigButton label="बाद में" tone="plain" onPress={done} disabled={busy} /> : null}
+      {first ? <BigButton icon="⏭" label="बाद में" tone="plain" onPress={later} disabled={busy} /> : null}
+      <Text style={styles.small}>साइन इन करने का मतलब है कि आप ये मानते हैं:</Text>
+      <BigButton icon="🔒" label="गोपनीयता नीति" tone="plain" onPress={() => go('/legal/privacy')} />
+      <BigButton icon="📄" label="नियम व शर्तें" tone="plain" onPress={() => go('/legal/terms')} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  body: { fontSize: 22, lineHeight: 32, color: colors.text, marginBottom: spacing.sm },
-  err: { fontSize: 20, lineHeight: 28, color: colors.inkRed, fontWeight: '700' },
+  body: { ...type.body, color: colors.text, marginBottom: spacing.sm },
+  small: { ...type.body, color: colors.textMuted },
+  err: { ...type.body, color: colors.inkRed, fontWeight: '700' },
 });

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { MONTHS_HI, shiftDate } from '@/core';
 import { colors, MIN_TOUCH, spacing } from '@/theme';
 
@@ -8,16 +9,16 @@ interface Props {
   onChange: (iso: string) => void;
 }
 
-function Part({ label, onUp, onDown }: { label: string; onUp: () => void; onDown: () => void }) {
+function Part({ name, label, onUp, onDown }: { name: string; label: string; onUp: () => void; onDown: () => void }) {
   return (
     <View style={styles.part}>
-      <Pressable accessibilityRole="button" accessibilityLabel="बढ़ाएँ" onPress={onUp} style={styles.step}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${name} बढ़ाएँ`} accessibilityHint={`अभी ${label}`} onPress={onUp} style={styles.step}>
         <Text style={styles.stepText}>＋</Text>
       </Pressable>
       <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit>
         {label}
       </Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="घटाएँ" onPress={onDown} style={styles.step}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${name} घटाएँ`} accessibilityHint={`अभी ${label}`} onPress={onDown} style={styles.step}>
         <Text style={styles.stepText}>－</Text>
       </Pressable>
     </View>
@@ -29,9 +30,9 @@ export function DateStepper({ value, onChange }: Props) {
   const [y, m, d] = value.split('-').map(Number);
   return (
     <View style={styles.row}>
-      <Part label={String(d)} onUp={() => onChange(shiftDate(value, { days: 1 }))} onDown={() => onChange(shiftDate(value, { days: -1 }))} />
-      <Part label={MONTHS_HI[m - 1]} onUp={() => onChange(shiftDate(value, { months: 1 }))} onDown={() => onChange(shiftDate(value, { months: -1 }))} />
-      <Part label={String(y)} onUp={() => onChange(shiftDate(value, { years: 1 }))} onDown={() => onChange(shiftDate(value, { years: -1 }))} />
+      <Part name="दिन" label={String(d)} onUp={() => onChange(shiftDate(value, { days: 1 }))} onDown={() => onChange(shiftDate(value, { days: -1 }))} />
+      <Part name="महीना" label={MONTHS_HI[m - 1]} onUp={() => onChange(shiftDate(value, { months: 1 }))} onDown={() => onChange(shiftDate(value, { months: -1 }))} />
+      <Part name="साल" label={String(y)} onUp={() => onChange(shiftDate(value, { years: 1 }))} onDown={() => onChange(shiftDate(value, { years: -1 }))} />
     </View>
   );
 }

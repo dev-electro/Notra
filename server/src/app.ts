@@ -7,7 +7,9 @@ import type { SmsProvider } from './auth/sms';
 import { ACCESS_TTL_S, issueRefreshToken, revokeFamilyOf, rotateRefreshToken, signAccessToken, verifyAccessToken } from './auth/tokens';
 import type { Config } from './config';
 import type { Db } from './db';
+import { deleteAccount } from './account';
 import { ApiError } from './errors';
+import { PAGE_HEADERS, renderPage } from './pages';
 import { pullRows, pushRows } from './sync';
 import { findOrCreateUser, getUser, linkIdentity, publicUser, type UserRow } from './users';
 import { parsePull, validatePush } from './validate';
@@ -34,6 +36,8 @@ export function createApp(deps: Deps): Hono<Vars> {
       if (typeof retry === 'number') headers['retry-after'] = String(retry);
       return c.json({ error: err.code, ...err.extra }, err.status, headers);
     }
+    // A token that outlives its account (deleted meanwhile) fails the user_id foreign key: that is "signed out", not a crash.
+    if ((err as { code?: string }).code === '23503') return c.json({ error: 'unauthorized' }, 401);
     console.error('unhandled', err instanceof Error ? err.message : err);
     return c.json({ error: 'internal' }, 500);
   });
@@ -136,14 +140,29 @@ export function createApp(deps: Deps): Hono<Vars> {
 
   // ---- sync (every query is scoped by the token's user id) ----
   app.post('/v1/sync/push', requireAuth, async (c) => {
-    const batch = validatePush(await body(c));
-    return c.json({ ok: true, accepted: await pushRows(deps.db, c.get('userId'), batch) });
+    const { batch, rejected } = validatePush(await body(c));
+    // Bad rows are reported one by one (`rejected`) and the good rows are stored: one poison row never blocks the batch.
+    return c.json({ ok: true, accepted: await pushRows(deps.db, c.get('userId'), batch), rejected });
   });
 
   app.get('/v1/sync/pull', requireAuth, async (c) => {
     const { since, limit } = parsePull(c.req.query());
     return c.json(await pullRows(deps.db, c.get('userId'), since, limit));
   });
+
+  // ---- delete my account and all my data (Play Store + DPDP) ----
+  app.delete('/v1/account', requireAuth, async (c) => {
+    await deleteAccount(deps.db, c.get('userId'));
+    return c.json({ ok: true });
+  });
+
+  // ---- public pages the Play listing links to ----
+  const page = (path: string, id: Parameters<typeof renderPage>[0]) =>
+    app.get(path, (c) => c.body(renderPage(id), 200, PAGE_HEADERS));
+  page('/privacy', 'privacy');
+  page('/terms', 'terms');
+  page('/grievance', 'grievance');
+  page('/delete-account', 'delete-account');
 
   return app;
 }

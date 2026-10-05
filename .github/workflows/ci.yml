@@ -11,6 +11,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Reuse compiled C/C++ (React Native, SQLCipher, reanimated) between builds
+  CMAKE_C_COMPILER_LAUNCHER: ccache
+  CMAKE_CXX_COMPILER_LAUNCHER: ccache
+
 jobs:
   checks:
     runs-on: ubuntu-latest
@@ -56,6 +61,12 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-${{ github.job }}
+          max-size: 2G
       - run: npm ci
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
@@ -63,7 +74,7 @@ jobs:
           CI: '1'
       - name: Build release APK (debug-signed, for testing only)
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon --build-cache --parallel
       - uses: actions/upload-artifact@v4
         with:
           name: notra-diary-apk

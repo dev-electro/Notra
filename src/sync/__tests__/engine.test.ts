@@ -1,54 +1,17 @@
+import { DEFAULT_LEDGER_ID as L } from '../../core';
 import { sqlTotals } from '../../db/queries';
 import { migrate } from '../../db/migrations';
 import { memDb } from '../../db/mem-db.testutil';
 import { clearAllLocalData } from '../../db/maintenance';
 import { addEntry, correctEntry, createEvent, createHousehold, listEntries, listHouseholds, updateHousehold, voidEntry } from '../../db/repository';
 import type { Db } from '../../db/types';
-import { applyPage, BATCH, pullAll, pushDirty, syncOnce, type Transport } from '../engine';
-import { bindUser, getSyncState, pendingCount, setSyncEnabled } from '../state';
-import type { Batch, PullPage } from '../wire';
+import { applyPage, pullAll, pushDirty, syncOnce } from '../engine';
+import { bindAccount } from '../account';
+import { FakeServer } from '../fake-server.testutil';
+import { getSyncState, pendingCount, setSyncEnabled } from '../state';
+import type { PullPage } from '../wire';
 
-/** In-memory stand-in for the server: same rules (LWW for households/events, immutable entries, global sequence). */
-class FakeServer implements Transport {
-  seq = 0;
-  hs = new Map<string, { row: Batch['households'][number]; seq: number }>();
-  evs = new Map<string, { row: Batch['events'][number]; seq: number }>();
-  ens = new Map<string, { row: Batch['entries'][number]; seq: number }>();
-  pushes: Batch[] = [];
-  pulls: number[] = [];
-  pageLimit = BATCH;
-  failPush = false;
-  failPull = false;
-  onPush?: () => Promise<void>;
-
-  async push(b: Batch) {
-    if (this.failPush) throw new Error('offline');
-    this.pushes.push(b);
-    await this.onPush?.();
-    for (const r of b.households) if (!this.hs.has(r.id) || r.updatedAt > this.hs.get(r.id)!.row.updatedAt) this.hs.set(r.id, { row: r, seq: ++this.seq });
-    for (const r of b.events) if (!this.evs.has(r.id) || r.updatedAt > this.evs.get(r.id)!.row.updatedAt) this.evs.set(r.id, { row: r, seq: ++this.seq });
-    for (const r of b.entries) if (!this.ens.has(r.id)) this.ens.set(r.id, { row: r, seq: ++this.seq });
-  }
-  async pull(since: number, limit: number): Promise<PullPage> {
-    if (this.failPull) throw new Error('offline');
-    this.pulls.push(since);
-    const all = [
-      ...[...this.hs.values()].map((x) => ({ k: 'h', ...x })),
-      ...[...this.evs.values()].map((x) => ({ k: 'e', ...x })),
-      ...[...this.ens.values()].map((x) => ({ k: 'n', ...x })),
-    ].filter((x) => x.seq > since).sort((a, b) => a.seq - b.seq);
-    const take = Math.min(limit, this.pageLimit);
-    const page = all.slice(0, take);
-    return {
-      households: page.filter((x) => x.k === 'h').map((x) => x.row as Batch['households'][number]),
-      events: page.filter((x) => x.k === 'e').map((x) => x.row as Batch['events'][number]),
-      entries: page.filter((x) => x.k === 'n').map((x) => x.row as Batch['entries'][number]),
-      nextCursor: page.length ? page[page.length - 1]!.seq : since,
-      hasMore: all.length > take,
-    };
-  }
-}
-
+const page = (over: Partial<PullPage>): PullPage => ({ ledgers: [], households: [], events: [], entries: [], profile: null, nextCursor: 1, hasMore: false, ...over });
 const hh = (n: string) => ({ headName: n, fatherName: 'कालू', jati: 'भील', atak: 'डामोर', village: 'सरवन', fala: 'ऊपला' });
 const base = { inKindValuePaise: 0, paymentMode: 'CASH' as const, recordedBy: 'me' };
 async function phone(): Promise<Db> {
@@ -122,7 +85,7 @@ describe('push', () => {
       for (let i = 0; i < 1200; i++) await addEntry(db, { ...base, otherHouseholdId: a.id, direction: 'AAYA', cashPaise: 100 + i });
     });
     await pushDirty(db, srv);
-    expect(srv.pushes.map((p) => p.households.length + p.events.length + p.entries.length)).toEqual([500, 500, 201]);
+    expect(srv.pushes.map((p) => p.ledgers.length + p.households.length + p.events.length + p.entries.length)).toEqual([500, 500, 201]);
     expect(await pendingCount(db)).toBe(0);
   });
 
@@ -159,9 +122,9 @@ describe('pull / restore', () => {
     const b = await phone();
     await syncOnce(b, srv);
     expect(await pendingCount(b)).toBe(0);
-    expect(await sqlTotals(b)).toEqual(await sqlTotals(a));
-    expect(await sqlTotals(b)).toEqual({ receivedPaise: 60100, givenPaise: 0 }); // correction applied, void cancels e2
-    expect((await listEntries(b)).map((e) => e.id).sort()).toEqual((await listEntries(a)).map((e) => e.id).sort());
+    expect(await sqlTotals(b, L)).toEqual(await sqlTotals(a, L));
+    expect(await sqlTotals(b, L)).toEqual({ receivedPaise: 60100, givenPaise: 0 }); // correction applied, void cancels e2
+    expect((await listEntries(b, L)).map((e) => e.id).sort()).toEqual((await listEntries(a, L)).map((e) => e.id).sort());
     expect((await getSyncState(b)).cursor).toBe(srv.seq);
     // nothing to push after restoring
     const pushesBefore = srv.pushes.length;
@@ -182,13 +145,12 @@ describe('pull / restore', () => {
     srv.pulls = [];
     expect(await pullAll(b, srv)).toBe(1001);
     expect(srv.pulls).toHaveLength(3);
-    expect((await sqlTotals(b)).receivedPaise).toBe(100_000);
+    expect((await sqlTotals(b, L)).receivedPaise).toBe(100_000);
   });
 
   it('an entry arriving before its household (later page) does not break foreign keys, and FKs are restored', async () => {
     const b = await phone();
-    const page = (over: Partial<PullPage>): PullPage => ({ households: [], events: [], entries: [], nextCursor: 1, hasMore: false, ...over });
-    const entry = { id: 'e1', eventId: null, otherHouseholdId: 'h-later', direction: 'AAYA', cashPaise: 100, inKindItem: null, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'x', createdAt: '2026-01-01T00:00:00.000Z', correctsEntryId: null, isVoid: false };
+    const entry = { id: 'e1', eventId: null, otherHouseholdId: 'h-later', direction: 'AAYA', cashPaise: 100, inKindItem: null, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'x', createdAt: '2026-01-01T00:00:00.000Z', correctsEntryId: null, isVoid: false, ledgerId: L };
     await applyPage(b, page({ entries: [entry] }));
     const h = { id: 'h-later', headName: 'X', fatherName: '', jati: '', atak: '', village: '', fala: '', phone: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
     await applyPage(b, page({ households: [h], nextCursor: 2 }));
@@ -199,8 +161,8 @@ describe('pull / restore', () => {
   it('applies a page atomically: a bad row rolls back everything, cursor included', async () => {
     const b = await phone();
     const good = { id: 'h1', headName: 'X', fatherName: '', jati: '', atak: '', village: '', fala: '', phone: null, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' };
-    const badEvent = { id: 'ev1', hostHouseholdId: 'h1', occasion: 'MRITYU_BHOJ', date: '2026-01-01', panchApproved: false, invitationType: 'CARD', status: 'PLANNED', createdAt: good.createdAt, updatedAt: good.updatedAt };
-    await expect(applyPage(b, { households: [good], events: [badEvent], entries: [], nextCursor: 9, hasMore: false })).rejects.toThrow();
+    const badEvent = { id: 'ev1', hostHouseholdId: 'h1', occasion: 'MRITYU_BHOJ', date: '2026-01-01', panchApproved: false, invitationType: 'CARD', status: 'PLANNED', ledgerId: L, createdAt: good.createdAt, updatedAt: good.updatedAt };
+    await expect(applyPage(b, page({ households: [good], events: [badEvent], nextCursor: 9 }))).rejects.toThrow();
     expect(await listHouseholds(b)).toHaveLength(0);
     expect((await getSyncState(b)).cursor).toBe(0);
     expect((await b.getFirstAsync<{ foreign_keys: number }>('PRAGMA foreign_keys', []))!.foreign_keys).toBe(1);
@@ -222,7 +184,7 @@ describe('pull / restore', () => {
 
     // a newer local edit survives an older server copy
     await a.runAsync("UPDATE households SET village = 'स्थानीय', updated_at = '2100-01-01T00:00:00.000Z', dirty = 1 WHERE id = ?", [h.id]);
-    await applyPage(a, { households: [{ ...row, village: 'पुराना', updatedAt: '2050-01-01T00:00:00.000Z' }], events: [], entries: [], nextCursor: 99, hasMore: false });
+    await applyPage(a, { ledgers: [], households: [{ ...row, village: 'पुराना', updatedAt: '2050-01-01T00:00:00.000Z' }], events: [], entries: [], profile: null, nextCursor: 99, hasMore: false });
     expect((await listHouseholds(a))[0]!.village).toBe('स्थानीय');
     expect(await dirtyOf(a, 'households')).toBe(1);
   });
@@ -232,10 +194,10 @@ describe('pull / restore', () => {
     const a = await phone();
     await seed(a);
     await syncOnce(a, srv);
-    const before = await listEntries(a);
+    const before = await listEntries(a, L);
     await a.runAsync('UPDATE sync_state SET cursor = 0', []);
     await syncOnce(a, srv); // re-pulls everything
-    expect(await listEntries(a)).toEqual(before);
+    expect(await listEntries(a, L)).toEqual(before);
   });
 
   it('a failed pull leaves the cursor where it was', async () => {
@@ -253,21 +215,21 @@ describe('pull / restore', () => {
 describe('state', () => {
   it('starts disabled with cursor 0', async () => {
     const db = await phone();
-    expect(await getSyncState(db)).toEqual({ cursor: 0, userId: null, enabled: false, lastSyncAt: null });
+    expect(await getSyncState(db)).toEqual({ cursor: 0, userId: null, enabled: false, lastSyncAt: null, profileDirty: false });
     await setSyncEnabled(db, true);
     expect((await getSyncState(db)).enabled).toBe(true);
   });
 
-  it('first sign-in keeps the cursor semantics; a different user restarts and re-uploads everything', async () => {
+  it('binding the same user again changes nothing; merging into another user re-uploads everything from cursor 0', async () => {
     const srv = new FakeServer();
     const db = await phone();
     await seed(db);
-    await bindUser(db, 'user-1');
+    expect(await bindAccount(db, 'user-1', async () => 'merge')).toMatchObject({ status: 'bound', choice: 'merge' });
     await syncOnce(db, srv);
     expect(await pendingCount(db)).toBe(0);
-    await bindUser(db, 'user-1'); // same user: no-op
+    expect(await bindAccount(db, 'user-1', async () => { throw new Error('must not ask'); })).toEqual({ status: 'bound', choice: undefined });
     expect(await pendingCount(db)).toBe(0);
-    await bindUser(db, 'user-2');
+    await bindAccount(db, 'user-2', async () => 'merge');
     expect(await pendingCount(db)).toBe(7);
     expect((await getSyncState(db)).cursor).toBe(0);
   });
@@ -276,7 +238,7 @@ describe('state', () => {
     const db = await phone();
     const { b } = await seed(db);
     await clearAllLocalData(db);
-    expect(await listEntries(db)).toHaveLength(0);
+    expect(await listEntries(db, L)).toHaveLength(0);
     expect(await listHouseholds(db)).toHaveLength(0);
     expect(await getSyncState(db)).toMatchObject({ cursor: 0, userId: null, enabled: false });
     const h = await createHousehold(db, hh('नया'));

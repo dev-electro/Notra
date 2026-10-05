@@ -25,6 +25,7 @@
     "server",
     "node_modules",
     "android",
-    "ios"
+    "ios",
+    ".claude"
   ]
 }

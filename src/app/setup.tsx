@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { Field } from '@/components/field';
 import { Screen } from '@/components/screen';
 import type { Increment } from '@/core';
-import { createHousehold, getDb, setIncrement, setMyHouseholdId, type Db } from '@/db';
+import { createHousehold, getDb, getMyHouseholdId, setIncrement, setMyHouseholdId, type Db } from '@/db';
 import { replace } from '@/nav';
+import { guarded } from '@/services/guard';
 import { colors, spacing } from '@/theme';
 
 const CHOICES: { label: string; value: Increment }[] = [
@@ -20,15 +22,30 @@ export default function Setup() {
   const [inc, setInc] = useState(0);
   const set = (k: keyof typeof f) => (v: string) => setF((s) => ({ ...s, [k]: v }));
 
+  // A restored phone gets "my household" from the cloud profile: never make a second one.
+  useEffect(() => {
+    (async () => {
+      try {
+        if (await getMyHouseholdId((await getDb()) as unknown as Db)) replace('/');
+      } catch {
+        /* stay on the form */
+      }
+    })();
+  }, []);
+
   const save = async () => {
-    const db = (await getDb()) as unknown as Db;
-    const h = await createHousehold(db, {
-      headName: f.name.trim(), fatherName: f.father.trim(), jati: f.jati.trim(),
-      village: f.village.trim(), fala: f.fala.trim(), atak: f.atak.trim(),
+    const ok = await guarded(async () => {
+      const db = (await getDb()) as unknown as Db;
+      if (await getMyHouseholdId(db)) return true; // arrived from the cloud while the form was open
+      const h = await createHousehold(db, {
+        headName: f.name.trim(), fatherName: f.father.trim(), jati: f.jati.trim(),
+        village: f.village.trim(), fala: f.fala.trim(), atak: f.atak.trim(),
+      });
+      await setMyHouseholdId(db, h.id);
+      await setIncrement(db, CHOICES[inc].value);
+      return true;
     });
-    await setMyHouseholdId(db, h.id);
-    await setIncrement(db, CHOICES[inc].value);
-    replace('/');
+    if (ok) replace('/');
   };
 
   return (

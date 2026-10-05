@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useRef } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { ENTRY_ROW_HEIGHT, EntryRow } from '@/components/entry-row';
 import { Screen } from '@/components/screen';
 import { formatINR } from '@/core';
@@ -19,10 +20,10 @@ export default function LedgerList() {
   const aaya = direction !== 'gaya';
   const limit = useRef(PAGE);
   const { data, reload } = useLoad(
-    async (db) => {
+    async (db, ledgerId) => {
       const [t, entries] = await Promise.all([
-        sqlTotals(db),
-        listEntriesPage(db, { direction: aaya ? 'AAYA' : 'GAYA', activeOnly: true, limit: limit.current }),
+        sqlTotals(db, ledgerId),
+        listEntriesPage(db, { ledgerId, direction: aaya ? 'AAYA' : 'GAYA', activeOnly: true, limit: limit.current }),
       ]);
       return { total: aaya ? t.receivedPaise : t.givenPaise, entries };
     },

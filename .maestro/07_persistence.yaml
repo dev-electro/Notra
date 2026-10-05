@@ -7,7 +7,7 @@ name: 07 - kill and relaunch, data persisted
 - launchApp:
     stopApp: true
 - extendedWaitUntil:
-    visible: "बाद में|नोतरा डायरी"
+    visible: ".*बाद में|नोतरा डायरी"
     timeout: 90000
 - runFlow: subflows/skip-signin.yaml
 - extendedWaitUntil:

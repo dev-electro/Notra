@@ -1,10 +1,11 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { Screen } from '@/components/screen';
 import { authErrorMessage } from '@/auth/messages';
-import { getDb, setSetting, type Db } from '@/db';
+import { afterSignIn, CANCELLED_MESSAGE } from '@/auth/after-signin';
 import { back, replace } from '@/nav';
 import { linkPhone, otpStart, otpVerify } from '@/sync/runtime';
 import { colors, MIN_TOUCH, spacing } from '@/theme';
@@ -20,7 +21,7 @@ export default function Phone() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [left, setLeft] = useState(0);
-  const codeRef = useRef<TextInput>(null);
+  const codeRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   useEffect(() => {
     if (left <= 0) return;
@@ -47,11 +48,14 @@ export default function Phone() {
     setBusy(true);
     setErr('');
     try {
-      if (link) await linkPhone(num, c);
-      else await otpVerify(num, c);
-      await setSetting((await getDb()) as unknown as Db, 'signin_prompted', '1');
-      if (link) back();
-      else replace('/');
+      if (link) {
+        await linkPhone(num, c);
+        back();
+      } else if (await afterSignIn(await otpVerify(num, c))) replace('/');
+      else {
+        setErr(CANCELLED_MESSAGE);
+        setCode('');
+      }
     } catch (e) {
       setErr(authErrorMessage(e));
       setCode('');
@@ -80,6 +84,7 @@ export default function Phone() {
             maxLength={10}
             autoFocus
             accessibilityLabel="मोबाइल नंबर"
+            accessibilityHint="10 अंकों का नंबर डालें"
           />
         </View>
         {err ? <Text style={styles.err}>{err}</Text> : null}
@@ -91,7 +96,7 @@ export default function Phone() {
   return (
     <Screen title="कोड डालें" onBack={() => setStep('number')}>
       <Text style={styles.q}>+91 {num} पर 6 अंकों का कोड भेजा गया है</Text>
-      <Pressable onPress={() => codeRef.current?.focus()} style={styles.boxes} accessibilityLabel="6 अंकों का कोड">
+      <Pressable onPress={() => codeRef.current?.focus()} style={styles.boxes} accessibilityLabel="6 अंकों का कोड" accessibilityHint="कोड डालने के लिए दबाएँ">
         {Array.from({ length: 6 }, (_, i) => (
           <View key={i} style={[styles.box, i === code.length && styles.boxActive]}>
             <Text style={styles.digit}>{code[i] ?? ''}</Text>
@@ -107,10 +112,11 @@ export default function Phone() {
         autoFocus
         style={styles.hidden}
         caretHidden
+        accessibilityLabel="6 अंकों का कोड"
       />
       {err ? <Text style={styles.err}>{err}</Text> : null}
-      <BigButton icon="✔" label="आगे बढ़ें" onPress={() => verify(code)} disabled={code.length !== 6 || busy} />
-      <BigButton label={left > 0 ? `दोबारा कोड भेजें (${left})` : 'दोबारा कोड भेजें'} tone="plain" onPress={send} disabled={left > 0 || busy} />
+      <BigButton icon="✔" label={busy ? 'डेटा देख रहे हैं…' : 'आगे बढ़ें'} onPress={() => verify(code)} disabled={code.length !== 6 || busy} />
+      <BigButton icon="🔁" label={left > 0 ? `दोबारा कोड भेजें (${left})` : 'दोबारा कोड भेजें'} tone="plain" onPress={send} disabled={left > 0 || busy} />
     </Screen>
   );
 }

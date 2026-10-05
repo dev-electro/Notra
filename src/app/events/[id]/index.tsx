@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { EntryRow } from '@/components/entry-row';
 import { Screen } from '@/components/screen';
@@ -15,6 +16,7 @@ import {
 import { useLoad } from '@/hooks/use-load';
 import { go } from '@/nav';
 import { shareEventLedger } from '@/services/export';
+import { guarded } from '@/services/guard';
 import { colors, spacing, type } from '@/theme';
 
 const PAGE = 30;
@@ -32,12 +34,12 @@ export default function EventDetail() {
   const limit = useRef(PAGE);
   const [busy, setBusy] = useState(false);
   const { data, reload } = useLoad<Data>(
-    async (db) => {
+    async (db, ledgerId) => {
       const event = await getEvent(db, id);
       const [host, sums, entries] = await Promise.all([
         event ? getHousehold(db, event.hostHouseholdId) : null,
-        sqlEventSummaries(db),
-        listEntriesPage(db, { eventId: id, activeOnly: true, limit: limit.current }),
+        sqlEventSummaries(db, ledgerId),
+        listEntriesPage(db, { ledgerId, eventId: id, activeOnly: true, limit: limit.current }),
       ]);
       return { event, host, summary: sums[id], entries };
     },
@@ -57,8 +59,11 @@ export default function EventDetail() {
   const next = e ? STATUS_ORDER[STATUS_ORDER.indexOf(e.status) + 1] : undefined;
   const advance = async () => {
     if (!e || !next) return;
-    await setEventStatus((await getDb()) as unknown as Db, e.id, next);
-    reload();
+    const ok = await guarded(async () => {
+      await setEventStatus((await getDb()) as unknown as Db, e.id, next);
+      return true;
+    });
+    if (ok) reload();
   };
   const exportPdf = async () => {
     if (!e || busy) return;

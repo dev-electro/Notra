@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { HouseholdPicker } from '@/components/household-picker';
 import { NumberPad } from '@/components/number-pad';
@@ -12,13 +13,17 @@ import {
 import {
   addEntry, correctEntry, getDb, getEntry, getHousehold, getIncrement, getMyHouseholdId, listEvents, sqlBalances, type Db,
 } from '@/db';
+import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { back } from '@/nav';
+import { HELP_ENTRY } from '@/onboarding/help';
+import { guarded } from '@/services/guard';
 import { speak } from '@/services/speech';
 import { colors, spacing } from '@/theme';
 
 /** Add an entry (or a correction of one). Saving speaks the Hindi read-back and asks "सही है?". */
 export default function NewEntry() {
   const params = useLocalSearchParams<{ householdId?: string; correctId?: string; eventId?: string; direction?: string }>();
+  const ledgerId = useActiveLedgerId();
   const [household, setHousehold] = useState<Household | null>(null);
   const [direction, setDirection] = useState<Direction>(params.direction === 'GAYA' ? 'GAYA' : 'AAYA');
   const [digits, setDigits] = useState('');
@@ -35,7 +40,7 @@ export default function NewEntry() {
   useEffect(() => {
     (async () => {
       const db = (await getDb()) as unknown as Db;
-      setEvents((await listEvents(db)).slice(0, 6));
+      setEvents((await listEvents(db, ledgerId)).slice(0, 6));
       if (params.correctId) {
         const e = await getEntry(db, params.correctId);
         if (e) {
@@ -53,17 +58,17 @@ export default function NewEntry() {
       }
       if (params.householdId) setHousehold(await getHousehold(db, params.householdId));
     })();
-  }, [params.correctId, params.householdId]);
+  }, [params.correctId, params.householdId, ledgerId]);
 
   const hid = household?.id;
   useEffect(() => {
     if (!hid) return;
     (async () => {
       const db = (await getDb()) as unknown as Db;
-      const [b] = await sqlBalances(db, await getIncrement(db), hid);
+      const [b] = await sqlBalances(db, await getIncrement(db), ledgerId, hid);
       setSuggested(b?.suggestedNext ?? null);
     })();
-  }, [hid]);
+  }, [hid, ledgerId]);
 
   const cashPaise = Number(digits || 0) * 100;
   const item = useMemo(() => {
@@ -76,15 +81,19 @@ export default function NewEntry() {
 
   const save = async () => {
     if (!household || !canSave) return;
-    const db = (await getDb()) as unknown as Db;
-    const fields = {
-      otherHouseholdId: household.id, direction, cashPaise,
-      inKindItem: item, inKindValuePaise: item ? Number(kindValue || 0) * 100 : 0,
-      paymentMode: mode, eventId,
-    };
-    const entry = correctOf
-      ? await correctEntry(db, correctOf, fields)
-      : await addEntry(db, { ...fields, recordedBy: (await getMyHouseholdId(db)) ?? 'self' });
+    // A failed write shows a message and keeps the form as it is, so nothing typed is lost.
+    const entry = await guarded(async () => {
+      const db = (await getDb()) as unknown as Db;
+      const fields = {
+        otherHouseholdId: household.id, direction, cashPaise,
+        inKindItem: item, inKindValuePaise: item ? Number(kindValue || 0) * 100 : 0,
+        paymentMode: mode, eventId,
+      };
+      return correctOf
+        ? await correctEntry(db, correctOf, fields)
+        : await addEntry(db, { ...fields, ledgerId, recordedBy: (await getMyHouseholdId(db)) ?? 'self' });
+    });
+    if (!entry) return;
     const text = readBack(entry, household);
     setSaved({ entry, text });
     speak(text);
@@ -112,7 +121,7 @@ export default function NewEntry() {
 
   if (!household) {
     return (
-      <Screen title="किसका नोतरा?" scroll={false}>
+      <Screen title="किसका नोतरा?" scroll={false} speakText={HELP_ENTRY}>
         <HouseholdPicker
           onPick={(h, amt) => {
             setHousehold(h);
@@ -124,7 +133,7 @@ export default function NewEntry() {
   }
 
   return (
-    <Screen title={correctOf ? 'एंट्री सुधारें' : 'नई एंट्री'}>
+    <Screen title={correctOf ? 'एंट्री सुधारें' : 'नई एंट्री'} speakText={HELP_ENTRY}>
       {correctOf ? <Text style={styles.note}>सही रकम डालें। पुरानी एंट्री हिसाब से हट जाएगी, मिटेगी नहीं।</Text> : null}
       <View style={styles.who}>
         <View style={styles.flex}>
@@ -164,6 +173,7 @@ export default function NewEntry() {
             style={styles.input}
             value={kindText}
             onChangeText={setKindText}
+            accessibilityLabel="सामान का नाम या मात्रा"
             placeholder={kind === 'other' ? 'क्या दिया?' : 'कितना? (जैसे 10 किलो)'}
             placeholderTextColor={colors.textMuted}
           />
@@ -172,6 +182,7 @@ export default function NewEntry() {
             value={kindValue}
             onChangeText={(t) => setKindValue(t.replace(/\D/g, ''))}
             keyboardType="number-pad"
+            accessibilityLabel="सामान की अंदाज़न कीमत, रुपये में"
             placeholder="अंदाज़न कीमत ₹"
             placeholderTextColor={colors.textMuted}
           />

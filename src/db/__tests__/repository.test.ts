@@ -2,7 +2,7 @@
  * Runs the real migrations and repository SQL against Node's built-in SQLite (a stand-in for expo-sqlite).
  * Encryption (SQLCipher) is not exercised here; it needs a native dev build.
  */
-import { balances, activeEntries } from '../../core';
+import { balances, activeEntries, DEFAULT_LEDGER_ID as L } from '../../core';
 import { LATEST_VERSION, migrate } from '../migrations';
 import {
   addEntry, correctEntry, createEvent, createHousehold, getHousehold, getIncrement, listEntries,
@@ -47,11 +47,11 @@ describe('db', () => {
 
     const ev = await createEvent(db, { hostHouseholdId: me.id, occasion: 'SHAADI', date: '2026-02-01', panchApproved: true, invitationType: 'YELLOW_RICE', status: 'PLANNED'});
     await setEventStatus(db, ev.id, 'HELD');
-    expect((await listEvents(db))[0]).toMatchObject({ status: 'HELD', panchApproved: true});
+    expect((await listEvents(db, L))[0]).toMatchObject({ status: 'HELD', panchApproved: true});
 
     const e = await addEntry(db, { eventId: ev.id, otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 50100, inKindItem: '10 किलो गेहूं', inKindValuePaise: 30000, paymentMode: 'CASH', recordedBy: 'Mangu' });
     expect((await listEntriesForEvent(db, ev.id))[0]).toEqual(e);
-    expect(await listEntriesForHousehold(db, h.id)).toHaveLength(1);
+    expect(await listEntriesForHousehold(db, h.id, L)).toHaveLength(1);
   });
 
   it('corrections are new rows; originals untouched and excluded from totals', async () => {
@@ -61,7 +61,7 @@ describe('db', () => {
     const e1 = await addEntry(db, { otherHouseholdId: h.id, direction: 'AAYA', cashPaise: 50000, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'me', createdAt: '2026-01-01T00:00:00Z' });
     const e2 = await correctEntry(db, e1, { cashPaise: 50100, createdAt: '2026-01-02T00:00:00Z' });
     expect(e2.correctsEntryId).toBe(e1.id);
-    const all = await listEntries(db);
+    const all = await listEntries(db, L);
     expect(all).toHaveLength(2);
     expect(activeEntries(all).map((x) => x.id)).toEqual([e2.id]);
     expect(balances(all)[h.id].totalReceived).toBe(50100);

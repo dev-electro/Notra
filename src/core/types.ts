@@ -31,6 +31,8 @@ export interface NotraEvent {
   panchApproved: boolean;
   invitationType: InvitationType;
   status: EventStatus;
+  /** Which ledger (household or a family member's personal one) this event belongs to. Defaults to the household ledger. */
+  ledgerId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -51,6 +53,8 @@ export interface Entry {
   correctsEntryId?: string;
   /** A void cancels `correctsEntryId` and counts as nothing itself (zero amounts). */
   isVoid?: boolean;
+  /** Which ledger this entry belongs to. Absent = the household ledger (DEFAULT_LEDGER_ID). */
+  ledgerId?: string;
 }
 
 export type Increment =

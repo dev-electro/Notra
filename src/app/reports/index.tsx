@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { BigButton } from '@/components/big-button';
 import { HOUSEHOLD_ROW_HEIGHT, HouseholdRow } from '@/components/household-row';
 import { Screen } from '@/components/screen';
@@ -51,8 +52,8 @@ const layoutP = (_: unknown, index: number) => ({ length: HOUSEHOLD_ROW_HEIGHT, 
 
 function PeopleTab({ pending }: { pending: boolean }) {
   const { data } = useLoad(
-    async (db) => {
-      const [bals, hs] = await Promise.all([sqlBalances(db, await getIncrement(db)), listHouseholds(db)]);
+    async (db, ledgerId) => {
+      const [bals, hs] = await Promise.all([sqlBalances(db, await getIncrement(db), ledgerId), listHouseholds(db)]);
       const rows: PRow[] = [];
       if (pending) {
         for (const r of pendingFromBalances(bals, hs)) {
@@ -90,7 +91,7 @@ function PeopleTab({ pending }: { pending: boolean }) {
 
 // ---- occasion-wise ----
 function OccasionTab() {
-  const { data } = useLoad((db) => sqlOccasionWise(db), []);
+  const { data } = useLoad((db, ledgerId) => sqlOccasionWise(db, ledgerId), []);
   return (
     <ScrollView contentContainerStyle={styles.list}>
       {data.map((r) => (
@@ -119,8 +120,8 @@ const layoutS = (_: unknown, index: number) => ({ length: SELF_ROW, offset: SELF
 function SelfTab() {
   const limit = useRef(SELF_PAGE);
   const { data, reload } = useLoad(
-    async (db) => {
-      const [rows, hs] = await Promise.all([sqlSelfLedgerPage(db, limit.current), listHouseholds(db)]);
+    async (db, ledgerId) => {
+      const [rows, hs] = await Promise.all([sqlSelfLedgerPage(db, ledgerId, limit.current), listHouseholds(db)]);
       return { rows, names: new Map(hs.map((h) => [h.id, h.headName])) };
     },
     { rows: [] as SelfLedgerRow[], names: new Map<string, string>() },
@@ -175,7 +176,7 @@ function SelfTab() {
 // ---- yearly Notra calendar ----
 function CalendarTab() {
   const [year, setYear] = useState(new Date().getFullYear());
-  const { data } = useLoad((db) => listEvents(db), [] as NotraEvent[]);
+  const { data } = useLoad((db, ledgerId) => listEvents(db, ledgerId), [] as NotraEvent[]);
   const months = useMemo(() => notraCalendar(data, year), [data, year]);
   return (
     <ScrollView contentContainerStyle={styles.list}>
@@ -188,7 +189,7 @@ function CalendarTab() {
         <View key={m.month} style={styles.card}>
           <Text style={styles.cardTitle}>{MONTHS_HI[m.month - 1]}</Text>
           {m.events.map((e) => (
-            <Pressable key={e.id} accessibilityRole="button" onPress={() => go(`/events/${e.id}`)} style={styles.calRow}>
+            <Pressable key={e.id} accessibilityRole="button" accessibilityLabel={`${e.date.slice(8, 10)} तारीख, ${OCCASION_LABEL[e.occasion]}`} accessibilityHint="कार्यक्रम खोलें" onPress={() => go(`/events/${e.id}`)} style={styles.calRow}>
               <Text style={styles.line}>
                 {OCCASION_ICON[e.occasion]} {e.date.slice(8, 10)} · {OCCASION_LABEL[e.occasion]}
               </Text>

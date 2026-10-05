@@ -1,8 +1,9 @@
 # Tolerates the optional first-launch sign-in screen: taps "बाद में" (later) only if it is showing.
+# The button reads "⏭  बाद में" (icon + word), hence the leading ".*".
 appId: app.notra.diary
 ---
 - runFlow:
     when:
-      visible: "बाद में"
+      visible: ".*बाद में"
     commands:
-      - tapOn: "बाद में"
+      - tapOn: ".*बाद में"

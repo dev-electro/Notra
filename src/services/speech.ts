@@ -8,3 +8,13 @@ export async function speak(text: string): Promise<void> {
     /* speech is a convenience; never block saving */
   }
 }
+
+/** Stop any speech in progress (leaving a screen must not keep talking). */
+export async function stopSpeaking(): Promise<void> {
+  try {
+    const Speech = await import('expo-speech');
+    Speech.stop();
+  } catch {
+    /* nothing to stop */
+  }
+}

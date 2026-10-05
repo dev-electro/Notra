@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useRef, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { Avatar } from '@/components/avatar';
 import { BigButton } from '@/components/big-button';
 import { EntryRow } from '@/components/entry-row';
@@ -9,6 +10,7 @@ import { explainSuggestion, formatINR, type Balance, type Household, type Increm
 import {
   getDb, getHousehold, getIncrement, listEntriesForHousehold, listEntriesPage, sqlBalances, type Db, type EntryWithState,
 } from '@/db';
+import { useActiveLedgerId } from '@/hooks/use-active-ledger';
 import { useLoad } from '@/hooks/use-load';
 import { go } from '@/nav';
 import { sharePersonLedger } from '@/services/export';
@@ -29,14 +31,15 @@ const INITIAL: Data = { household: null, balance: null, increment: DEFAULT_INCRE
 export default function HouseholdDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const limit = useRef(PAGE);
+  const ledgerId = useActiveLedgerId();
   const [busy, setBusy] = useState(false);
 
-  const { data, reload } = useLoad<Data>(async (db) => {
+  const { data, reload } = useLoad<Data>(async (db, ledgerId) => {
     const increment = await getIncrement(db);
     const [household, bals, entries] = await Promise.all([
       getHousehold(db, id),
-      sqlBalances(db, increment, id),
-      listEntriesPage(db, { householdId: id, limit: limit.current }),
+      sqlBalances(db, increment, ledgerId, id),
+      listEntriesPage(db, { ledgerId, householdId: id, limit: limit.current }),
     ]);
     return { household, balance: bals[0] ?? null, increment, entries, hasMore: entries.length >= limit.current };
   }, INITIAL);
@@ -57,7 +60,7 @@ export default function HouseholdDetail() {
     setBusy(true);
     try {
       const db = (await getDb()) as unknown as Db;
-      await sharePersonLedger(h, await listEntriesForHousehold(db, h.id));
+      await sharePersonLedger(h, await listEntriesForHousehold(db, h.id, ledgerId));
     } finally {
       setBusy(false);
     }

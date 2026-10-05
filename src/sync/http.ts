@@ -1,4 +1,4 @@
-import type { Batch, PullPage } from './wire';
+import type { Batch, PullPage, PushResult } from './wire';
 import type { Transport } from './engine';
 
 export interface Tokens {
@@ -33,7 +33,7 @@ export interface ApiClientOptions {
 
 export interface Api {
   /** JSON request. `auth: true` adds the bearer token and, on a 401, refreshes once and retries once. */
-  request<T>(method: 'GET' | 'POST', path: string, o?: { body?: unknown; auth?: boolean }): Promise<T>;
+  request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, o?: { body?: unknown; auth?: boolean }): Promise<T>;
 }
 
 /** Plain fetch with a 15 s timeout (AbortController). No NetInfo: callers just try and fail quietly. */
@@ -92,7 +92,7 @@ export function createApi(o: ApiClientOptions): Api {
   }
 
   return {
-    async request<T>(method: 'GET' | 'POST', path: string, opts: { body?: unknown; auth?: boolean } = {}): Promise<T> {
+    async request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, opts: { body?: unknown; auth?: boolean } = {}): Promise<T> {
       if (!opts.auth) return parse<T>(await raw(method, path, opts.body));
       let t = await o.tokens.get();
       if (!t) throw new SignedOutError();
@@ -108,7 +108,10 @@ export function createApi(o: ApiClientOptions): Api {
 
 export function apiTransport(api: Api): Transport {
   return {
-    push: async (batch: Batch) => void (await api.request('POST', '/v1/sync/push', { body: batch, auth: true })),
+    push: async (batch: Batch) => {
+      const r = await api.request<Partial<PushResult>>('POST', '/v1/sync/push', { body: batch, auth: true });
+      return { rejected: r.rejected ?? [] };
+    },
     pull: (since, limit) => api.request<PullPage>('GET', `/v1/sync/pull?since=${since}&limit=${limit}`, { auth: true }),
   };
 }

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import type { Household } from '@/core';
 import { Avatar } from '@/components/avatar';
 import { colors, spacing } from '@/theme';
@@ -17,6 +18,8 @@ export const HouseholdRow = React.memo(function HouseholdRow({ household: h, onP
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={[h.headName, h.fatherName && `${h.fatherName} का`, h.village, right].filter(Boolean).join(', ')}
+      accessibilityHint="इस परिवार को चुनें या खोलें"
       onPress={() => onPress(h)}
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
     >

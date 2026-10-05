@@ -4,6 +4,7 @@ import {
   Household,
   Increment,
   DEFAULT_INCREMENT,
+  DEFAULT_LEDGER_ID,
   NotraEvent,
   newId,
 } from '../core';
@@ -26,26 +27,26 @@ const toHousehold = (r: HouseholdRow): Household => ({
 type EventRow = {
   id: string; host_household_id: string; occasion: NotraEvent['occasion']; date: string;
   panch_approved: number; invitation_type: NotraEvent['invitationType'];
-  status: EventStatus; created_at: string; updated_at: string;
+  status: EventStatus; created_at: string; updated_at: string; ledger_id: string;
 };
 const toEvent = (r: EventRow): NotraEvent => ({
   id: r.id, hostHouseholdId: r.host_household_id, occasion: r.occasion, date: r.date,
   panchApproved: r.panch_approved === 1, invitationType: r.invitation_type,
-  status: r.status, createdAt: r.created_at, updatedAt: r.updated_at,
+  status: r.status, ledgerId: r.ledger_id, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
 type EntryRow = {
   id: string; event_id: string | null; other_household_id: string; direction: Entry['direction'];
   cash_paise: number; in_kind_item: string | null; in_kind_value_paise: number;
   payment_mode: Entry['paymentMode']; recorded_by: string; voice_note_uri: string | null;
-  created_at: string; corrects_entry_id: string | null; is_void: number;
+  created_at: string; corrects_entry_id: string | null; is_void: number; ledger_id: string;
 };
 const toEntry = (r: EntryRow): Entry => ({
   id: r.id, eventId: r.event_id ?? undefined, otherHouseholdId: r.other_household_id,
   direction: r.direction, cashPaise: r.cash_paise, inKindItem: r.in_kind_item ?? undefined,
   inKindValuePaise: r.in_kind_value_paise, paymentMode: r.payment_mode, recordedBy: r.recorded_by,
   voiceNoteUri: r.voice_note_uri ?? undefined, createdAt: r.created_at,
-  correctsEntryId: r.corrects_entry_id ?? undefined, isVoid: r.is_void === 1 ? true : undefined,
+  correctsEntryId: r.corrects_entry_id ?? undefined, isVoid: r.is_void === 1 ? true : undefined, ledgerId: r.ledger_id,
 });
 
 // ---------- households ----------
@@ -63,7 +64,7 @@ export async function createHousehold(db: Db, input: Omit<Household, 'id' | 'cre
 
 export async function updateHousehold(db: Db, h: Household): Promise<void> {
   await db.runAsync(
-    `UPDATE households SET head_name=?, father_name=?, jati=?, atak=?, village=?, fala=?, phone=?, photo_uri=?, updated_at=?, dirty=1 WHERE id=?`,
+    `UPDATE households SET head_name=?, father_name=?, jati=?, atak=?, village=?, fala=?, phone=?, photo_uri=?, updated_at=?, dirty=1, sync_error=NULL WHERE id=?`,
     [h.headName, h.fatherName, h.jati, h.atak, h.village, h.fala, h.phone ?? null, h.photoUri ?? null, nowIso(), h.id],
   );
   notifyLocalWrite();
@@ -81,34 +82,35 @@ export async function listHouseholds(db: Db): Promise<Household[]> {
 // ---------- events ----------
 export async function createEvent(db: Db, input: Omit<NotraEvent, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<NotraEvent> {
   const now = nowIso();
-  const e: NotraEvent = { ...input, id: input.id ?? newId(), createdAt: now, updatedAt: now };
+  const e: NotraEvent = { ...input, id: input.id ?? newId(), ledgerId: input.ledgerId ?? DEFAULT_LEDGER_ID, createdAt: now, updatedAt: now };
   await db.runAsync(
-    `INSERT INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, status, created_at, updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?)`,
-    [e.id, e.hostHouseholdId, e.occasion, e.date, e.panchApproved ? 1 : 0, e.invitationType, e.status, now, now],
+    `INSERT INTO events (id, host_household_id, occasion, date, panch_approved, invitation_type, status, ledger_id, created_at, updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [e.id, e.hostHouseholdId, e.occasion, e.date, e.panchApproved ? 1 : 0, e.invitationType, e.status, e.ledgerId!, now, now],
   );
   notifyLocalWrite();
   return e;
 }
 
 export async function setEventStatus(db: Db, id: string, status: EventStatus): Promise<void> {
-  await db.runAsync('UPDATE events SET status = ?, updated_at = ?, dirty = 1 WHERE id = ?', [status, nowIso(), id]);
+  await db.runAsync('UPDATE events SET status = ?, updated_at = ?, dirty = 1, sync_error = NULL WHERE id = ?', [status, nowIso(), id]);
   notifyLocalWrite();
 }
 
-export async function listEvents(db: Db): Promise<NotraEvent[]> {
-  return (await db.getAllAsync<EventRow>('SELECT * FROM events ORDER BY date DESC', [])).map(toEvent);
+/** Events of one ledger, newest date first. */
+export async function listEvents(db: Db, ledgerId: string): Promise<NotraEvent[]> {
+  return (await db.getAllAsync<EventRow>('SELECT * FROM events WHERE ledger_id = ? ORDER BY date DESC', [ledgerId])).map(toEvent);
 }
 
 // ---------- entries (append-only) ----------
 export async function addEntry(db: Db, input: Omit<Entry, 'id' | 'createdAt'> & { id?: string; createdAt?: string }): Promise<Entry> {
-  const e: Entry = { ...input, id: input.id ?? newId(), createdAt: input.createdAt ?? nowIso() };
+  const e: Entry = { ...input, id: input.id ?? newId(), ledgerId: input.ledgerId ?? DEFAULT_LEDGER_ID, createdAt: input.createdAt ?? nowIso() };
   await db.runAsync(
     `INSERT INTO entries (id, event_id, other_household_id, direction, cash_paise, in_kind_item, in_kind_value_paise,
-       payment_mode, recorded_by, voice_note_uri, created_at, corrects_entry_id, is_void)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       payment_mode, recorded_by, voice_note_uri, created_at, corrects_entry_id, is_void, ledger_id)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
     [e.id, e.eventId ?? null, e.otherHouseholdId, e.direction, e.cashPaise, e.inKindItem ?? null, e.inKindValuePaise,
-      e.paymentMode, e.recordedBy, e.voiceNoteUri ?? null, e.createdAt, e.correctsEntryId ?? null, e.isVoid ? 1 : 0],
+      e.paymentMode, e.recordedBy, e.voiceNoteUri ?? null, e.createdAt, e.correctsEntryId ?? null, e.isVoid ? 1 : 0, e.ledgerId!],
   );
   notifyLocalWrite();
   return e;
@@ -139,18 +141,21 @@ export async function voidEntry(db: Db, target: Entry, createdAt?: string): Prom
   return addEntry(db, {
     eventId: target.eventId, otherHouseholdId: target.otherHouseholdId, direction: target.direction,
     cashPaise: 0, inKindValuePaise: 0, paymentMode: target.paymentMode, recordedBy: target.recordedBy,
-    correctsEntryId: target.id, isVoid: true, createdAt,
+    correctsEntryId: target.id, isVoid: true, ledgerId: target.ledgerId, createdAt,
   });
 }
 
-/** All rows including superseded ones (pass to core functions, which filter). */
-export async function listEntries(db: Db): Promise<Entry[]> {
-  return (await db.getAllAsync<EntryRow>('SELECT * FROM entries ORDER BY created_at, rowid', [])).map(toEntry);
+/** One ledger's rows including superseded ones (pass to core functions, which filter). */
+export async function listEntries(db: Db, ledgerId: string): Promise<Entry[]> {
+  return (await db.getAllAsync<EntryRow>('SELECT * FROM entries WHERE ledger_id = ? ORDER BY created_at, rowid', [ledgerId])).map(toEntry);
 }
 
-export async function listEntriesForHousehold(db: Db, householdId: string): Promise<Entry[]> {
+export async function listEntriesForHousehold(db: Db, householdId: string, ledgerId: string): Promise<Entry[]> {
   return (
-    await db.getAllAsync<EntryRow>('SELECT * FROM entries WHERE other_household_id = ? ORDER BY created_at, rowid', [householdId])
+    await db.getAllAsync<EntryRow>(
+      'SELECT * FROM entries WHERE other_household_id = ? AND ledger_id = ? ORDER BY created_at, rowid',
+      [householdId, ledgerId],
+    )
   ).map(toEntry);
 }
 
@@ -187,6 +192,13 @@ export async function getIncrement(db: Db): Promise<Increment> {
 
 export async function setIncrement(db: Db, inc: Increment): Promise<void> {
   await setSetting(db, INCREMENT_KEY, JSON.stringify(inc));
+  await markProfileDirty(db);
+}
+
+/** "My household" and the village increment are synced as one small profile row (last write wins). */
+async function markProfileDirty(db: Db): Promise<void> {
+  await db.runAsync('UPDATE sync_state SET profile_dirty = 1 WHERE id = 1', []);
+  notifyLocalWrite();
 }
 
 export async function getEvent(db: Db, id: string): Promise<NotraEvent | null> {
@@ -202,6 +214,7 @@ export async function getMyHouseholdId(db: Db): Promise<string | null> {
 
 export async function setMyHouseholdId(db: Db, id: string): Promise<void> {
   await setSetting(db, MY_HOUSEHOLD_KEY, id);
+  await markProfileDirty(db);
 }
 
 export async function getMyHousehold(db: Db): Promise<Household | null> {

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { resolveVoiceEntry, type Household, type ResolvedVoiceEntry } from '@/core';
 import { createHousehold, getDb, listHouseholds, searchHouseholds, type Db } from '@/db';
 import { BigButton } from '@/components/big-button';

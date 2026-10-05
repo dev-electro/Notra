@@ -21,7 +21,7 @@ export async function makeDb(): Promise<{ pg: PGlite; db: Db }> {
       await pg.exec(readFileSync(join(MIGRATIONS, f), 'utf8'));
     }
   } else {
-    await pg.exec('TRUNCATE users, otp_requests, refresh_tokens, households, events, entries CASCADE');
+    await pg.exec('TRUNCATE users, otp_requests, refresh_tokens, households, events, entries, ledgers, profiles CASCADE');
   }
   const conn = pg;
   const db: Db = {

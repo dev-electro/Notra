@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { setup, signInWithGoogle, signInWithPhone, type Ctx } from './helpers';
 
+const DEFAULT = '00000000-0000-4000-8000-000000000001';
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const T = (s: number) => new Date(Date.UTC(2026, 0, 1, 0, 0, s)).toISOString();
 const hh = (n: number, name = `H${n}`, upd = T(0)) => ({
@@ -15,6 +16,8 @@ const en = (n: number, house: number, extra: Record<string, unknown> = {}) => ({
   paymentMode: 'CASH', recordedBy: 'me', createdAt: T(n), correctsEntryId: null, isVoid: false, ...extra,
 });
 
+const lg = (n: number, name = `Ledger${n}`, upd = T(0)) => ({ id: id(n), name, kind: 'PERSONAL', createdAt: T(0), updatedAt: upd });
+
 const push = (t: Ctx, token: string, b: object) => t.call('POST', '/v1/sync/push', { token, body: b });
 const pull = (t: Ctx, token: string, q = '') => t.call('GET', `/v1/sync/pull${q}`, { token });
 
@@ -24,14 +27,15 @@ describe('push', () => {
     const s = await signInWithPhone(t);
     const r = await push(t, s.accessToken, { households: [hh(1)], events: [ev(10, 1)], entries: [en(20, 1, { eventId: id(10), inKindItem: 'घी', inKindValuePaise: 100 })] });
     expect(r.status).toBe(200);
-    expect(r.json.accepted).toEqual({ households: 1, events: 1, entries: 1 });
+    expect(r.json.accepted).toEqual({ ledgers: 0, households: 1, events: 1, entries: 1, profile: 0 });
+    expect(r.json.rejected).toEqual([]);
     const p = await pull(t, s.accessToken);
     expect(p.json.hasMore).toBe(false);
     expect(p.json.households).toEqual([hh(1)]);
-    expect(p.json.events).toEqual([ev(10, 1)]);
-    expect(p.json.entries[0]).toMatchObject({ id: id(20), eventId: id(10), inKindItem: 'घी', cashPaise: 50100, isVoid: false });
+    expect(p.json.events).toEqual([{ ...ev(10, 1), ledgerId: DEFAULT }]);
+    expect(p.json.entries[0]).toMatchObject({ id: id(20), eventId: id(10), inKindItem: 'घी', cashPaise: 50100, isVoid: false, ledgerId: DEFAULT });
     expect(p.json.nextCursor).toBeGreaterThan(0);
-    expect((await pull(t, s.accessToken, `?since=${p.json.nextCursor}`)).json).toMatchObject({ households: [], events: [], entries: [], hasMore: false, nextCursor: p.json.nextCursor });
+    expect((await pull(t, s.accessToken, `?since=${p.json.nextCursor}`)).json).toMatchObject({ ledgers: [], profile: null, households: [], events: [], entries: [], hasMore: false, nextCursor: p.json.nextCursor });
   });
 
   it('is idempotent: re-pushing the same rows changes nothing and creates no new server_seq for entries', async () => {
@@ -41,7 +45,7 @@ describe('push', () => {
     await push(t, s.accessToken, body);
     const first = (await pull(t, s.accessToken)).json;
     const again = await push(t, s.accessToken, body);
-    expect(again.json.accepted).toEqual({ households: 0, events: 0, entries: 0 });
+    expect(again.json.accepted).toEqual({ ledgers: 0, households: 0, events: 0, entries: 0, profile: 0 });
     expect((await pull(t, s.accessToken)).json).toEqual(first);
   });
 
@@ -92,22 +96,61 @@ describe('push', () => {
     expect(e.map((x: any) => [x.id, x.correctsEntryId, x.isVoid])).toEqual([[id(20), null, false], [id(21), id(20), false], [id(22), id(21), true]]);
   });
 
-  it('validates payloads (400) and the 500-row batch cap', async () => {
+  it('validates per row: bad rows are rejected with id + reason, the batch as a whole is not (no poison rows)', async () => {
     const t = await setup();
     const s = await signInWithPhone(t);
-    const cases: object[] = [
-      { households: [{ ...hh(1), id: 'nope' }] },
-      { households: [{ ...hh(1), updatedAt: '2026-01-01' }] },
-      { households: [{ ...hh(1), headName: 5 }] },
-      { events: [{ ...ev(10, 1), occasion: 'MRITYU_BHOJ' }] },
-      { entries: [en(20, 1, { cashPaise: -1 })] },
-      { entries: [en(20, 1, { cashPaise: 1.5 })] },
-      { entries: [en(20, 1, { direction: 'X' })] },
-      { entries: [en(20, 1, { isVoid: true })] }, // void without target
-      { entries: [en(20, 1, { isVoid: true, correctsEntryId: id(1), cashPaise: 5 })] }, // void with amount
-      { entries: 'x' },
+    const cases: [string, object, string, string][] = [
+      ['households', { households: [{ ...hh(1), id: 'nope' }] }, 'nope', 'invalid_payload:id'],
+      ['households', { households: [{ ...hh(1), updatedAt: '2026-01-01' }] }, id(1), 'invalid_payload:updatedAt'],
+      ['households', { households: [{ ...hh(1), headName: 5 }] }, id(1), 'invalid_payload:headName'],
+      ['households', { households: [{ ...hh(1), headName: 'a\u0000b' }] }, id(1), 'invalid_payload:headName'], // NUL would fail the whole INSERT
+      ['events', { events: [{ ...ev(10, 1), occasion: 'MRITYU_BHOJ' }] }, id(10), 'invalid_payload:occasion'],
+      ['events', { events: [{ ...ev(10, 1), ledgerId: 'zzz' }] }, id(10), 'invalid_payload:ledgerId'],
+      ['entries', { entries: [en(20, 1, { cashPaise: -1 })] }, id(20), 'invalid_payload:cashPaise'],
+      ['entries', { entries: [en(20, 1, { cashPaise: 1.5 })] }, id(20), 'invalid_payload:cashPaise'],
+      ['entries', { entries: [en(20, 1, { direction: 'X' })] }, id(20), 'invalid_payload:direction'],
+      ['entries', { entries: [en(20, 1, { isVoid: true })] }, id(20), 'invalid_payload:isVoid'], // void without target
+      ['entries', { entries: [en(20, 1, { isVoid: true, correctsEntryId: id(1), cashPaise: 5 })] }, id(20), 'invalid_payload:isVoid'],
+      ['entries', { entries: ['x'] }, '', 'invalid_payload:row'],
+      ['ledgers', { ledgers: [{ ...lg(30), kind: 'SECRET' }] }, id(30), 'invalid_payload:kind'],
+      ['ledgers', { ledgers: [{ ...lg(30), name: '   ' }] }, id(30), 'invalid_payload:name'],
     ];
-    for (const c of cases) expect((await push(t, s.accessToken, c)).status).toBe(400);
+    for (const [table, body, rid, reason] of cases) {
+      const r = await push(t, s.accessToken, body);
+      expect(r.status, reason).toBe(200);
+      expect(r.json.accepted).toEqual({ ledgers: 0, households: 0, events: 0, entries: 0, profile: 0 });
+      expect(r.json.rejected).toEqual([{ table, id: rid === '' ? null : rid, index: 0, reason }]);
+    }
+    expect((await t.pg.query('SELECT count(*)::int AS n FROM entries')).rows[0]).toEqual({ n: 0 });
+  });
+
+  it('one bad row does not stop the rows around it, and indexes point at the sent array', async () => {
+    const t = await setup();
+    const s = await signInWithPhone(t);
+    const r = await push(t, s.accessToken, {
+      households: [hh(1), { ...hh(2), jati: 7 }, hh(3)],
+      entries: [en(20, 1), en(21, 1, { cashPaise: -5 }), en(22, 1), en(23, 1, { direction: 'Q' })],
+      ledgers: [lg(30)],
+    });
+    expect(r.status).toBe(200);
+    expect(r.json.accepted).toEqual({ ledgers: 1, households: 2, events: 0, entries: 2, profile: 0 });
+    expect(r.json.rejected).toEqual([
+      { table: 'households', id: id(2), index: 1, reason: 'invalid_payload:jati' },
+      { table: 'entries', id: id(21), index: 1, reason: 'invalid_payload:cashPaise' },
+      { table: 'entries', id: id(23), index: 3, reason: 'invalid_payload:direction' },
+    ]);
+    const p = (await pull(t, s.accessToken)).json;
+    expect(p.households.map((x: any) => x.id).sort()).toEqual([id(1), id(3)]);
+    expect(p.entries.map((x: any) => x.id).sort()).toEqual([id(20), id(22)]);
+    // a re-push of the corrected row is accepted
+    const fixed = await push(t, s.accessToken, { entries: [en(21, 1)] });
+    expect(fixed.json).toMatchObject({ accepted: { entries: 1 }, rejected: [] });
+  });
+
+  it('only whole-request problems are a 400: not an object, a non-array list, too many rows, bad JSON', async () => {
+    const t = await setup();
+    const s = await signInWithPhone(t);
+    for (const b of [{ entries: 'x' }, { households: {} }, [], 'str', { ledgers: 1 }]) expect((await push(t, s.accessToken, b as object)).status).toBe(400);
     const many = Array.from({ length: 501 }, (_, i) => en(1000 + i, 1));
     const r = await push(t, s.accessToken, { entries: many });
     expect(r.status).toBe(400);
@@ -115,6 +158,9 @@ describe('push', () => {
     expect((await push(t, s.accessToken, { entries: many.slice(0, 500) })).json.accepted.entries).toBe(500);
     const bad = await t.app.request('/v1/sync/push', { method: 'POST', headers: { authorization: `Bearer ${s.accessToken}` }, body: '{not json' });
     expect(bad.status).toBe(400);
+    // rejected rows never echo their values back
+    const echo = await push(t, s.accessToken, { households: [{ ...hh(1), headName: 'SECRET-NAME'.repeat(100) }] });
+    expect(JSON.stringify(echo.json)).not.toContain('SECRET-NAME');
   });
 });
 
@@ -171,7 +217,7 @@ describe('account isolation', () => {
 
     // B pushes the same ids: independent rows, A's data is untouched (not overwritten, not blocked)
     const r = await push(t, b.accessToken, { households: [hh(1, 'B-house', T(9))], events: [ev(10, 1, 'SETTLED', T(9))], entries: [en(20, 1, { cashPaise: 7 })] });
-    expect(r.json.accepted).toEqual({ households: 1, events: 1, entries: 1 });
+    expect(r.json.accepted).toMatchObject({ households: 1, events: 1, entries: 1 });
     const pa = (await pull(t, a.accessToken)).json;
     expect(pa.households[0].headName).toBe('A-house');
     expect(pa.events[0].status).toBe('PLANNED');

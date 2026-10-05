@@ -4,11 +4,15 @@ name: 01 - launch, skip sign-in, first-launch setup
 - launchApp:
     clearState: true
     stopApp: true
-# Either the optional sign-in screen or the setup screen shows first.
+# First launch shows the picture cards (skippable with "छोड़ें"), then the optional sign-in, then setup.
 - extendedWaitUntil:
-    visible: "बाद में|मेरा परिवार"
+    visible: "छोड़ें|.*बाद में|मेरा परिवार"
     timeout: 120000
 - takeScreenshot: screenshots/01-first-launch
+- runFlow: subflows/skip-onboarding.yaml
+- extendedWaitUntil:
+    visible: ".*बाद में|मेरा परिवार"
+    timeout: 60000
 - runFlow: subflows/skip-signin.yaml
 - extendedWaitUntil:
     visible: "मेरा परिवार"

@@ -3,6 +3,8 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "@react-native-google-signin/google-signin": "^16.1.5",
     "expo": "~57.0.26",
     "expo-build-properties": "~57.0.22",
@@ -54,7 +56,11 @@
       "/node_modules/",
       "/android/",
       "/ios/",
-      "/server/"
+      "/server/",
+      "/.claude/"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@noble/.*))"
     ]
   }
 }

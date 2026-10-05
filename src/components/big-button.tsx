@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
+import { Text } from '@/components/text';
 import { colors, MIN_TOUCH, spacing } from '@/theme';
 
 interface Props {
@@ -11,15 +12,23 @@ interface Props {
   disabled?: boolean;
   /** Half-width style for rows of two. */
   compact?: boolean;
+  /** Spoken by TalkBack after the label; say what happens when the button is pressed. */
+  hint?: string;
+  /** Override the spoken label (default: the visible label, without the decorative icon). */
+  accessibilityLabel?: string;
 }
 
 /** Big (>=64dp) diary-style button. Ink colour = direction/emphasis; never a warning colour. */
-export const BigButton = React.memo(function BigButton({ label, onPress, icon, tone = 'blue', selected, disabled, compact }: Props) {
+export const BigButton = React.memo(function BigButton({
+  label, onPress, icon, tone = 'blue', selected, disabled, compact, hint, accessibilityLabel,
+}: Props) {
   const ink = tone === 'red' ? colors.inkRed : tone === 'plain' ? colors.text : colors.inkBlue;
   const filled = selected === true;
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={hint}
       accessibilityState={{ selected: filled, disabled }}
       disabled={disabled}
       onPress={onPress}

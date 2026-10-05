@@ -14,6 +14,11 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  # Reuse compiled C/C++ (React Native, SQLCipher, reanimated) between builds
+  CMAKE_C_COMPILER_LAUNCHER: ccache
+  CMAKE_CXX_COMPILER_LAUNCHER: ccache
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -39,6 +44,12 @@ jobs:
           java-version: 17
 
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-${{ github.job }}
+          max-size: 2G
 
       - run: npm ci
 
@@ -74,7 +85,7 @@ jobs:
           NOTRA_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           NOTRA_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           NOTRA_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew bundleRelease assembleRelease --no-daemon
+        run: ./gradlew bundleRelease assembleRelease --no-daemon --build-cache --parallel
 
       - name: Verify signature
         run: |

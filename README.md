@@ -26,6 +26,10 @@ src/core/                   Pure TypeScript domain logic (no React/Expo imports)
   readback.ts               Devanagari read-back sentence
 src/db/                     expo-sqlite schema, migrations, key handling, typed repositories
 src/app/                    expo-router screens
+src/ledgers/                Open ledger + unlocked PINs (memory only), PIN flow rules
+src/backup/                 Password-encrypted backup file: scrypt + XChaCha20-Poly1305 (@noble), snapshot build/validate/merge
+src/legal/content.ts        Privacy, terms, grievance, delete-account text: ONE source for the app screens and the Worker pages
+src/onboarding/             Picture cards and screen help text, spoken in Hindi (expo-speech)
 src/sync/                   Cloud backup: engine (push dirty / pull cursor), http client, scheduler, runtime wiring
 src/auth/                   Token storage (secure-store), lazy Google sign-in, Hindi error messages
 server/                     Cloudflare Worker (Hono) + Postgres backend, its own npm package
@@ -164,3 +168,26 @@ rows (the server can read them), account deletion, photo sync (R2).
 **Known limits.** The "my household" and village-increment settings are device-local and are not restored by a pull (a
 restored phone still shows first-run setup). Signing in as a different user on a phone that already has data uploads
 that data to the new account. A row the server rejects as invalid would retry forever (visible as "भेजना बाकी").
+
+## Stage 5: production hardening
+
+- **Account deletion.** Settings > खाता हटाएं (warning, type `हटाएं`, then a separate question about wiping this phone) calls
+  `DELETE /v1/account`, which deletes households, events, entries, ledgers, profile, refresh tokens, the phone's OTP rows and the
+  user in one transaction. The Worker also serves public pages for the Play listing: `GET /privacy`, `/terms`, `/grievance`,
+  `/delete-account` (Hindi first, English below; text from `src/legal/content.ts`; placeholders in `CONTACT`: replace them).
+- **Profile sync.** "My household" and the village increment sync as one last-write-wins row, so a restored phone skips setup.
+- **Account switching.** `sync_state.user_id` is the owner of the data on the phone. A different account, or data never synced
+  anywhere, asks "इस फ़ोन का डेटा इस खाते में जोड़ें?" (जोड़ें / पहले फ़ोन साफ़ करें / रद्द करें); nothing uploads before the answer.
+- **Poison rows.** Push returns per-row `rejected` (table, id, index, reason); the app sets `sync_error`, stops retrying, and
+  Settings shows "N एंट्री नहीं भेजी जा सकीं" with a retry button. Whole-request problems are still 400.
+- **Ledgers and PINs.** The household ledger (fixed id) plus personal ledgers per family member, optional 4-digit PIN (salted
+  PBKDF2-SHA256, back-off after 3 wrong tries, stored only on the phone, never synced or exported). `ledger_id` is on entries and
+  events and every query is scoped to the open ledger. Optional app lock (off by default): PIN on open and after 2 minutes away.
+- **Backup file** (for families who never sign in): Settings > बैकअप फ़ाइल बनाएं / से वापस लाएं. See `src/backup/crypto.ts`.
+- **Accessibility.** Text and TextInput come from `components/text.tsx` (font scale capped at 1.3x, enforced by ESLint); every
+  button, row and input has a label/role/hint; a speaker button on Home, entry and event-ledger screens reads the screen's purpose.
+- **Crash safety.** The root layout exports an expo-router `ErrorBoundary` (Hindi, with retry); DB writes in screens go through
+  `guarded()` which shows a toast instead of crashing. No crash SDK.
+- **Server tests:** `cd server && npm test` (migration `003_profile_ledgers_account.sql` must be applied before deploying the new app).
+- Store listing answers: `docs/PLAY_STORE.md`.
+

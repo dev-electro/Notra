@@ -1,3 +1,4 @@
+import { DEFAULT_LEDGER_ID, DEFAULT_LEDGER_NAME } from '../core/ledgers';
 import type { Db } from './types';
 
 /**
@@ -116,6 +117,51 @@ export const MIGRATIONS: readonly string[] = [
     last_sync_at TEXT
   );
   INSERT INTO sync_state (id) VALUES (1);
+  `,
+  // v5: poison-row handling + profile sync. `sync_error` is set when the server rejected a row (bad data): the row stops
+  // being retried (dirty stays 1 so it is still known) until it is edited or the person taps "retry".
+  // sync_state.profile_dirty = 1 means "my household / village custom changed, not yet pushed".
+  `
+  ALTER TABLE households ADD COLUMN sync_error TEXT;
+  ALTER TABLE events ADD COLUMN sync_error TEXT;
+  ALTER TABLE entries ADD COLUMN sync_error TEXT;
+  ALTER TABLE sync_state ADD COLUMN profile_dirty INTEGER NOT NULL DEFAULT 0;
+  `,
+  // v6: ledgers. The household ledger (fixed id, same on every phone) is the default; a family member may add personal
+  // ledgers. pin_salt/pin_hash are local only and never synced. Existing entries/events default to the household ledger.
+  // The active_entries view is rebuilt so `e.*` picks up the new columns, and the immutability trigger now covers ledger_id.
+  `
+  CREATE TABLE ledgers (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('HOUSEHOLD','PERSONAL')),
+    pin_hash TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    dirty INTEGER NOT NULL DEFAULT 1,
+    sync_error TEXT
+  );
+  CREATE INDEX idx_ledgers_dirty ON ledgers(dirty) WHERE dirty = 1;
+  INSERT INTO ledgers (id, name, kind, created_at, updated_at, dirty)
+    VALUES ('${DEFAULT_LEDGER_ID}', '${DEFAULT_LEDGER_NAME}', 'HOUSEHOLD', '1970-01-01T00:00:00.000Z', '1970-01-01T00:00:00.000Z', 0);
+
+  DROP VIEW active_entries;
+  ALTER TABLE entries ADD COLUMN ledger_id TEXT NOT NULL DEFAULT '${DEFAULT_LEDGER_ID}';
+  ALTER TABLE events ADD COLUMN ledger_id TEXT NOT NULL DEFAULT '${DEFAULT_LEDGER_ID}';
+  CREATE INDEX idx_entries_ledger ON entries(ledger_id, created_at);
+  CREATE INDEX idx_events_ledger ON events(ledger_id, date);
+  DROP TRIGGER entries_no_update;
+  CREATE TRIGGER entries_no_update BEFORE UPDATE ON entries
+  WHEN OLD.id IS NOT NEW.id OR OLD.event_id IS NOT NEW.event_id OR OLD.other_household_id IS NOT NEW.other_household_id
+    OR OLD.direction IS NOT NEW.direction OR OLD.cash_paise IS NOT NEW.cash_paise OR OLD.in_kind_item IS NOT NEW.in_kind_item
+    OR OLD.in_kind_value_paise IS NOT NEW.in_kind_value_paise OR OLD.payment_mode IS NOT NEW.payment_mode
+    OR OLD.recorded_by IS NOT NEW.recorded_by OR OLD.voice_note_uri IS NOT NEW.voice_note_uri
+    OR OLD.created_at IS NOT NEW.created_at OR OLD.corrects_entry_id IS NOT NEW.corrects_entry_id OR OLD.is_void IS NOT NEW.is_void
+    OR OLD.ledger_id IS NOT NEW.ledger_id
+  BEGIN SELECT RAISE(ABORT, 'entries are immutable; insert a correcting entry instead'); END;
+  CREATE VIEW active_entries AS
+    SELECT e.rowid AS rid, e.* FROM entries e
+    WHERE e.is_void = 0 AND NOT EXISTS (SELECT 1 FROM entries c WHERE c.corrects_entry_id = e.id);
   `,
 ];
 

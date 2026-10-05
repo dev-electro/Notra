@@ -1,0 +1,9 @@
+# Tolerates the first-launch picture cards: taps "छोड़ें" (skip) only if they are showing. The skip button has no icon,
+# so its text is exactly "छोड़ें".
+appId: app.notra.diary
+---
+- runFlow:
+    when:
+      visible: "छोड़ें"
+    commands:
+      - tapOn: "छोड़ें"

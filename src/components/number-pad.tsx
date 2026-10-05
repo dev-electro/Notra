@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '@/components/text';
 import { colors, spacing } from '@/theme';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', '⌫'] as const;
@@ -27,7 +28,7 @@ export const NumberPad = React.memo(function NumberPad({ value, onChange }: Prop
         <Pressable
           key={k}
           accessibilityRole="button"
-          accessibilityLabel={k === '⌫' ? 'मिटाएँ' : k}
+          accessibilityLabel={k === '⌫' ? 'आख़िरी अंक मिटाएँ' : k}
           onPress={() => press(k)}
           style={({ pressed }) => [styles.key, pressed && styles.pressed]}
         >
