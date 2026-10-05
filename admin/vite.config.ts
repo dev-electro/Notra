@@ -4,8 +4,9 @@ import { defineConfig } from 'vitest/config';
 
 import { cloudflare } from "@cloudflare/vite-plugin";
 
-export default defineConfig({
-  plugins: [react(), tailwindcss(), ...(process.env.VITEST ? [] : [cloudflare()])],
+// The Cloudflare plugin starts its own dev server, which clashes with vitest (mode 'test').
+export default defineConfig(({ mode }) => ({
+  plugins: [react(), tailwindcss(), ...(mode === 'test' ? [] : [cloudflare()])],
   build: { sourcemap: false, chunkSizeWarningLimit: 400 },
   test: { environment: 'jsdom', include: ['src/**/*.vtest.{ts,tsx}'], globals: false },
-});
+}));
