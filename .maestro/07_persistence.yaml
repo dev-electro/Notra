@@ -1,0 +1,27 @@
+appId: app.notra.diary
+name: 07 - kill and relaunch, data persisted
+---
+- runFlow: subflows/launch-home.yaml
+- stopApp
+# NOTE: no clearState - the encrypted SQLite DB must survive a cold start.
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "बाद में|नोतरा डायरी"
+    timeout: 90000
+- runFlow: subflows/skip-signin.yaml
+- extendedWaitUntil:
+    visible: ".*मेरा नोतरा.*"
+    timeout: 60000
+# 501 (entry) + 501 + 251 (event-ledger givers) = 1,253 received; must NOT have bounced back to setup.
+- assertNotVisible: "मेरा परिवार"
+- extendedWaitUntil:
+    visible: ".*मेरा नोतरा.*₹1,253.*"
+    timeout: 20000
+- takeScreenshot: screenshots/07-home-after-relaunch
+- tapOn: ".*परिवार"
+- extendedWaitUntil:
+    visible: "Mohan"
+    timeout: 20000
+- assertVisible: "Ramesh"
+- takeScreenshot: screenshots/07-households-after-relaunch

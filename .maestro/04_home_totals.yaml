@@ -1,0 +1,9 @@
+appId: app.notra.diary
+name: 04 - home totals show 501
+---
+- runFlow: subflows/launch-home.yaml
+- extendedWaitUntil:
+    visible: ".*मेरा नोतरा.*₹501.*"
+    timeout: 20000
+- assertVisible: ".*मेरा नोतरा.*₹501.*"
+- takeScreenshot: screenshots/04-home-totals

@@ -1,0 +1,40 @@
+appId: app.notra.diary
+name: 01 - launch, skip sign-in, first-launch setup
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+# Either the optional sign-in screen or the setup screen shows first.
+- extendedWaitUntil:
+    visible: "बाद में|मेरा परिवार"
+    timeout: 120000
+- takeScreenshot: screenshots/01-first-launch
+- runFlow: subflows/skip-signin.yaml
+- extendedWaitUntil:
+    visible: "मेरा परिवार"
+    timeout: 60000
+- takeScreenshot: screenshots/01-setup-empty
+- runFlow:
+    file: subflows/type-field.yaml
+    env: { LABEL: "नाम", VALUE: "Ramesh" }
+- runFlow:
+    file: subflows/type-field.yaml
+    env: { LABEL: "पिता का नाम", VALUE: "Gopal" }
+- runFlow:
+    file: subflows/type-field.yaml
+    env: { LABEL: "गाँव", VALUE: "Udaipur" }
+- scrollUntilVisible:
+    element: "₹101"
+    timeout: 20000
+- tapOn: "₹101"
+- takeScreenshot: screenshots/01-setup-filled
+- scrollUntilVisible:
+    element: ".*शुरू करें"
+    timeout: 20000
+- tapOn: ".*शुरू करें"
+- extendedWaitUntil:
+    visible: "नोतरा डायरी"
+    timeout: 30000
+- assertVisible: ".*मेरा नोतरा.*"
+- assertVisible: ".*दूसरों का नोतरा.*"
+- takeScreenshot: screenshots/01-home-after-setup

@@ -1,0 +1,8 @@
+# Tolerates the optional first-launch sign-in screen: taps "बाद में" (later) only if it is showing.
+appId: app.notra.diary
+---
+- runFlow:
+    when:
+      visible: "बाद में"
+    commands:
+      - tapOn: "बाद में"

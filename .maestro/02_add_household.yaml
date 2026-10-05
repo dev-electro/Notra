@@ -1,0 +1,33 @@
+appId: app.notra.diary
+name: 02 - add a household
+---
+- runFlow: subflows/launch-home.yaml
+- tapOn: ".*परिवार"
+- extendedWaitUntil:
+    visible: ".*नया परिवार"
+    timeout: 20000
+- tapOn: ".*नया परिवार"
+- extendedWaitUntil:
+    visible: "नया परिवार"
+    timeout: 20000
+- runFlow:
+    file: subflows/type-field.yaml
+    env: { LABEL: "नाम", VALUE: "Mohan" }
+- runFlow:
+    file: subflows/type-field.yaml
+    env: { LABEL: "पिता का नाम", VALUE: "Sohan" }
+- runFlow:
+    file: subflows/type-field.yaml
+    env: { LABEL: "गाँव", VALUE: "Kherwa" }
+- takeScreenshot: screenshots/02-household-form
+- scrollUntilVisible:
+    element: ".*सेव करें"
+    timeout: 20000
+- tapOn: ".*सेव करें"
+# Back on the household directory: the new family is listed with father + village.
+- extendedWaitUntil:
+    visible: "Mohan"
+    timeout: 20000
+- assertVisible: "Mohan"
+- assertVisible: ".*Sohan.*Kherwa.*"
+- takeScreenshot: screenshots/02-household-listed

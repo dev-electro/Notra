@@ -1,0 +1,65 @@
+appId: app.notra.diary
+name: 05 - create event, open its ledger, 2 givers, summary total
+---
+- runFlow: subflows/launch-home.yaml
+- tapOn: ".*नोतरा कार्यक्रम"
+- extendedWaitUntil:
+    visible: ".*नया कार्यक्रम"
+    timeout: 20000
+- tapOn: ".*नया कार्यक्रम"
+- extendedWaitUntil:
+    visible: "नया कार्यक्रम"
+    timeout: 20000
+- takeScreenshot: screenshots/05-new-event
+- scrollUntilVisible:
+    element: ".*सेव करें"
+    timeout: 20000
+- tapOn: ".*सेव करें"
+# Either the event detail (tap "खाता खोलें") or the ledger itself (already open) shows next.
+- extendedWaitUntil:
+    visible: ".*खाता खोलें|Mohan"
+    timeout: 20000
+- takeScreenshot: screenshots/05-event-detail
+- runFlow:
+    when:
+      visible: ".*खाता खोलें"
+    commands:
+      - tapOn: ".*खाता खोलें"
+# Giver 1: Mohan, 501
+- scrollUntilVisible:
+    element: "Mohan"
+    timeout: 20000
+- tapOn: "Mohan"
+- extendedWaitUntil:
+    visible: "₹501"
+    timeout: 20000
+- tapOn: "₹501"
+- tapOn: "सेव"
+# Giver 2: Ramesh (my own household is a valid giver here), 251
+- scrollUntilVisible:
+    element: "Ramesh"
+    timeout: 20000
+- takeScreenshot: screenshots/05-after-giver-1
+- tapOn: "Ramesh"
+- extendedWaitUntil:
+    visible: "₹251"
+    timeout: 20000
+- tapOn: "₹251"
+- tapOn: "सेव"
+- extendedWaitUntil:
+    visible: ".*पूरा करें"
+    timeout: 20000
+- assertVisible: "2 परिवार"
+- takeScreenshot: screenshots/05-two-givers
+- tapOn: ".*पूरा करें"
+- extendedWaitUntil:
+    visible: "हो गया"
+    timeout: 30000
+- assertVisible: "₹752"
+- assertVisible: "2 परिवार"
+- takeScreenshot: screenshots/05-summary
+- tapOn: ".*कार्यक्रम देखें"
+- extendedWaitUntil:
+    visible: "₹752"
+    timeout: 20000
+- takeScreenshot: screenshots/05-event-after-finish

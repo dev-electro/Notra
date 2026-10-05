@@ -1,0 +1,12 @@
+# Cold-start the app WITHOUT clearing data and land on the home screen.
+appId: app.notra.diary
+---
+- launchApp:
+    stopApp: true
+- extendedWaitUntil:
+    visible: "बाद में|नोतरा डायरी"
+    timeout: 90000
+- runFlow: skip-signin.yaml
+- extendedWaitUntil:
+    visible: "नोतरा डायरी"
+    timeout: 60000

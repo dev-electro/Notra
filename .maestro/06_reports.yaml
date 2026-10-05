@@ -1,0 +1,21 @@
+appId: app.notra.diary
+name: 06 - report tabs
+---
+- runFlow: subflows/launch-home.yaml
+- tapOn: ".*रिपोर्ट"
+- extendedWaitUntil:
+    visible: "व्यक्ति"
+    timeout: 20000
+- assertVisible: "दिया / आया"
+- takeScreenshot: screenshots/06-reports-person
+- tapOn: "अवसर"
+- assertVisible: ".*शादी.*"
+- takeScreenshot: screenshots/06-reports-occasion
+- tapOn: "मेरा खाता"
+- assertVisible: "\\+ आया, − गया"
+- takeScreenshot: screenshots/06-reports-self
+- tapOn: "लौटाना बाकी"
+- assertVisible: "इनका नोतरा आया है, लौटाना बाकी है"
+- takeScreenshot: screenshots/06-reports-pending
+- tapOn: "कैलेंडर"
+- takeScreenshot: screenshots/06-reports-calendar
