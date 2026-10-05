@@ -10,9 +10,9 @@ def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 android {
     ndkVersion rootProject.ext.ndkVersion
-    namespace "app.notra.diary"
+    namespace "app.notra.book"
     defaultConfig {
-        applicationId "app.notra.diary"
+        applicationId "app.notra.book"
         versionCode 1
         versionName "1.0.0"
     }

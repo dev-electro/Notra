@@ -13,7 +13,7 @@ export const CONTACT = {
   operator: '[संचालक का नाम / Operator name]',
   /** Grievance officer. REPLACE before release. */
   officerName: '[शिकायत अधिकारी का नाम / Grievance Officer name]',
-  email: 'grievance@notra-diary.example',
+  email: 'grievance@notra-book.example',
   phone: '+91-00000-00000',
   address: '[पता / Address]',
   /** Days within which a grievance gets an answer (DPDP). */
@@ -59,8 +59,8 @@ const privacy: LegalDoc = {
   },
   sections: [
     {
-      hi: { h: 'यह ऐप क्या है', p: ['नोतरा डायरी आपके परिवार के नोतरा (आया और गया) का हिसाब रखने की डायरी है। यह आपका अपना हिसाब है। यह ऐप मुफ़्त है और कुछ पन्नों पर विज्ञापन दिखते हैं (नीचे "विज्ञापन" देखें)।'] },
-      en: { h: 'What this app is', p: ["Notra Diary is a diary for keeping the record of your family's Notra gifts (received and given). It is your own record. The app is free and shows ads on some screens (see \"Advertising\" below)."] },
+      hi: { h: 'यह ऐप क्या है', p: ['नोतरा बुक आपके परिवार के नोतरा (आया और गया) का हिसाब रखने की डायरी है। यह आपका अपना हिसाब है। यह ऐप मुफ़्त है और कुछ पन्नों पर विज्ञापन दिखते हैं (नीचे "विज्ञापन" देखें)।'] },
+      en: { h: 'What this app is', p: ["Notra Book is a diary for keeping the record of your family's Notra gifts (received and given). It is your own record. The app is free and shows ads on some screens (see \"Advertising\" below)."] },
     },
     {
       hi: {
@@ -158,7 +158,7 @@ const privacy: LegalDoc = {
       hi: {
         h: 'विज्ञापन',
         p: [
-          'ऐप मुफ़्त रखने के लिए इसमें Google AdMob के विज्ञापन दिखते हैं: घर और हिसाब के पन्ने पर, कुछ लंबी सूचियों के बीच, और रिपोर्ट भेजने के बाद कभी-कभी। एंट्री भरने, पिन, साइन इन, सेटिंग, बैकअप और खाता हटाने के पन्नों पर कोई विज्ञापन नहीं आता। विज्ञापन पर साफ़ "विज्ञापन" लिखा होता है। रिपोर्ट की फ़ोटो से "Notra Diary" की छोटी लाइन हटाने के लिए आप चाहें तो एक विज्ञापन देख सकते हैं; यह आपकी मर्ज़ी है।',
+          'ऐप मुफ़्त रखने के लिए इसमें Google AdMob के विज्ञापन दिखते हैं: घर और हिसाब के पन्ने पर, कुछ लंबी सूचियों के बीच, और रिपोर्ट भेजने के बाद कभी-कभी। एंट्री भरने, पिन, साइन इन, सेटिंग, बैकअप और खाता हटाने के पन्नों पर कोई विज्ञापन नहीं आता। विज्ञापन पर साफ़ "विज्ञापन" लिखा होता है। रिपोर्ट की फ़ोटो से "Notra Book" की छोटी लाइन हटाने के लिए आप चाहें तो एक विज्ञापन देख सकते हैं; यह आपकी मर्ज़ी है।',
           'विज्ञापन दिखाने के लिए Google आपके फ़ोन की विज्ञापन पहचान (Advertising ID) और फ़ोन की सामान्य जानकारी इस्तेमाल कर सकता है। आपका हिसाब, परिवारों के नाम, रकम या कोई भी एंट्री विज्ञापन वालों को कभी नहीं भेजी जाती, और विज्ञापन के अनुरोध में आपके डेटा से कोई शब्द नहीं जाता।',
           'जहाँ क़ानून ज़रूरी बताता है (जैसे यूरोप में), Google की सहमति का फ़ॉर्म दिखता है, और सेटिंग में "विज्ञापन गोपनीयता विकल्प" से आप सहमति बदल सकते हैं। सहमति तय होने तक सिर्फ़ गैर-वैयक्तिक विज्ञापन माँगे जाते हैं। आप फ़ोन की सेटिंग में विज्ञापन पहचान मिटा या बदल सकते हैं।',
           'विज्ञापन सामग्री PG या उससे कम रेटिंग की रखी जाती है, और यह ऐप बच्चों के लिए नहीं है। Google की नीति: https://policies.google.com/technologies/ads',
@@ -167,7 +167,7 @@ const privacy: LegalDoc = {
       en: {
         h: 'Advertising',
         p: [
-          'To keep the app free it shows Google AdMob ads: on the Home and Hisaab screens, between items of some long lists, and sometimes after you send a report. No ads appear on the screens where you enter entries, or on PIN, sign-in, settings, backup and account-deletion screens. Every ad is clearly labelled "विज्ञापन" (Ad). If you wish, you can watch one ad to remove the small "Notra Diary" footer from a report photo; that is your choice.',
+          'To keep the app free it shows Google AdMob ads: on the Home and Hisaab screens, between items of some long lists, and sometimes after you send a report. No ads appear on the screens where you enter entries, or on PIN, sign-in, settings, backup and account-deletion screens. Every ad is clearly labelled "विज्ञापन" (Ad). If you wish, you can watch one ad to remove the small "Notra Book" footer from a report photo; that is your choice.',
           'To show ads, Google may use your phone\'s advertising ID and general device information. Your record, family names, amounts or any entry are never sent to advertisers, and no word from your data goes into an ad request.',
           'Where the law requires it (for example in Europe), Google\'s consent form is shown, and you can change your choice in Settings under "Ad privacy options". Until consent is settled only non-personalised ads are requested. You can reset or delete the advertising ID in your phone\'s settings.',
           'Ad content is kept at PG rating or lower, and this app is not for children. Google\'s policy: https://policies.google.com/technologies/ads',
@@ -269,8 +269,8 @@ const terms: LegalDoc = {
   },
   sections: [
     {
-      hi: { h: 'स्वीकार', p: ['नोतरा डायरी इस्तेमाल करने का मतलब है कि आप ये नियम मानते हैं। न मानें तो ऐप इस्तेमाल न करें।'] },
-      en: { h: 'Acceptance', p: ['By using Notra Diary you agree to these terms. If you do not agree, please do not use the app.'] },
+      hi: { h: 'स्वीकार', p: ['नोतरा बुक इस्तेमाल करने का मतलब है कि आप ये नियम मानते हैं। न मानें तो ऐप इस्तेमाल न करें।'] },
+      en: { h: 'Acceptance', p: ['By using Notra Book you agree to these terms. If you do not agree, please do not use the app.'] },
     },
     {
       hi: {
@@ -448,7 +448,7 @@ const deleteAccount: LegalDoc = {
       hi: {
         h: 'ऐप से हटाने का तरीका',
         p: [
-          'नोतरा डायरी खोलें → सेटिंग → "खाता हटाएं"।',
+          'नोतरा बुक खोलें → सेटिंग → "खाता हटाएं"।',
           'चेतावनी पढ़ें, "हटाएं" टाइप करें और पक्का करें। फिर ऐप पूछेगा कि इस फ़ोन का डेटा भी मिटाना है या नहीं।',
           'यह वापस नहीं हो सकता।',
         ],
@@ -456,7 +456,7 @@ const deleteAccount: LegalDoc = {
       en: {
         h: 'How to delete from the app',
         p: [
-          'Open Notra Diary → Settings → "Delete account" (खाता हटाएं).',
+          'Open Notra Book → Settings → "Delete account" (खाता हटाएं).',
           'Read the warning, type the word shown ("हटाएं") and confirm. The app will then ask whether to also erase this phone\'s data.',
           'This cannot be undone.',
         ],

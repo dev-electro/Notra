@@ -28,7 +28,7 @@ AdMob app id (Android) + 4 ad unit ids: Adaptive banner, Native advanced, Inters
 | 1 | Adaptive anchored banner (`testID ad-banner`) | just above the tab bar on घर and हिसाब hub | rendered by `BottomTabs`; nowhere else |
 | 2 | Native card, label "विज्ञापन", haldi tint | मेरा नोतरा, दूसरों का नोतरा, report lists | every N items (default 8), never first, never in lists < 6 items, max 3 per list |
 | 3 | Interstitial | only after a report PDF/photo share completes | min interval 300 s, max 3/day, never first 24 h, never within 2 min of a save |
-| 4 | Rewarded (opt-in) | image export of 2+ pages | default footer "Notra Diary"; one rewarded ad removes it for that export. Offer is a choice; failure just sends with the footer |
+| 4 | Rewarded (opt-in) | image export of 2+ pages | default footer "Notra Book"; one rewarded ad removes it for that export. Offer is a choice; failure just sends with the footer |
 
 Never any ad on: event ledger screens, entry/edit forms, keypad, PIN/lock, onboarding, sign-in/OTP, settings, legal, backup, account deletion, error screens.
 

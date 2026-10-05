@@ -1,4 +1,4 @@
-# Releasing Notra Diary to Google Play
+# Releasing Notra Book to Google Play
 
 Pipeline: `git tag vX.Y.Z && git push --tags` -> `.github/workflows/release.yml` builds a signed
 AAB + APKs (armeabi-v7a, arm64-v8a), attaches the APKs to a GitHub Release and uploads the AAB to the
@@ -51,14 +51,14 @@ cd android && ./gradlew bundleRelease assembleRelease
 
 ## 3. Play Console setup (once)
 
-1. Create the app in Play Console: package name **`app.notra.diary`**, default language Hindi,
+1. Create the app in Play Console: package name **`app.notra.book`**, default language Hindi,
    app (not game), free.
 2. Complete the mandatory declarations (Data safety, content rating, target audience, privacy policy URL).
    The app asks for microphone (voice entry), camera (family photo) and speech recognition; data is
    stored on-device in encrypted SQLite.
 3. **Testing -> Internal testing -> Create track/release**; add testers (an email list). The very first
    AAB must be uploaded **manually once** in the Console (Play requires this before the API can publish
-   to a new app). Download the AAB from the workflow artifacts `notra-diary-aab`.
+   to a new app). Download the AAB from the workflow artifacts `notra-book-aab`.
 4. **Service account for CI**: Google Cloud Console -> IAM -> Service accounts -> create one, create a
    JSON key. In Play Console -> *Users and permissions* (or *Setup -> API access*) invite the service
    account email and grant *Release to testing tracks* (and *Release apps to production* later if wanted)
@@ -76,7 +76,7 @@ The workflow then:
 
 1. runs typecheck, lint, tests;
 2. decodes the keystore, runs `expo prebuild`, `./gradlew bundleRelease assembleRelease`;
-3. verifies the APK signature and uploads artifacts `notra-diary-aab` and `notra-diary-apks`;
+3. verifies the APK signature and uploads artifacts `notra-book-aab` and `notra-book-apks`;
 4. creates a GitHub Release for the tag with the APKs attached (handy for sideloading to family phones);
 5. uploads the AAB to the internal track as **draft** (promote it in Play Console).
 

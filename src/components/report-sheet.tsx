@@ -20,7 +20,7 @@ export const ReportSheet = React.memo(function ReportSheet({ page, watermark }: 
       <View style={styles.bar} />
       <View style={styles.body}>
         <Text style={[type.captionBold, styles.brand]}>
-          नोतरा डायरी{doc.familyName ? ` · ${doc.familyName} परिवार` : ''}
+          नोतरा बुक{doc.familyName ? ` · ${doc.familyName} परिवार` : ''}
         </Text>
         <Text style={[type.title, styles.title]}>{doc.title}</Text>
         {doc.subtitle ? <Text style={[type.heading, styles.subtitle]}>{doc.subtitle}</Text> : null}
@@ -57,7 +57,7 @@ export const ReportSheet = React.memo(function ReportSheet({ page, watermark }: 
           <Text style={[type.caption, styles.muted, styles.flex]}>
             पन्ना {page.page}/{page.pages} · बनाया: {longDateHi(doc.generatedOn)}
           </Text>
-          {watermark ? <Text style={[type.caption, styles.muted]}>Notra Diary</Text> : null}
+          {watermark ? <Text style={[type.caption, styles.muted]}>Notra Book</Text> : null}
         </View>
       </View>
     </View>

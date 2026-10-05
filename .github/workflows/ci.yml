@@ -85,7 +85,7 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon --build-cache --parallel
       - uses: actions/upload-artifact@v4
         with:
-          name: notra-diary-apk
+          name: notra-book-apk
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
       - name: Report APK size
@@ -97,10 +97,10 @@ jobs:
         run: |
           BRANCH="${GITHUB_REF_NAME//\//-}"
           TAG="test-$BRANCH"
-          cp "$(ls android/app/build/outputs/apk/release/*.apk | head -n1)" notra-diary-test.apk
+          cp "$(ls android/app/build/outputs/apk/release/*.apk | head -n1)" notra-book-test.apk
           gh release delete "$TAG" --cleanup-tag --yes || true
-          gh release create "$TAG" notra-diary-test.apk \
+          gh release create "$TAG" notra-book-test.apk \
             --prerelease --target "$GITHUB_SHA" \
-            --title "Notra Diary test build ($BRANCH, ${GITHUB_SHA::7})" \
-            --notes "Test build for sideloading, not for the Play Store. Download notra-diary-test.apk on your Android phone and install it (allow 'install unknown apps')."
-          echo "Download: https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG/notra-diary-test.apk"
+            --title "Notra Book test build ($BRANCH, ${GITHUB_SHA::7})" \
+            --notes "Test build for sideloading, not for the Play Store. Download notra-book-test.apk on your Android phone and install it (allow 'install unknown apps')."
+          echo "Download: https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG/notra-book-test.apk"

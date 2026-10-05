@@ -1,6 +1,6 @@
 # Cold-start the app WITHOUT clearing data and land on the Home tab.
 # Home is recognised by its "परिवार" button (id btn-families) and its "कुल मिला" summary.
-appId: app.notra.diary
+appId: app.notra.book
 ---
 - launchApp:
     stopApp: true

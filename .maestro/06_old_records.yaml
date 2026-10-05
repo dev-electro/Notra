@@ -1,4 +1,4 @@
-appId: app.notra.diary
+appId: app.notra.book
 name: 06 - पुराना हिसाब जोड़ें, past dates for my old Notra and another family's
 ---
 - runFlow: subflows/launch-home.yaml

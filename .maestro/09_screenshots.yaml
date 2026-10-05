@@ -1,4 +1,4 @@
-appId: app.notra.diary
+appId: app.notra.book
 name: 09 - screenshots of every main screen (for review, not assertions)
 ---
 # Runs after flows 01-08, so the families "Mohan" and "Ramesh", a wedding with two givers, an old visit and an old "Namkaran" exist.

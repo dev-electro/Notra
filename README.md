@@ -1,4 +1,4 @@
-# Notra Diary (नोतरा डायरी)
+# Notra Book (नोतरा बुक)
 
 An offline-first mobile ledger for the Notra custom: interest-free, document-free reciprocal gifting and
 loans among Bhil households in southern Rajasthan, where each return is expected to be a little larger than
@@ -69,7 +69,7 @@ the app. `eas.json` has `development`, `preview` (APK) and `production` (AAB) pr
 ## Get the APK from GitHub Actions
 
 Every push to `main`, every pull request, or a manual run of the **CI** workflow builds the app after the checks
-pass. Open the run in the Actions tab, scroll to **Artifacts**, and download `notra-diary-apk`, unzip it, and
+pass. Open the run in the Actions tab, scroll to **Artifacts**, and download `notra-book-apk`, unzip it, and
 install the `.apk` on an Android 8+ phone (allow installs from unknown sources). No Expo account is needed:
 CI runs `expo prebuild` and `./gradlew assembleRelease`.
 
@@ -157,8 +157,8 @@ Worker secrets; nothing is committed. Add a Cloudflare rate-limiting rule on `/v
 
 **Google sign-in setup.** In Google Cloud Console: create an OAuth consent screen, then OAuth client IDs of type
 *Web application* (its client ID goes in `app.json` `extra.googleWebClientId` and in `GOOGLE_CLIENT_IDS`), *Android*
-(package `app.notra.diary` plus the SHA-1 of the signing keystore; the debug keystore for CI APKs) and *iOS* (bundle ID
-`app.notra.diary`; its reversed client ID replaces `iosUrlScheme` in the `@react-native-google-signin/google-signin`
+(package `app.notra.book` plus the SHA-1 of the signing keystore; the debug keystore for CI APKs) and *iOS* (bundle ID
+`app.notra.book`; its reversed client ID replaces `iosUrlScheme` in the `@react-native-google-signin/google-signin`
 plugin entry). The native module needs a dev/CI build, not Expo Go; it is imported only when the Google button is tapped.
 
 **Privacy.** Data stays on the phone unless the person signs in (backup turns on with sign-in and can be switched off in

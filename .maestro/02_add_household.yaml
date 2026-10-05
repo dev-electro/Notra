@@ -1,4 +1,4 @@
-appId: app.notra.diary
+appId: app.notra.book
 name: 02 - add a household (with a phone number)
 ---
 - runFlow: subflows/launch-home.yaml

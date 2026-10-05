@@ -1,6 +1,6 @@
 # Admin panel (Stage 8)
 
-An operations panel for Notra Diary: user accounts, support and grievances, remote config, abuse control, monitoring and
+An operations panel for Notra Book: user accounts, support and grievances, remote config, abuse control, monitoring and
 anonymous metrics.
 
 **The one rule:** Notra holds who-gave-how-much inside a village. One leak ends the product. So staff can see

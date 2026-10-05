@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Notra Diary sync backend: Cloudflare Worker (Hono) + any Postgres (Neon, Supabase, Hyperdrive)",
+  "description": "Notra Book sync backend: Cloudflare Worker (Hono) + any Postgres (Neon, Supabase, Hyperdrive)",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

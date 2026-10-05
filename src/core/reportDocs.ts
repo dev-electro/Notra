@@ -371,10 +371,10 @@ export function reportHtml(doc: ReportDoc): string {
   const totals = doc.totals.map((t) => `<div class="tot"><span>${escapeHtml(t.label)}</span><span${cls(t.tone)}>${escapeHtml(t.value)}</span></div>`).join('');
   const filters = doc.filters.length ? `<p class="sub">${doc.filters.map(escapeHtml).join(' · ')}</p>` : '';
   return `<!DOCTYPE html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(doc.title)}</title><style>${PDF_CSS}</style></head><body><div class="page">
-<p class="brand">नोतरा डायरी${doc.familyName ? ` · ${escapeHtml(doc.familyName)} परिवार` : ''}</p>
+<p class="brand">नोतरा बुक${doc.familyName ? ` · ${escapeHtml(doc.familyName)} परिवार` : ''}</p>
 <h1>${escapeHtml(doc.title)}</h1>
 ${doc.subtitle ? `<h2>${escapeHtml(doc.subtitle)}</h2>` : ''}${filters}
 <table><tr>${head}</tr>${body}</table>
 ${totals}${doc.note ? `<div class="note">${escapeHtml(doc.note)}</div>` : ''}
-<div class="foot">बनाया: ${longDateHi(doc.generatedOn)} · नोतरा डायरी</div></div></body></html>`;
+<div class="foot">बनाया: ${longDateHi(doc.generatedOn)} · नोतरा बुक</div></div></body></html>`;
 }

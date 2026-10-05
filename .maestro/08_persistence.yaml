@@ -1,4 +1,4 @@
-appId: app.notra.diary
+appId: app.notra.book
 name: 08 - kill and relaunch, data persisted
 ---
 - runFlow: subflows/launch-home.yaml

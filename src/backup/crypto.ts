@@ -129,7 +129,7 @@ export async function decryptBackup(fileText: string, password: string): Promise
 }
 
 export const BACKUP_ERROR_HI: Record<BackupErrorCode, string> = {
-  not_a_backup: 'यह नोतरा डायरी की बैकअप फ़ाइल नहीं है।',
+  not_a_backup: 'यह नोतरा बुक की बैकअप फ़ाइल नहीं है।',
   unsupported: 'यह बैकअप फ़ाइल इस ऐप में नहीं खुल सकती। ऐप अपडेट करें।',
   wrong_password_or_damaged: 'पासवर्ड ग़लत है, या फ़ाइल बदल/ख़राब हो गई है।',
   invalid_data: 'फ़ाइल के अंदर का डेटा सही नहीं है।',

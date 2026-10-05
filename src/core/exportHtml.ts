@@ -25,7 +25,7 @@ td.n, th.n { text-align: right; white-space: nowrap; }
 `;
 
 function wrap(title: string, body: string): string {
-  return `<!DOCTYPE html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><style>${CSS}</style></head><body><div class="page">${body}<div class="foot">नोतरा डायरी</div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><style>${CSS}</style></head><body><div class="page">${body}<div class="foot">नोतरा बुक</div></div></body></html>`;
 }
 
 function who(h: Household | undefined): string {

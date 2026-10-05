@@ -1,4 +1,4 @@
-appId: app.notra.diary
+appId: app.notra.book
 name: 01 - launch, skip sign-in, first-launch setup
 ---
 - launchApp:

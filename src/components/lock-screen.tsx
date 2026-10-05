@@ -43,7 +43,7 @@ export function LockScreen({ onUnlock, onWiped }: Props) {
           <View style={styles.head}>
             <Icon name="lock" size={40} color={colors.received} />
             <Text style={[type.title, styles.name]} accessibilityRole="header">
-              नोतरा डायरी
+              नोतरा बुक
             </Text>
           </View>
           <PinFlow verify askNew={false} check={check} verifyTitle="पिन डालें" onDone={onUnlock} />

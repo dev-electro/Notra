@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Notra Diary",
-    "slug": "notra-diary",
+    "name": "Notra Book",
+    "slug": "notra-book",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "notradiary",
     "userInterfaceStyle": "light",
     "ios": {
-      "bundleIdentifier": "app.notra.diary",
+      "bundleIdentifier": "app.notra.book",
       "supportsTablet": false,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "आवाज़ से नोतरा की एंट्री दर्ज करने के लिए माइक्रोफ़ोन चाहिए।"
@@ -22,7 +22,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "app.notra.diary",
+      "package": "app.notra.book",
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA"
@@ -109,7 +109,7 @@
     },
     "jsEngine": "hermes",
     "extra": {
-      "apiUrl": "https://api.notra-diary.example",
+      "apiUrl": "https://api.notra-book.example",
       "googleWebClientId": "REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com"
     }
   }

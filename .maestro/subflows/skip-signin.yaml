@@ -1,6 +1,6 @@
 # Tolerates the optional first-launch sign-in screen: taps "बाद में" (later) only if it is showing.
 # The button reads "बाद में" (the leading ".*" tolerates an icon or spacing in front).
-appId: app.notra.diary
+appId: app.notra.book
 ---
 - runFlow:
     when:

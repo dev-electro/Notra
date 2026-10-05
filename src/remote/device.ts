@@ -3,7 +3,7 @@ import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-export const PLAY_STORE_ID = 'app.notra.diary';
+export const PLAY_STORE_ID = 'app.notra.book';
 export const PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${PLAY_STORE_ID}`;
 
 export function appVersion(): string {

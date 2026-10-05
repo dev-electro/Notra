@@ -13,7 +13,7 @@ legal text and the Play Data Safety form together (`src/legal/content.ts` is the
 | Grievance officer (DPDP) | `https://<worker-host>/grievance` |
 
 Before release replace the placeholders in `src/legal/content.ts` (`CONTACT`: operator, officer name, email, phone, address; email
-is `grievance@notra-diary.example` now) and redeploy the Worker. Also check your hosting providers' backup retention and add a
+is `grievance@notra-book.example` now) and redeploy the Worker. Also check your hosting providers' backup retention and add a
 sentence to the privacy text if deleted data lingers in provider backups.
 
 ## Data Safety form

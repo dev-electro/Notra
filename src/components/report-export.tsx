@@ -13,12 +13,12 @@ import { BORDER, colors, GUTTER, radius, spacing, type } from '@/theme';
 const OUT_W = 1080; // pixels of every image
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** Asks (never forces): watch one ad to send without the "Notra Diary" footer, or send with it. Resolves true = watch. */
+/** Asks (never forces): watch one ad to send without the "Notra Book" footer, or send with it. Resolves true = watch. */
 const askWatch = () =>
   new Promise<boolean>((resolve) =>
     Alert.alert(
       'वॉटरमार्क के बारे में',
-      'फ़ोटो के नीचे छोटा "Notra Diary" लिखा जाता है। चाहें तो एक विज्ञापन देखकर इसके बिना भेजें। यह आपकी मर्ज़ी है।',
+      'फ़ोटो के नीचे छोटा "Notra Book" लिखा जाता है। चाहें तो एक विज्ञापन देखकर इसके बिना भेजें। यह आपकी मर्ज़ी है।',
       [
         { text: 'वॉटरमार्क के साथ भेजें', style: 'cancel', onPress: () => resolve(false) },
         { text: 'विज्ञापन देखकर बिना वॉटरमार्क भेजें', onPress: () => resolve(true) },
@@ -71,7 +71,7 @@ export function ExportBar({ build, disabled }: Props) {
         return;
       }
       const pages = paginateDoc(doc);
-      // Large exports (2+ pages) carry a small "Notra Diary" footer; the person may opt in to a rewarded ad to send without it.
+      // Large exports (2+ pages) carry a small "Notra Book" footer; the person may opt in to a rewarded ad to send without it.
       let watermark = pages.length >= 2;
       if (watermark && rewardedAllowed() && (await askWatch())) {
         if (await watchRewardedAd()) watermark = false;

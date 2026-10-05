@@ -21,7 +21,7 @@ export function renderPage(id: LegalId): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(doc.titleHi)} · ${esc(doc.titleEn)} — Notra Diary</title>
+<title>${esc(doc.titleHi)} · ${esc(doc.titleEn)} — Notra Book</title>
 <style>
 body{margin:0;background:#fbf7ec;color:#1b1b1f;font:18px/1.7 system-ui,"Noto Sans Devanagari","Mangal",sans-serif}
 main{max-width:720px;margin:0 auto;padding:16px 16px 48px}
@@ -38,7 +38,7 @@ nav{margin-bottom:16px;font-size:16px}
 <main>
 <nav><a href="/privacy">गोपनीयता / Privacy</a> · <a href="/terms">नियम / Terms</a> · <a href="/grievance">शिकायत / Grievance</a> · <a href="/delete-account">खाता हटाएं / Delete account</a></nav>
 ${body(doc)}
-<footer>Notra Diary (नोतरा डायरी) · ${esc(CONTACT.email)} · ${LEGAL_UPDATED}</footer>
+<footer>Notra Book (नोतरा बुक) · ${esc(CONTACT.email)} · ${LEGAL_UPDATED}</footer>
 </main>
 </body>
 </html>`;

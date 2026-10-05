@@ -1,4 +1,4 @@
-appId: app.notra.diary
+appId: app.notra.book
 name: 04 - मेरा नोतरा, make my event, record who came (receive only), summary total
 ---
 - runFlow: subflows/launch-home.yaml

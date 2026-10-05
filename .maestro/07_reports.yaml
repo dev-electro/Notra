@@ -1,4 +1,4 @@
-appId: app.notra.diary
+appId: app.notra.book
 name: 07 - हिसाब tab, open each report, send a report as photos
 ---
 - runFlow: subflows/launch-home.yaml
