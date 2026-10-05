@@ -16,7 +16,7 @@ export async function pushRows(db: Db, userId: string, b: PushBatch): Promise<{ 
       const r = await q.query(
         `INSERT INTO households (user_id, id, head_name, father_name, jati, atak, village, fala, phone, created_at, updated_at, server_seq)
          SELECT $1::uuid, t.id, t.head_name, t.father_name, t.jati, t.atak, t.village, t.fala, t.phone, t.created_at, t.updated_at, nextval('sync_seq')
-         FROM jsonb_to_recordset($2::jsonb) AS t(id uuid, head_name text, father_name text, jati text, atak text, village text, fala text, phone text, created_at text, updated_at text)
+         FROM jsonb_to_recordset($2::text::jsonb) AS t(id uuid, head_name text, father_name text, jati text, atak text, village text, fala text, phone text, created_at text, updated_at text)
          ON CONFLICT (user_id, id) DO UPDATE SET head_name = EXCLUDED.head_name, father_name = EXCLUDED.father_name,
            jati = EXCLUDED.jati, atak = EXCLUDED.atak, village = EXCLUDED.village, fala = EXCLUDED.fala, phone = EXCLUDED.phone,
            updated_at = EXCLUDED.updated_at, server_seq = EXCLUDED.server_seq
@@ -30,7 +30,7 @@ export async function pushRows(db: Db, userId: string, b: PushBatch): Promise<{ 
       const r = await q.query(
         `INSERT INTO events (user_id, id, host_household_id, occasion, date, panch_approved, invitation_type, status, created_at, updated_at, server_seq)
          SELECT $1::uuid, t.id, t.host_household_id, t.occasion, t.date, t.panch_approved, t.invitation_type, t.status, t.created_at, t.updated_at, nextval('sync_seq')
-         FROM jsonb_to_recordset($2::jsonb) AS t(id uuid, host_household_id uuid, occasion text, date text, panch_approved boolean, invitation_type text, status text, created_at text, updated_at text)
+         FROM jsonb_to_recordset($2::text::jsonb) AS t(id uuid, host_household_id uuid, occasion text, date text, panch_approved boolean, invitation_type text, status text, created_at text, updated_at text)
          ON CONFLICT (user_id, id) DO UPDATE SET host_household_id = EXCLUDED.host_household_id, occasion = EXCLUDED.occasion,
            date = EXCLUDED.date, panch_approved = EXCLUDED.panch_approved, invitation_type = EXCLUDED.invitation_type,
            status = EXCLUDED.status, updated_at = EXCLUDED.updated_at, server_seq = EXCLUDED.server_seq
@@ -46,7 +46,7 @@ export async function pushRows(db: Db, userId: string, b: PushBatch): Promise<{ 
            payment_mode, recorded_by, created_at, corrects_entry_id, is_void, server_seq)
          SELECT $1::uuid, t.id, t.event_id, t.other_household_id, t.direction, t.cash_paise, t.in_kind_item, t.in_kind_value_paise,
            t.payment_mode, t.recorded_by, t.created_at, t.corrects_entry_id, t.is_void, nextval('sync_seq')
-         FROM jsonb_to_recordset($2::jsonb) AS t(id uuid, event_id uuid, other_household_id uuid, direction text, cash_paise bigint, in_kind_item text,
+         FROM jsonb_to_recordset($2::text::jsonb) AS t(id uuid, event_id uuid, other_household_id uuid, direction text, cash_paise bigint, in_kind_item text,
            in_kind_value_paise bigint, payment_mode text, recorded_by text, created_at text, corrects_entry_id uuid, is_void boolean)
          ON CONFLICT (user_id, id) DO NOTHING
          RETURNING 1`,

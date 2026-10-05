@@ -10,12 +10,15 @@ import { go, replace } from '@/nav';
 import { colors, spacing, type } from '@/theme';
 
 export default function Home() {
-  const { loading, error, receivedPaise, givenPaise, setupDone } = useLedgerTotals();
+  const { loading, error, receivedPaise, givenPaise, setupDone, signinPrompted } = useLedgerTotals();
   const show = (p: number) => (loading ? '…' : formatINR(p));
 
   useEffect(() => {
-    if (!loading && !error && !setupDone) replace('/setup');
-  }, [loading, error, setupDone]);
+    if (loading || error) return;
+    // First launch: offer (skippable) sign-in before setup, so a new phone can restore its data first.
+    if (!signinPrompted) replace('/signin?first=1');
+    else if (!setupDone) replace('/setup');
+  }, [loading, error, setupDone, signinPrompted]);
 
   return (
     <RuledPaper>

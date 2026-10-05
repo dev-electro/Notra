@@ -72,13 +72,22 @@
       ],
       "expo-secure-store",
       [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
             "minSdkVersion": 26,
-            "buildArchs": ["armeabi-v7a", "arm64-v8a"]
+            "buildArchs": [
+              "armeabi-v7a",
+              "arm64-v8a"
+            ]
           }
         }
       ]
@@ -87,6 +96,10 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "jsEngine": "hermes"
+    "jsEngine": "hermes",
+    "extra": {
+      "apiUrl": "https://api.notra-diary.example",
+      "googleWebClientId": "REPLACE_WITH_WEB_CLIENT_ID.apps.googleusercontent.com"
+    }
   }
 }
