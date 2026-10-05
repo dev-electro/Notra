@@ -15,6 +15,11 @@ env:
   # Reuse compiled C/C++ (React Native, SQLCipher, reanimated) between builds
   CMAKE_C_COMPILER_LAUNCHER: ccache
   CMAKE_CXX_COMPILER_LAUNCHER: ccache
+  # Android's CMake builds use per-build absolute paths; make ccache match across runs
+  CCACHE_BASEDIR: ${{ github.workspace }}
+  CCACHE_NOHASHDIR: 'true'
+  CCACHE_COMPILERCHECK: content
+  CCACHE_SLOPPINESS: pch_defines,time_macros,include_file_mtime,include_file_ctime,file_macro,system_headers
 
 jobs:
   checks:
