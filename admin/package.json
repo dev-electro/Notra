@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Notra Book admin panel (React + Vite). Signs in with the app's own Google / mobile-OTP flow; sees account metadata and aggregates only.",
+  "description": "Notra Book admin panel (React + Vite). Signs in with the app's own Better Auth flow (Google / mobile OTP); sees account metadata and aggregates only.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

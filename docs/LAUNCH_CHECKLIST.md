@@ -9,8 +9,8 @@ Honest status as read from the code on 2026-10-05.
 | ❌ | not yet built / known broken |
 
 Who does the ⏳ items is in [DEPLOYMENT.md](DEPLOYMENT.md). Known defects behind the ❌ marks are listed in [ROADMAP.md](ROADMAP.md).
-Authentication (Google + mobile OTP via Better Auth on Neon) is being rebuilt: items that depend on it are marked "pending AUTH" and are
-tracked in `docs/AUTH.md`.
+Authentication is self-hosted Better Auth in the Worker on Neon (`docs/AUTH.md`). It is implemented and tested against pglite and the real `postgres`
+driver; items marked "pending AUTH" below are the live checks (real Neon, Google, MSG91, a device).
 
 ## 1. Legal and policy
 
@@ -22,7 +22,7 @@ tracked in `docs/AUTH.md`.
 | ⏳ | Replace `CONTACT` placeholders (operator, grievance officer, e-mail `grievance@notra-book.example`, phone, address) and redeploy | blocks Play review and DPDP |
 | ⏳ | Fintech / data-protection lawyer review of policy and terms | required before any loan phase |
 | ⏳ | Add a sentence about provider backup retention and that tickets outlive account deletion | PLAY_STORE.md asks for it |
-| ⏳ | Update the policy for the Better Auth move if it changes what is stored | pending AUTH |
+| ⏳ | Policy: sessions and the OTP in flight are now stored in `auth_sessions` / `auth_verifications`; Google tokens are not stored | pending AUTH |
 | ✅ | In-app account deletion, idempotent, one transaction | `server/src/account.ts`, `account.test.ts` |
 | ✅ | Grievance tickets with 30-day `due_at`, SLA report, overdue highlight | admin Tickets, Reports |
 | ⏳ | Appoint and publish a real grievance officer; set up the grievance mailbox | owner |
@@ -61,12 +61,12 @@ tracked in `docs/AUTH.md`.
 | ⏳ | Deploy the Worker, set secrets, custom domain `api.` | |
 | ⏳ | Deploy the admin site, custom domain `admin.`, Google Web client origin | |
 | ⏳ | Bootstrap the first owner | |
-| ❌ | Sign-in on Better Auth | pending AUTH |
+| ⏳ | Sign-in on Better Auth: implemented; run the migration, set `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL`, smoke-test Google + OTP on a device | pending AUTH (AUTH.md section 7) |
 | ❌ | App <-> server contract for support tickets and support access (field names, categories, methods differ) | ROADMAP limitation 1; support and consented access do not work end to end today |
 | ❌ | Remote-config shape differences (`features.analytics` rejected by the admin validator; defaults differ) | ROADMAP limitation 2 |
 | ❌ | A missing SMS secret takes the whole API down (`server_misconfigured`) | ROADMAP limitation 3 |
 | ❌ | Per-user quotas and rate limits on `/v1/sync/*` | only OTP and tickets are rate limited |
-| ⏳ | Cloudflare rate-limit rule on `/v1/auth/*` | |
+| ⏳ | Cloudflare rate-limit rule on `/api/auth/*` | |
 | ❌ | Server-side alerting (errors are only visible in the admin Monitoring page; no pager) | |
 
 ## 4. App build

@@ -90,13 +90,13 @@ flowchart TD
   empty and RLS returns **no rows**. Forgetting it is the classic bug: queries "work" in tests as superuser and return nothing in production
   (the test helper runs every statement as `notra_app` for exactly this reason).
 - **Forced RLS** (`ENABLE` + `FORCE`) on `users, households, events, entries, ledgers, profiles, user_devices, user_activity_daily,
-  refresh_tokens, support_tickets, ticket_notes, user_notes, support_access_grants`. A test fails if a table with a `user_id` column is not
+  support_tickets, ticket_notes, user_notes, support_access_grants`, plus Better Auth's `auth_sessions, auth_accounts, auth_verifications, auth_rate_limits`
+  (open only to the auth context `app.auth = '1'`, which only `server/src/auth/dialect.ts` sets; see `docs/AUTH.md`). A test fails if a table with a `user_id` column is not
   forced. New user-data tables must be added in a new `1xx_*.sql` migration with policies.
 - **Column privileges**: `UPDATE` on `users` limited to identity columns (no `status`); `profiles.role` not writable;
   `admin_audit_log` has no `UPDATE`/`DELETE` for the app; `daily_stats` cannot be written by the app.
 - **`SECURITY DEFINER` functions** (owner `notra_system`, `search_path` pinned, `EXECUTE` revoked from `PUBLIC` and granted to
-  `notra_app`): `auth_state`, `auth_find_or_create_user`, `auth_identity_owner`, `auth_refresh_lookup`, `auth_revoke_family`,
-  `admin_user_counts` (four integers), `admin_set_user_status`, `admin_force_signout`, `admin_delete_user`, `staff_list`,
+  `notra_app`): `auth_state`, `admin_user_counts`, `admin_active_sessions`, (four integers), `admin_set_user_status`, `admin_force_signout`, `admin_delete_user`, `staff_list`,
   `staff_set_role` (owner; last owner protected), `admin_migration_version`, `app_has_grant`, and the `analytics.*` functions. Each privileged
   one calls `app_require_role(...)` itself in addition to the API gate. (Some of these belong to the pre-Better-Auth sign-in and will change
   with it; see `docs/AUTH.md`.)
@@ -178,7 +178,7 @@ mention provider backup retention (not yet added; see [LAUNCH_CHECKLIST.md](LAUN
 | --- | --- | --- |
 | `DATABASE_URL` (restricted runtime role) | Worker secret (set by `deploy-server.yml` from a GitHub secret) | never the owner role |
 | `MIGRATION_DATABASE_URL` (owner role) | GitHub Actions secret only | migrations, `admin:bootstrap` |
-| Session signing / auth secrets (`JWT_SECRET`, `OTP_PEPPER` today; Better Auth secret after the move) | Worker secrets | see `docs/AUTH.md`; rotate = everyone signs in again |
+| Session signing secret (`BETTER_AUTH_SECRET`) | Worker secret | see `docs/AUTH.md`; rotate = everyone signs in again |
 | `GOOGLE_CLIENT_IDS` | Worker secret | public identifiers, but kept configurable |
 | `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `SMS_PROVIDER` | Worker secrets | `SMS_PROVIDER=dev` only logs codes; never production |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | GitHub secrets | deploys |

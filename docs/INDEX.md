@@ -52,7 +52,7 @@ from GitHub Releases on a phone; add a household and an entry in both worlds.
 
 | Document | Status |
 | --- | --- |
-| `docs/AUTH.md` | owned by the Better Auth on Neon change (Google + mobile OTP). The docs above refer to it instead of describing auth internals |
+| `docs/AUTH.md` | authentication: self-hosted Better Auth in the Worker on Neon (research and decision, identity mapping, RLS, flows with diagrams, endpoints, configuration, the Neon / Google / MSG91 steps) |
 
 ## Where things live (quick lookup)
 

@@ -20,6 +20,7 @@ export async function verifyGoogleIdToken(
   clientIds: string[],
   keys: JWTVerifyGetKey,
   now: Date,
+  nonce?: string,
 ): Promise<GoogleIdentity> {
   if (typeof idToken !== 'string' || idToken.length < 20 || idToken.length > 4096 || clientIds.length === 0) {
     throw new ApiError(401, 'invalid_google_token');
@@ -31,6 +32,7 @@ export async function verifyGoogleIdToken(
       algorithms: ['RS256'],
       currentDate: now,
     });
+    if (nonce && payload.nonce !== nonce) throw new Error('nonce mismatch');
     if (payload.email_verified !== true && payload.email_verified !== 'true') throw new Error('email not verified');
     if (typeof payload.sub !== 'string' || !payload.sub) throw new Error('no sub');
     return {

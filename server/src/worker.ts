@@ -21,8 +21,9 @@ export default {
     const sql = connect(env);
     if (!sql) return Response.json({ error: 'server_misconfigured' }, { status: 500 });
     try {
+      const config = loadConfig(env);
       const app = createApp({
-        db: fromPostgres(sql), config: loadConfig(env), sms: smsFromEnv(env), googleKeys: googleKeys(), admin: adminFromEnv(env),
+        db: fromPostgres(sql), config, sms: smsFromEnv(env), googleKeys: googleKeys(), admin: adminFromEnv(env),
       });
       return await app.fetch(req, env, ctx as unknown as Parameters<typeof app.fetch>[2]);
     } catch (e) {

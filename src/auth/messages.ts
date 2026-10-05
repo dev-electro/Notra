@@ -8,6 +8,7 @@ const BY_CODE: Record<string, string> = {
   resend_too_soon: 'थोड़ा रुकें, फिर नया कोड मँगाएँ',
   too_many_requests: 'अभी बहुत कोशिशें हो चुकी हैं, थोड़ी देर बाद करें',
   sms_failed: 'SMS नहीं भेज पाए, थोड़ी देर बाद कोशिश करें',
+  blocked: 'इस नंबर से अभी साइन इन नहीं हो सकता, सहायता से संपर्क करें',
   invalid_google_token: 'Google से साइन इन नहीं हो पाया',
   identity_belongs_to_another_user: 'यह खाता किसी और के साथ जुड़ा है',
   already_linked_to_different_identity: 'पहले से दूसरा खाता जुड़ा है',

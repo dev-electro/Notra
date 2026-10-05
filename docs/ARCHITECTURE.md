@@ -86,8 +86,8 @@ docs/                               this documentation
 | --- | --- | --- |
 | `src/core/` | Pure domain logic: types, money, ledger math, उतार/चढ़ाव, direction rules, reports models, search, PIN hashing, Hindi words, voice parsing. No React/Expo. | `types.ts`, `ledger.ts` (activeEntries, balances, suggestReturn), `money.ts` (formatINR, roundUpToShagun), `settlement.ts`, `eventRules.ts`, `reports.ts`, `reportDocs.ts` (one model feeds PDF and image), `search.ts`, `match.ts`, `pin.ts`, `ledgers.ts`, `words.ts`, `voice.ts`, `readback.ts`, `labels.ts` |
 | `src/db/` | expo-sqlite access: opening + key, ordered migrations, repositories, aggregate SQL, reports SQL, ledger/PIN storage, maintenance (wipe), legacy-event helper | `database.ts` (getDb), `key.ts`, `migrations.ts` (v1..v7), `repository.ts`, `queries.ts`, `reports.ts`, `ledgers.ts`, `legacy.ts`, `maintenance.ts`, `writes.ts` (onLocalWrite pub/sub), `mem-db.testutil.ts` |
-| `src/sync/` | Cloud backup engine: collect dirty rows, push batches, apply pulled pages, scheduler with backoff, account binding, profile sync, rejected-row tracking, HTTP client with token refresh | `engine.ts`, `scheduler.ts`, `runtime.ts` (wiring), `http.ts`, `wire.ts`, `account.ts`, `profile.ts`, `rejected.ts`, `state.ts` |
-| `src/auth/` | Token storage in secure store, lazy Google sign-in, Hindi error messages, account switching prompt | `session.ts`, `google.ts`, `messages.ts`, `switch-prompt.ts`, `after-signin.ts` |
+| `src/sync/` | Cloud backup engine: collect dirty rows, push batches, apply pulled pages, scheduler with backoff, account binding, profile sync, rejected-row tracking, HTTP client (Better Auth session cookie) | `engine.ts`, `scheduler.ts`, `runtime.ts` (wiring), `http.ts`, `wire.ts`, `account.ts`, `profile.ts`, `rejected.ts`, `state.ts` |
+| `src/auth/` | Better Auth client wrapper (Expo client, session cookie in secure store), lazy Google sign-in, Hindi error messages, account switching prompt | `client.ts`, `auth-api.ts`, `session.ts`, `google.ts`, `messages.ts`, `switch-prompt.ts`, `after-signin.ts` |
 | `src/backup/` | Password-encrypted backup **file** (no account needed): scrypt + XChaCha20-Poly1305, snapshot build / validate / merge | `crypto.ts`, `snapshot.ts`, `index.ts` |
 | `src/remote/` | Remote config (`GET /v1/config`): defaults baked in, defensive parser, cache in SQLite, maintenance / force-update / announcement state, device headers | `config.ts`, `fetch.ts`, `state.ts`, `device.ts`, `online.ts` |
 | `src/ads/` | AdMob: pure policy, ids, slots; lazy SDK service; banner and native components | `policy.ts` (adDecision), `service.ts`, `units.ts`, `slots.ts`, `state.ts`, `AdBanner.tsx`, `NativeAdCard.tsx` |
@@ -128,8 +128,8 @@ docs/                               this documentation
 | App | Hono app: all `/v1/*` routes, auth middleware (`requireAuth`), maintenance gate, error mapping, public pages | `app.ts` |
 | Config | Env bindings, `loadConfig`, `smsFromEnv`, `adminFromEnv` | `config.ts` |
 | DB | `Db`/`Queryable` interfaces, `fromPostgres`, **`withUserTx`** (sets `app.user_id`, `app.role` per transaction), `setUserContext` | `db.ts` |
-| Auth | Google + mobile OTP sign-in and sessions (being moved to Better Auth on Neon; see `docs/AUTH.md`) | `auth/*` (current custom implementation, to be replaced) |
-| Users | find-or-create (SECURITY DEFINER), link identity, `authState` | `users.ts` |
+| Auth | Google + mobile OTP sign-in and sessions: self-hosted Better Auth in the Worker (`docs/AUTH.md`): instance + hooks, Kysely dialect over `Db` (sets `app.auth` per statement), OTP guard, error mapping, MSG91 | `auth/better-auth.ts`, `dialect.ts`, `otp-guard.ts`, `errors.ts`, `google.ts`, `phone.ts`, `sms.ts` |
+| Users | `users` is Better Auth's `user` table: `getUser`, `publicUser`, `authState` | `users.ts` |
 | Sync | Per-row validation, set-based upserts, pull pages, direction enforcement | `validate.ts`, `sync.ts` |
 | Account | Delete everything for a user in one transaction | `account.ts` |
 | Support | Tickets (rate limit 5/h, grievance due in 30 days), consented support-access grants (<= 7 days) | `support.ts` |
@@ -148,7 +148,7 @@ endpoints; the role is read **by the server** from the database.
 | Area | Files | Notes |
 | --- | --- | --- |
 | Shell | `main.tsx`, `App.tsx`, `components/Layout.tsx`, `components/ui.tsx`, `components/charts.tsx`, `styles.css` | lazy-loaded pages; light/dark theme in localStorage |
-| Auth + API | `lib/auth.tsx`, `lib/api.ts`, `lib/roles.ts` | access token in memory, refresh token in `sessionStorage`; `roles.ts` mirrors the server gates (UI only, server is the authority) |
+| Auth + API | `lib/auth.tsx`, `lib/api.ts`, `lib/roles.ts` | Better Auth session token (from `set-auth-token`) in `sessionStorage`, sent as a Bearer; `roles.ts` mirrors the server gates (UI only, server is the authority) |
 | Pages | `Dashboard`, `Users`, `UserDetail` (consented data viewer), `Tickets`, `Config`, `Abuse`, `Monitoring`, `Reports`, `Staff`, `Audit`, `Login` | one per sidebar entry |
 | Helpers | `lib/mask.ts`, `format.ts`, `types.ts`, `useApi.ts` | |
 | Tests | `*.vtest.ts(x)` (jsdom) | named `vtest` so the app's Jest run does not pick them up |
@@ -226,19 +226,17 @@ sequenceDiagram
 
 ### 6.4 Sign-in (Google or mobile OTP)
 
-Sign-in is **Google + mobile OTP via Better Auth on Neon** (a user decision, see [DECISIONS.md](DECISIONS.md) ADR-021). The details
-(endpoints, tokens, OTP rules) are owned by `docs/AUTH.md`; this page deliberately does not duplicate them, because the earlier
-custom Worker auth (own JWT + refresh tokens + MSG91 OTP tables) is being replaced.
-
-What the rest of the system relies on, whatever the auth implementation is:
+Sign-in is **Google + mobile OTP via self-hosted Better Auth inside the Worker, on the same Neon database** (a user decision, see
+[DECISIONS.md](DECISIONS.md) ADR-021). Endpoints, flows, OTP rules, configuration and the Neon steps are in `docs/AUTH.md`; this page keeps
+only what the rest of the system relies on:
 
 ```mermaid
 sequenceDiagram
   participant App
   participant W as Worker
   App->>W: sign in (Google or phone OTP)
-  W-->>App: session credentials + user id
-  App->>App: completeSignIn: bindAccount (ask if the phone's data belongs to another account), store credentials in secure store, turn backup on
+  W-->>App: Better Auth session (cookie, kept by the Expo client in secure store); GET /v1/me gives the user id
+  App->>App: completeSignIn: bindAccount (ask if the phone's data belongs to another account), turn backup on
   App->>W: restoreNow(): full pull so "my household" exists before first-run setup is offered
   Note over W: every later request: identify user -> read suspended/role from the DATABASE -> withUserTx (RLS)
 ```
@@ -276,7 +274,7 @@ the ledger reaches the SDK: no keywords, no content URL; non-personalised reques
 flowchart TD
   R[Request] --> CONN["postgres(url, max 1, prepare:false)"]
   CONN --> APP["createApp(deps)"]
-  APP --> M{"/v1/auth/* or /v1/sync/*?"}
+  APP --> M{"/api/auth/* or /v1/sync/*?"}
   M -- yes --> MAINT["maintenance gate (app_config 503)"]
   M -- no --> ROUTE
   MAINT --> ROUTE["route handler"]
@@ -307,8 +305,8 @@ Details: [CI_CD.md](CI_CD.md).
 | Service | Used for | Where in code | Needed for production |
 | --- | --- | --- | --- |
 | Cloudflare Workers / Pages | API, admin site, cron | `server/`, `admin/` | yes |
-| Neon or Supabase Postgres | synced data, admin tables | `DATABASE_URL` | yes |
-| Google Sign-In | login (via Better Auth) | `src/auth/google.ts` | yes (Android + Web client ids) |
+| Neon Postgres (Supabase also works for the data tables) | synced data, admin tables, Better Auth tables | `DATABASE_URL` | yes |
+| Google Sign-In | login (ID token verified by Better Auth in the Worker) | `src/auth/google.ts`, `server/src/auth/google.ts` | yes (Android + Web client ids) |
 | MSG91 | OTP SMS (DLT template) | `server/src/auth/sms.ts` | yes for phone sign-in |
 | Google AdMob + UMP | ads, consent | `src/ads/` | yes for revenue (real ids via env, `app-ads.txt` at the root domain) |
 | Firebase (Analytics) | usage counts | `src/analytics/`, `google-services.json` | optional but integrated |

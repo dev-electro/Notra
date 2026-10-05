@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Deps } from '../app';
 import { withUserTx } from '../db';
+import { realEmail } from './mask';
+import type { Auth } from '../auth/better-auth';
 import { abuseRoutes } from './abuse';
 import { authenticateAdmin, type AdminDeps } from './auth';
 import { configRoutes } from './config';
@@ -17,27 +19,27 @@ import { userRoutes } from './users';
 class Rollback extends Error {}
 
 /**
- * The admin API, mounted at /admin/api. Staff sign in with the app's own Google / mobile-OTP flow and send the access token as
- * `Authorization: Bearer`. Per request: verify token -> read the role from the database -> open ONE transaction with the RLS
+ * The admin API, mounted at /admin/api. Staff sign in with the app's own Better Auth flow (Google / mobile OTP) and send the session as a cookie or
+ * `Authorization: Bearer <session token>`. Per request: verify token -> read the role from the database -> open ONE transaction with the RLS
  * context (app.user_id = the staff member, app.role = their role) -> run the handler -> roll back on any error.
  * Handlers only see what Postgres lets that role see: account metadata, and aggregates through SECURITY DEFINER functions.
  */
-export function createAdminApi(deps: Deps, admin: AdminDeps): { app: Hono<AdminVars>; routes: RouteInfo[] } {
+export function createAdminApi(deps: Deps, admin: AdminDeps, auth: Auth): { app: Hono<AdminVars>; routes: RouteInfo[] } {
   const app = new Hono<AdminVars>();
   const now = () => (deps.now ?? (() => new Date()))();
   const env: Env = { deps, admin, now };
 
   if (admin.allowedOrigin) {
-    app.use('*', cors({ origin: admin.allowedOrigin, allowHeaders: ['authorization', 'content-type'], allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], maxAge: 600 }));
+    app.use('*', cors({ origin: admin.allowedOrigin, allowHeaders: ['authorization', 'content-type'], credentials: true, allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], maxAge: 600 }));
   }
 
   app.use('*', async (c, next) => {
     if (c.req.method === 'OPTIONS') return next();
-    const who = await authenticateAdmin(c, deps.db, deps.config.jwtSecret, now());
+    const who = await authenticateAdmin(c, deps.db, auth);
     try {
       await withUserTx(deps.db, who.id, who.role, async (q) => {
         const [u] = await q.query<{ email: string | null; phone_e164: string | null }>('SELECT email, phone_e164 FROM users WHERE id = $1', [who.id]);
-        c.set('admin', { ...who, label: u?.email ?? u?.phone_e164 ?? who.id });
+        c.set('admin', { ...who, label: realEmail(u?.email) ?? u?.phone_e164 ?? who.id });
         c.set('q', q);
         await next();
         if (c.error || c.res.status >= 400) throw new Rollback(); // an error response commits nothing (including audit rows of the failed action)

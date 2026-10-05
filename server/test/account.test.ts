@@ -32,21 +32,23 @@ describe('DELETE /v1/account', () => {
     expect((await t.call('DELETE', '/v1/account', { token: 'garbage' })).status).toBe(401);
   });
 
-  it('removes the user, households, events, entries, ledgers, profile, refresh tokens and OTP rows', async () => {
+  it('removes the user, households, events, entries, ledgers, profile, sessions, linked sign-ins and OTP rows', async () => {
     const t = await setup();
     const a = await signInWithPhone(t, '9876543210');
     await fill(t, a.accessToken, 100);
     expect((await count(t, 'households', a.user.id)).n).toBe(1);
-    expect((await t.pg.query("SELECT count(*)::int AS n FROM otp_requests WHERE phone_e164 = '+919876543210'")).rows[0]).toEqual({ n: 1 });
+    // an OTP still in flight for this number, and one for somebody else
+    await t.pg.query(`INSERT INTO auth_verifications (identifier, value, expires_at) VALUES ('+919876543210', '123456:0', now() + interval '5 minutes'), ('+919123456780', '654321:0', now() + interval '5 minutes')`);
+    expect((await count(t, 'auth_sessions', a.user.id)).n).toBe(1);
 
     const r = await t.call('DELETE', '/v1/account', { token: a.accessToken });
     expect(r.status).toBe(200);
     expect(r.json).toEqual({ ok: true });
-    for (const table of ['households', 'events', 'entries', 'ledgers', 'profiles', 'refresh_tokens']) {
+    for (const table of ['households', 'events', 'entries', 'ledgers', 'profiles', 'auth_sessions', 'auth_accounts']) {
       expect((await count(t, table, a.user.id)).n, table).toBe(0);
     }
     expect((await t.pg.query('SELECT count(*)::int AS n FROM users WHERE id = $1', [a.user.id])).rows[0]).toEqual({ n: 0 });
-    expect((await t.pg.query('SELECT count(*)::int AS n FROM otp_requests')).rows[0]).toEqual({ n: 0 });
+    expect((await t.pg.query('SELECT identifier FROM auth_verifications')).rows).toEqual([{ identifier: '+919123456780' }]);
   });
 
   it('never touches anyone else\'s data, even when ids and the phone-less identity overlap', async () => {
@@ -62,11 +64,10 @@ describe('DELETE /v1/account', () => {
       for (const [table, n] of [['households', 1], ['events', 1], ['entries', 2], ['ledgers', 1], ['profiles', 1]] as const) {
         expect((await count(t, table, u.user.id)).n, `${table} of ${u.user.id}`).toBe(n);
       }
-      expect((await count(t, 'refresh_tokens', u.user.id)).n).toBeGreaterThan(0);
+      expect((await count(t, 'auth_sessions', u.user.id)).n).toBeGreaterThan(0);
     }
     // B and C still sync normally
     expect((await t.call('GET', '/v1/sync/pull', { token: b.accessToken })).json.households).toHaveLength(1);
-    expect((await t.pg.query("SELECT count(*)::int AS n FROM otp_requests WHERE phone_e164 = '+919123456780'")).rows[0]).toEqual({ n: 1 });
   });
 
   it('is all-or-nothing: a failure part-way leaves everything in place', async () => {
@@ -82,19 +83,19 @@ describe('DELETE /v1/account', () => {
       for (const [table, n] of [['households', 1], ['events', 1], ['entries', 2], ['ledgers', 1], ['profiles', 1]] as const) {
         expect((await count(t, table, a.user.id)).n, table).toBe(n);
       }
-      expect((await count(t, 'refresh_tokens', a.user.id)).n).toBeGreaterThan(0);
+      expect((await count(t, 'auth_sessions', a.user.id)).n).toBeGreaterThan(0);
     } finally {
       await t.pg.exec('DROP TRIGGER block_user_delete ON users; DROP FUNCTION block_user_delete();');
     }
   });
 
-  it('is idempotent, kills refresh tokens, and a stale access token cannot write rows for the deleted user', async () => {
+  it('is idempotent, kills the sessions, and a stale session token cannot write rows for the deleted user', async () => {
     const t = await setup();
     const a = await signInWithGoogle(t, 'g-1');
     await fill(t, a.accessToken, 100);
     expect((await t.call('DELETE', '/v1/account', { token: a.accessToken })).status).toBe(200);
-    expect((await t.call('DELETE', '/v1/account', { token: a.accessToken })).status).toBe(200); // already gone
-    expect((await t.call('POST', '/v1/auth/refresh', { body: { refreshToken: a.refreshToken } })).status).toBe(401);
+    expect((await t.call('DELETE', '/v1/account', { token: a.accessToken })).status).toBe(401); // the session died with the account
+    expect((await t.call('GET', '/v1/me', { token: a.accessToken })).status).toBe(401);
     const stale = await push(t, a.accessToken, { households: [hh(1)] }); // token still valid for minutes: must not resurrect data
     expect(stale.status).toBe(401);
     expect((await t.pg.query('SELECT count(*)::int AS n FROM households')).rows[0]).toEqual({ n: 0 });

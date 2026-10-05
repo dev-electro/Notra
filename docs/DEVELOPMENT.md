@@ -90,7 +90,7 @@ DATABASE_URL=... npm run migrate  # migrations as the OWNER role (MIGRATION_DATA
 cd ../admin && cp .env.example .env.local && npm run dev
 ```
 
-Auth setup for local runs changes with the Better Auth move: follow `docs/AUTH.md`.
+Auth for local runs: set `BETTER_AUTH_SECRET` (32+ chars), `BETTER_AUTH_URL` (e.g. `http://localhost:8787`), `GOOGLE_CLIENT_IDS` and `SMS_PROVIDER=dev` (the OTP is logged by the Worker); see `docs/AUTH.md`.
 
 ## 2. Scripts
 
@@ -259,7 +259,7 @@ Occasions are an enum stored in both databases, so a new one is a migration:
 | Using `Text` from `react-native` | lint error | import from `@/components/text` |
 | Real AdMob ids in a debug build | policy violation risk | `NOTRA_ADS_TEST=1` is set by CI; real ids only with all five `EXPO_PUBLIC_ADMOB_*` and a signed release |
 | Signing fallback | release without the 4 `NOTRA_UPLOAD_*` values is debug-signed, not uploadable | check "Verify signature" step |
-| Deploying the Worker without MSG91 secrets and without `SMS_PROVIDER=dev` | `smsFromEnv` throws, **every** route answers `500 server_misconfigured` (see ROADMAP) | set the secrets first (changes with Better Auth) |
+| Deploying the Worker without MSG91 secrets and without `SMS_PROVIDER=dev` | `smsFromEnv` throws, **every** route answers `500 server_misconfigured` (see ROADMAP) | set the secrets first (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` too: `loadConfig` throws without them) |
 | Testing encryption in Expo Go | DB is plain | use a native build |
 | Typing Devanagari with `adb input` | garbled text | ASCII test data in Maestro |
 | Changing `src/legal/content.ts` only | store/Data Safety out of sync | change policy text, [PLAY_STORE.md](PLAY_STORE.md) and the Play form together |

@@ -1,8 +1,9 @@
 import * as SecureStore from 'expo-secure-store';
-import type { TokenStore, Tokens } from '@/sync/http';
+import type { SessionSource } from '@/sync/http';
 
-const TOKENS = 'notra_auth_tokens_v1';
 const USER = 'notra_auth_user_v1';
+/** The pre-Better-Auth access + refresh tokens: dead after the migration, removed so nothing sensitive lingers in the keystore. */
+const LEGACY_TOKENS = 'notra_auth_tokens_v1';
 const OPTS = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 
 export interface AuthUser {
@@ -13,19 +14,23 @@ export interface AuthUser {
   hasPhone: boolean;
 }
 
-/** Access + refresh tokens live in the OS keystore (expo-secure-store), never in SQLite or logs. */
-export const secureTokenStore: TokenStore = {
-  async get() {
+/**
+ * The session itself (a Better Auth cookie) is stored by the Better Auth Expo client in the OS keystore (expo-secure-store),
+ * under keys prefixed `notra_` (see client.ts). This object reads / clears it through that client, which is loaded lazily:
+ * nothing from Better Auth is evaluated until something actually needs the network.
+ */
+export const secureSession: SessionSource = {
+  async cookie() {
     try {
-      const raw = await SecureStore.getItemAsync(TOKENS);
-      return raw ? (JSON.parse(raw) as Tokens) : null;
+      const { getAuthClient } = await import('./client');
+      return (await getAuthClient()).getCookie();
     } catch {
-      return null;
+      return '';
     }
   },
-  async set(t) {
-    if (t) await SecureStore.setItemAsync(TOKENS, JSON.stringify(t), OPTS);
-    else await SecureStore.deleteItemAsync(TOKENS);
+  async clear() {
+    const { clearLocalSession } = await import('./client');
+    await clearLocalSession();
   },
 };
 
@@ -41,4 +46,10 @@ export async function getAuthUser(): Promise<AuthUser | null> {
 export async function setAuthUser(u: AuthUser | null): Promise<void> {
   if (u) await SecureStore.setItemAsync(USER, JSON.stringify(u), OPTS);
   else await SecureStore.deleteItemAsync(USER);
+}
+
+export async function purgeLegacyTokens(): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(LEGACY_TOKENS);
+  } catch { /* nothing stored */ }
 }

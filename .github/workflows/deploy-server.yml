@@ -3,7 +3,8 @@ name: Deploy server
 # Manual only. Applies database migrations as the OWNER role (MIGRATION_DATABASE_URL), then deploys the Cloudflare Worker, which
 # runs as the restricted role in DATABASE_URL (a member of notra_app: Row Level Security applies to it). See docs/ADMIN.md.
 # Required repository secrets (Settings > Secrets and variables > Actions):
-#   MIGRATION_DATABASE_URL, DATABASE_URL, CLOUDFLARE_API_TOKEN, JWT_SECRET, OTP_PEPPER, GOOGLE_CLIENT_IDS
+#   MIGRATION_DATABASE_URL, DATABASE_URL, CLOUDFLARE_API_TOKEN, BETTER_AUTH_SECRET, GOOGLE_CLIENT_IDS
+# (Sign-in is self-hosted Better Auth inside the Worker, on the same Neon database: see docs/AUTH.md. BETTER_AUTH_URL is a plain var in server/wrangler.toml.)
 # Required for SMS in production: MSG91_AUTH_KEY, MSG91_TEMPLATE_ID. Optional: SMS_PROVIDER (defaults to msg91; "dev" only for testing).
 # Also set CLOUDFLARE_ACCOUNT_ID if your token can access more than one account.
 on:
@@ -41,7 +42,7 @@ jobs:
       - name: Set Worker secrets
         run: |
           set -eu
-          for name in DATABASE_URL JWT_SECRET OTP_PEPPER GOOGLE_CLIENT_IDS SMS_PROVIDER MSG91_AUTH_KEY MSG91_TEMPLATE_ID; do
+          for name in DATABASE_URL BETTER_AUTH_SECRET GOOGLE_CLIENT_IDS SMS_PROVIDER MSG91_AUTH_KEY MSG91_TEMPLATE_ID; do
             value="${!name:-}"
             if [ -n "$value" ]; then
               printf '%s' "$value" | npx --yes wrangler@4 secret put "$name" > /dev/null
@@ -52,8 +53,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          OTP_PEPPER: ${{ secrets.OTP_PEPPER }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           GOOGLE_CLIENT_IDS: ${{ secrets.GOOGLE_CLIENT_IDS }}
           SMS_PROVIDER: ${{ secrets.SMS_PROVIDER }}
           MSG91_AUTH_KEY: ${{ secrets.MSG91_AUTH_KEY }}

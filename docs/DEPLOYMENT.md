@@ -4,10 +4,10 @@ Step by step, in the order that works. Each item is marked **[owner]** (needs th
 access) or **[developer]** (code or CLI work). Track completion in [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md). Architecture context:
 [ARCHITECTURE.md](ARCHITECTURE.md). Workflow details: [CI_CD.md](CI_CD.md).
 
-> **Auth note.** Sign-in is being moved to **Better Auth on Neon** (Google + mobile OTP; user decision, see ADR-021 in
-> [DECISIONS.md](DECISIONS.md)). Everything about sign-in secrets, SMS provider variables and OAuth callbacks is owned by `docs/AUTH.md`;
-> the items below that mention `JWT_SECRET`, `OTP_PEPPER`, `MSG91_*` describe the **current** Worker and will be replaced by what AUTH.md
-> lists. Do the database, Cloudflare, domain, store and monitoring items now; do the auth items last, from AUTH.md.
+> **Auth note.** Sign-in is **self-hosted Better Auth inside the Worker, on the Neon database** (ADR-021 in [DECISIONS.md](DECISIONS.md)). The
+> secrets are `BETTER_AUTH_SECRET` (+ the `BETTER_AUTH_URL` var in `wrangler.toml`), `DATABASE_URL`, `GOOGLE_CLIENT_IDS` and `MSG91_*`;
+> `JWT_SECRET` and `OTP_PEPPER` no longer exist. The step-by-step Neon / Google / MSG91 instructions and why **Neon Auth must stay off** are in
+> `docs/AUTH.md` section 7.
 
 ```mermaid
 flowchart TD
@@ -44,26 +44,25 @@ flowchart TD
 | 2.2 | Enable Workers and Pages. Create an **API token** with *Workers Scripts: Edit* and *Cloudflare Pages: Edit* (plus account/zone read as needed) and note the **Account ID**. | owner |
 | 2.3 | Add GitHub repository secrets `CLOUDFLARE_API_TOKEN` (+ `CLOUDFLARE_ACCOUNT_ID` if the token sees several accounts). | owner |
 | 2.4 | Create the Pages project **`notra-admin`** (first manual deploy, or let `admin.yml` create it with `wrangler pages deploy`). | developer |
-| 2.5 | Add a Cloudflare **rate-limiting rule** on `/v1/auth/*` (defence in depth; the code has per-phone/IP limits but nothing in front of it). Consider one on `/v1/sync/*` too. | owner |
+| 2.5 | Add a Cloudflare **rate-limiting rule** on `/api/auth/*` (defence in depth; the code has per-phone/IP limits and Better Auth's own database-backed limiter, but nothing in front of it). Consider one on `/v1/sync/*` too. | owner |
 
 ## 3. Worker secrets and variables
 
-Set as Worker secrets (the **Deploy server** workflow does this from GitHub secrets, or `npx wrangler secret put NAME`). Today's list:
+Set as Worker secrets (the **Deploy server** workflow does this from GitHub secrets, or `npx wrangler secret put NAME`):
 
 | Name | Value | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | restricted runtime role string (1.7) | **required** |
-| `JWT_SECRET` | 32+ random characters | rotating it signs everyone out of access tokens |
-| `OTP_PEPPER` | 16+ random characters | changing it invalidates unconsumed OTPs only |
+| `DATABASE_URL` | restricted runtime role, **Neon pooled** string (1.7) | **required** |
+| `BETTER_AUTH_SECRET` | 32+ random characters (`openssl rand -base64 32`) | signs the session cookie / bearer token; rotating it signs everyone out |
 | `GOOGLE_CLIENT_IDS` | comma-separated OAuth **client ids** the Worker accepts as token audience: the **Web** client id used by the app (`extra.googleWebClientId`) and the admin's Web client id | |
 | `SMS_PROVIDER` | `msg91` (default) | `dev` only logs the code: **never in production** |
 | `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID` | from MSG91 | **If these are missing and `SMS_PROVIDER` is not `dev`, every endpoint (even `/v1/health`) answers 500 `server_misconfigured`** |
 
-Plain variables in `server/wrangler.toml` `[vars]`: `ENVIRONMENT=production`, `SMS_COST_PAISE=25` (admin SMS cost estimate). Optional:
+Plain variables in `server/wrangler.toml` `[vars]`: `ENVIRONMENT=production`, `SMS_COST_PAISE=25` (admin SMS cost estimate), **`BETTER_AUTH_URL`** (the Worker's public origin; set it to the real `api.<domain>` / `workers.dev` URL: it scopes the session cookie and the origin check). Optional:
 `ADMIN_ORIGIN=https://admin.<domain>` (only if the admin site is on a different origin than the API; enables CORS), `SERVER_VERSION`.
 Cron: `crons = ["45 0 * * *"]` (06:15 IST) is already in `wrangler.toml`.
 
-All of the above are replaced or extended by `docs/AUTH.md` once Better Auth lands. **[developer]**; secret values come from **[owner]**.
+**[developer]**; secret values come from **[owner]**. Auth details: `docs/AUTH.md`.
 
 Deploy: GitHub -> Actions -> **Deploy server** -> Run workflow (migrations as owner -> `wrangler deploy` -> secrets). First-time order: set the
 GitHub secrets, run the workflow once (the first run may answer 500 until secrets exist), then re-run. **[developer]**
@@ -73,7 +72,7 @@ GitHub secrets, run the workflow once (the first run may answer 500 until secret
 | Host | Points to | Notes | Who |
 | --- | --- | --- | --- |
 | `api.<domain>` | the Worker (`notra-book-api`): Workers -> Settings -> Domains & Routes -> Custom domain | put this URL in `app.json` `extra.apiUrl` (**currently the placeholder `https://api.notra-book.example`**) and rebuild the app | developer |
-| `admin.<domain>` | Pages project `notra-admin` custom domain | Prefer **one origin**: route `admin.<domain>/admin/api/*` (and `/v1/auth/*`) to the Worker so no CORS is needed; otherwise set `ADMIN_ORIGIN` on the Worker and `ADMIN_API_BASE` repository variable for the build | developer |
+| `admin.<domain>` | Pages project `notra-admin` custom domain | Prefer **one origin**: route `admin.<domain>/admin/api/*` (and `/api/auth/*`) to the Worker so no CORS is needed; otherwise set `ADMIN_ORIGIN` on the Worker and `ADMIN_API_BASE` repository variable for the build | developer |
 | `<domain>` (root) | a static site | must serve **`/app-ads.txt`** (7.6) and may host the public privacy/terms links; **no root site exists in the repo yet**. Play and AdMob read `app-ads.txt` from the developer website domain declared in the Play listing | owner + developer |
 
 Public legal pages are served by the Worker: `https://api.<domain>/privacy`, `/terms`, `/grievance`, `/delete-account`. Use these in Play Console.
@@ -99,7 +98,7 @@ Optional Cloudflare Access in front of `admin.<domain>`: not required by the cod
 | 6.3 | Set `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `SMS_PROVIDER=msg91` as Worker secrets. Set `SMS_COST_PAISE` to the real per-SMS cost for the admin estimate. | developer |
 | 6.4 | Watch SMS volume in the admin panel (Abuse, Reports > OTP) and add the Cloudflare rate-limit rule (2.5). | owner |
 
-The final OTP provider and variables are defined by `docs/AUTH.md`.
+The OTP provider is MSG91 through Better Auth's `phoneNumber` plugin (`server/src/auth/better-auth.ts`); variables are in `docs/AUTH.md` section 6.
 
 ## 7. AdMob, app-ads.txt, Firebase
 
@@ -137,7 +136,7 @@ MIGRATION_DATABASE_URL='postgres://owner:...@host/db' npm run admin:bootstrap --
 
 Run with the **owner** DB role (the runtime role cannot change roles). A never-seen phone number gets an empty account so the first OTP sign-in lands
 on it; an e-mail must already belong to an account. The script also writes an audit row. Then sign in at `https://admin.<domain>` and add staff on
-**Staff & roles**. **[developer]** (with owner approval). The bootstrap relies on the `users`/`profiles` layout; re-check it against `docs/AUTH.md` after the auth move.
+**Staff & roles**. **[developer]** (with owner approval). The bootstrap relies on the `users`/`profiles` layout, which Better Auth keeps (a phone that never signed in gets an empty account with a placeholder e-mail; the first OTP sign-in lands on it).
 
 ## 10. Smoke tests after every deploy
 

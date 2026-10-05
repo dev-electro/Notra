@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import type { Queryable } from '../db';
-import { verifyAccessToken } from '../auth/tokens';
+import type { Auth } from '../auth/better-auth';
 import { ApiError } from '../errors';
 import { authState } from '../users';
 
@@ -28,15 +28,14 @@ export interface AdminDeps {
 }
 
 /**
- * Who is calling? The same access token the app uses (issued by /v1/auth/google or the OTP flow) -> user id -> role read from the
- * database (profiles.role via auth_state). Not staff -> 403; suspended -> 403. The role is never taken from the token or the request.
+ * Who is calling? The Better Auth session (the same sign-in the app uses: Google or mobile OTP; a cookie, or `Authorization: Bearer
+ * <session token>`) -> user id -> role read from the database (profiles.role via auth_state). Not staff -> 403; suspended -> 403.
+ * The role is never taken from the session or the request.
  */
-export async function authenticateAdmin(
-  c: Context, db: Queryable, secret: Uint8Array, now: Date,
-): Promise<{ id: string; role: Role }> {
-  const m = /^Bearer (\S+)$/.exec(c.req.header('authorization') ?? '');
-  if (!m) throw new ApiError(401, 'unauthorized');
-  const id = await verifyAccessToken(m[1]!, secret, now);
+export async function authenticateAdmin(c: Context, db: Queryable, auth: Auth): Promise<{ id: string; role: Role }> {
+  const session = await auth.api.getSession({ headers: c.req.raw.headers });
+  const id = session?.user.id;
+  if (!id) throw new ApiError(401, 'unauthorized');
   const st = await authState(db, id);
   if (!st) throw new ApiError(401, 'unauthorized');
   if (st.status === 'suspended') throw new ApiError(403, 'account_suspended');

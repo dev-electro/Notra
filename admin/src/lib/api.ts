@@ -1,11 +1,13 @@
 /**
- * API client. Staff sign in with the app's own endpoints (/v1/auth/google, /v1/auth/otp/*) and call /admin/api/* with the access token
- * as a Bearer header. The access token lives in memory only; the refresh token is kept in sessionStorage (cleared when the tab closes)
- * so a reload does not sign you out. Requests are same-origin by default (credentials 'same-origin'), so an optional Cloudflare
- * Access layer in front of the app and API keeps working.
+ * API client. Staff sign in through Better Auth (/api/auth/sign-in/social with a Google ID token, or /api/auth/phone-number/*): the
+ * same sign-in the app uses. The session is a Better Auth session: the server sets a cookie (used when this panel is served from the
+ * same site as the API) and returns its signed token in the `set-auth-token` header, which this client keeps in sessionStorage
+ * (cleared when the tab closes, so a reload does not sign you out) and sends as `Authorization: Bearer` to /admin/api/*. The bearer
+ * works across origins without third-party cookies, which is how the panel is normally hosted (Cloudflare Pages -> Worker).
+ * The role is never in the session: the server reads it from the database on every request.
  */
 export const API_BASE: string = ((import.meta.env.VITE_API_BASE as string | undefined) ?? '').replace(/\/+$/, '');
-const REFRESH_KEY = 'notra-admin-refresh';
+const SESSION_KEY = 'notra-admin-session';
 
 export class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, readonly detail?: string, readonly body?: Record<string, unknown>) {
@@ -13,50 +15,25 @@ export class ApiError extends Error {
   }
 }
 
-type Tokens = { access: string | null };
-const tokens: Tokens = { access: null };
 let onSignedOut: (() => void) | null = null;
 export const setSignedOutHandler = (fn: (() => void) | null) => { onSignedOut = fn; };
 
 const store = {
-  get: () => { try { return sessionStorage.getItem(REFRESH_KEY); } catch { return null; } },
-  set: (v: string | null) => { try { if (v) sessionStorage.setItem(REFRESH_KEY, v); else sessionStorage.removeItem(REFRESH_KEY); } catch { /* private mode */ } },
+  get: () => { try { return sessionStorage.getItem(SESSION_KEY); } catch { return null; } },
+  set: (v: string | null) => { try { if (v) sessionStorage.setItem(SESSION_KEY, v); else sessionStorage.removeItem(SESSION_KEY); } catch { /* private mode */ } },
 };
 
-export function setSession(s: { accessToken: string; refreshToken: string } | null) {
-  tokens.access = s?.accessToken ?? null;
-  store.set(s?.refreshToken ?? null);
-}
-export const hasRefreshToken = () => !!store.get();
+export const setSession = (token: string | null) => store.set(token);
+export const hasSession = () => !!store.get();
 
 async function raw(path: string, init: RequestInit & { auth?: boolean } = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !headers.has('content-type')) headers.set('content-type', 'application/json');
   headers.set('x-platform', 'web');
   headers.set('x-app-version', 'admin');
-  if (init.auth !== false && tokens.access) headers.set('authorization', `Bearer ${tokens.access}`);
-  return fetch(`${API_BASE}${path}`, { ...init, headers, credentials: 'same-origin' });
-}
-
-let refreshing: Promise<boolean> | null = null;
-/** Exchange the refresh token for a new pair. Concurrent callers share one request (the server rotates tokens). */
-export function refreshSession(): Promise<boolean> {
-  refreshing ??= (async () => {
-    const rt = store.get();
-    if (!rt) return false;
-    try {
-      const res = await raw('/v1/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken: rt }), auth: false });
-      if (!res.ok) return false;
-      const j = (await res.json()) as { accessToken: string; refreshToken: string };
-      setSession(j);
-      return true;
-    } catch {
-      return false;
-    } finally {
-      setTimeout(() => { refreshing = null; }, 0);
-    }
-  })();
-  return refreshing;
+  const token = store.get();
+  if (init.auth !== false && token) headers.set('authorization', `Bearer ${token}`);
+  return fetch(`${API_BASE}${path}`, { ...init, headers, credentials: 'include' });
 }
 
 async function parse(res: Response): Promise<unknown> {
@@ -71,8 +48,7 @@ export async function api<T = unknown>(path: string, o: Opts = {}): Promise<T> {
   const qs = o.query ? Object.entries(o.query).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join('&') : '';
   const url = `${path}${qs ? `?${qs}` : ''}`;
   const init: RequestInit = { method: o.method ?? 'GET', body: o.body === undefined ? undefined : JSON.stringify(o.body) };
-  let res = await raw(url, init);
-  if (res.status === 401 && (await refreshSession())) res = await raw(url, init);
+  const res = await raw(url, init);
   if (res.status === 401) { setSession(null); onSignedOut?.(); }
   const j = await parse(res);
   if (!res.ok) {
@@ -86,8 +62,7 @@ export async function api<T = unknown>(path: string, o: Opts = {}): Promise<T> {
 export async function download(path: string, query: Record<string, string>, filename: string): Promise<void> {
   const qs = new URLSearchParams(query).toString();
   const url = `${path}?${qs}`;
-  let res = await raw(url);
-  if (res.status === 401 && (await refreshSession())) res = await raw(url);
+  const res = await raw(url);
   if (!res.ok) throw new ApiError(res.status, 'download_failed');
   const blob = await res.blob();
   const a = document.createElement('a');
@@ -119,29 +94,33 @@ export function errorText(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
 
-// ---- sign-in (same endpoints as the app) ----
-export interface SessionResponse { accessToken: string; refreshToken: string; user: { id: string } }
+// ---- sign-in (Better Auth, the same flow as the app) ----
+async function authCall(path: string, body: unknown, fallbackCode: string): Promise<Response> {
+  const res = await raw(`/api/auth${path}`, { method: 'POST', body: JSON.stringify(body), auth: false });
+  if (!res.ok) {
+    const j = (await parse(res)) as Record<string, unknown> | null;
+    throw new ApiError(res.status, String(j?.error ?? fallbackCode), typeof j?.message_hi === 'string' ? String(j.message_hi) : undefined, j ?? undefined);
+  }
+  return res;
+}
+/** The signed session token Better Auth returns in `set-auth-token` after a sign-in (the bearer plugin). */
+function keepSession(res: Response): void {
+  const token = res.headers.get('set-auth-token');
+  if (!token) throw new ApiError(502, 'no_session_token');
+  setSession(token);
+}
 
-export async function signInGoogle(idToken: string): Promise<SessionResponse> {
-  const res = await raw('/v1/auth/google', { method: 'POST', body: JSON.stringify({ idToken }), auth: false });
-  const j = (await parse(res)) as Record<string, unknown>;
-  if (!res.ok) throw new ApiError(res.status, String(j?.error ?? 'sign_in_failed'), typeof j?.message_hi === 'string' ? String(j.message_hi) : undefined);
-  setSession(j as unknown as SessionResponse);
-  return j as unknown as SessionResponse;
+export async function signInGoogle(idToken: string): Promise<void> {
+  keepSession(await authCall('/sign-in/social', { provider: 'google', idToken: { token: idToken } }, 'sign_in_failed'));
 }
 export async function otpStart(phone: string): Promise<void> {
-  const res = await raw('/v1/auth/otp/start', { method: 'POST', body: JSON.stringify({ phone }), auth: false });
-  if (!res.ok) { const j = (await parse(res)) as Record<string, unknown>; throw new ApiError(res.status, String(j?.error ?? 'otp_failed')); }
+  await authCall('/phone-number/send-otp', { phoneNumber: phone }, 'otp_failed');
 }
-export async function otpVerify(phone: string, code: string): Promise<SessionResponse> {
-  const res = await raw('/v1/auth/otp/verify', { method: 'POST', body: JSON.stringify({ phone, code }), auth: false });
-  const j = (await parse(res)) as Record<string, unknown>;
-  if (!res.ok) throw new ApiError(res.status, String(j?.error ?? 'otp_failed'));
-  setSession(j as unknown as SessionResponse);
-  return j as unknown as SessionResponse;
+export async function otpVerify(phone: string, code: string): Promise<void> {
+  keepSession(await authCall('/phone-number/verify', { phoneNumber: phone, code }, 'otp_failed'));
 }
 export async function signOut(): Promise<void> {
-  const rt = store.get();
+  const had = hasSession();
+  if (had) { try { await raw('/api/auth/sign-out', { method: 'POST', body: '{}' }); } catch { /* offline */ } }
   setSession(null);
-  if (rt) { try { await raw('/v1/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken: rt }), auth: false }); } catch { /* offline */ } }
 }

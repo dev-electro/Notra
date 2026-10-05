@@ -25,7 +25,7 @@ const summary = (r: ListRow) => ({
 });
 
 const SELECT = `
-  SELECT u.id, u.signup_method, u.google_sub IS NOT NULL AS has_google, u.phone_e164 IS NOT NULL AS has_phone, u.phone_e164, u.email,
+  SELECT u.id, u.signup_method, u.google_sub IS NOT NULL AS has_google, u.phone_e164 IS NOT NULL AS has_phone, u.phone_e164, real_email(u.email) AS email,
          u.display_name, u.status, u.created_at, d.last_seen, d.app_version, d.platform
   FROM users u
   LEFT JOIN LATERAL (SELECT last_seen, app_version, platform FROM user_devices WHERE user_id = u.id ORDER BY last_seen DESC LIMIT 1) d ON true`;
@@ -47,7 +47,7 @@ export function userRoutes(r: Registry, _env: Env): void {
         const digits = term.replace(/\D/g, '');
         if (digits.length < 3) throw new ApiError(400, 'invalid_input', { detail: 'Enter at least the last 3 digits of the phone number.' });
         add('u.phone_e164 LIKE ?', `%${digits}`);
-      } else add(`lower(u.email) LIKE ? ESCAPE '\\'`, like(term));
+      } else add(`lower(real_email(u.email)) LIKE ? ESCAPE '\\'`, like(term));
     }
     const method = c.req.query('method');
     if (method) where.push(oneOf(method, ['google', 'phone'], 'method') === 'google' ? 'u.google_sub IS NOT NULL' : 'u.phone_e164 IS NOT NULL');
@@ -83,7 +83,7 @@ export function userRoutes(r: Registry, _env: Env): void {
          (SELECT coalesce(sum(sync_errors), 0) FROM user_activity_daily WHERE user_id = $1 AND day > (now() AT TIME ZONE 'UTC')::date - 7)::int AS sync_errors_7d,
          (SELECT coalesce(sum(sync_requests), 0) FROM user_activity_daily WHERE user_id = $1 AND day > (now() AT TIME ZONE 'UTC')::date - 7)::int AS sync_requests_7d,
          (SELECT count(*) FROM support_tickets WHERE user_id = $1)::int AS tickets,
-         (SELECT count(*) FROM refresh_tokens WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now())::int AS active_sessions`,
+         admin_active_sessions($1) AS active_sessions`,
       [id],
     );
     const devices = await q.query<{ platform: string; app_version: string | null; os_version: string | null; first_seen: string | Date; last_seen: string | Date; last_sync_at: string | Date | null }>(
@@ -111,7 +111,7 @@ export function userRoutes(r: Registry, _env: Env): void {
     const b = await readBody(c);
     const field = oneOf(b.field, ['phone', 'email'], 'field');
     const reason = reasonOf(b);
-    const [u] = await q.query<{ phone_e164: string | null; email: string | null }>('SELECT phone_e164, email FROM users WHERE id = $1', [id]);
+    const [u] = await q.query<{ phone_e164: string | null; email: string | null }>('SELECT phone_e164, real_email(email) AS email FROM users WHERE id = $1', [id]);
     if (!u) throw new ApiError(404, 'not_found');
     await audit(c, { action: 'user.unmask', targetType: 'user', targetId: id, reason, after: { field } });
     return c.json({ field, value: field === 'phone' ? u.phone_e164 : u.email });

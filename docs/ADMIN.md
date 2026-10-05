@@ -9,17 +9,17 @@ database (Row Level Security), not just by the API. The only way staff ever see 
 7-day, read-only "support access" window from the app** (see below).
 
 ```
- admin/ (React, Cloudflare Pages) ──Bearer access token──▶ Worker  /admin/api/*  ──▶ Postgres (Neon / Supabase)
-        sign in: Google or mobile OTP                     (server/src/admin)          RLS + SECURITY DEFINER functions
-        = the app's own /v1/auth/* flow                    one transaction per request  analytics.* (aggregates, k = 5)
+ admin/ (React, Cloudflare Pages) ──Bearer session token──▶ Worker  /admin/api/*  ──▶ Postgres (Neon)
+        sign in: Google or mobile OTP                      (server/src/admin)          RLS + SECURITY DEFINER functions
+        = the app's own Better Auth flow (/api/auth/*)      one transaction per request  analytics.* (aggregates, k = 5)
 ```
 
 ## 1. Who can log in, and what role they have
 
 * Staff are **ordinary Notra accounts**. They sign in to the admin panel with the same two methods as the app: Google
-  (Google Identity Services ID token to `POST /v1/auth/google`) or mobile OTP (`/v1/auth/otp/*`).
+  (Google Identity Services ID token to `POST /api/auth/sign-in/social`) or mobile OTP (`/api/auth/phone-number/send-otp` and `/verify`): Better Auth, see docs/AUTH.md.
 * The role lives in the database: `profiles.role` (`user` | `viewer` | `support` | `admin` | `owner`, default `user`).
-  On every admin request the server verifies the access token, **reads the role from the database** (`auth_state()`), and
+  On every admin request the server resolves the Better Auth session, **reads the role from the database** (`auth_state()`), and
   rejects anyone who is not staff (403 `not_staff`) or is suspended (403). A role is never taken from the token or the request.
 * Nobody can promote themselves: the application's database role has no `UPDATE` privilege on `profiles.role`. Roles change only
   through `staff_set_role()` (owner only; it also refuses to demote the last owner).
@@ -32,7 +32,7 @@ Run once, with the **owner/migration** database role (not the runtime one):
 ```bash
 cd server
 MIGRATION_DATABASE_URL='postgres://owner:...@host/db' npm run admin:bootstrap -- 9876543210     # mobile number
-MIGRATION_DATABASE_URL='postgres://owner:...@host/db' npm run admin:bootstrap -- you@gmail.com   # Google account that has signed in once
+MIGRATION_DATABASE_URL='postgres://owner:...@host/db' npm run admin:bootstrap -- you@gmail.com   # Google account that has signed in once (phone-only accounts have a placeholder e-mail, never shown)
 ```
 
 A phone number that has never signed in gets an empty account created so the first OTP sign-in lands on it. An e-mail must
@@ -76,7 +76,8 @@ The matrix is implemented in three places that must agree: the `min` role passed
   `select set_config('app.user_id', <uuid>, true), set_config('app.role', <role>, true)` (`withUserTx` in `server/src/db.ts`).
   `true` = transaction-local, so nothing leaks to the next request on a pooled connection.
 * `ENABLE` and `FORCE ROW LEVEL SECURITY` is on every user-data table: `users, households, events, entries, ledgers, profiles,
-  user_devices, user_activity_daily, refresh_tokens, support_tickets, ticket_notes, user_notes, support_access_grants`.
+  user_devices, user_activity_daily, auth_sessions, auth_accounts, auth_verifications, auth_rate_limits, support_tickets, ticket_notes, user_notes, support_access_grants`.
+  The four `auth_*` tables belong to Better Auth, which works before a user id is known: its statements run with `app.auth = '1'` (set per statement by `server/src/auth/dialect.ts`), which only those tables' policies (and the identity columns of `users`) admit. Sync, admin and support code never set it.
 * **Ledger tables** (`households, events, entries, ledgers`) and the synced profile: a row is visible/writable **only when
   `user_id = app.user_id`**. No policy grants viewer/support/admin/owner access to someone else's ledger rows. The sole exception is
   `SELECT` during an active support-access grant (below).
@@ -92,17 +93,16 @@ The matrix is implemented in three places that must agree: the `min` role passed
 | Function | Why it exists | Reach |
 | --- | --- | --- |
 | `auth_state(uuid)` | per-request: is the account suspended, what is its role? | one user's status + role |
-| `auth_find_or_create_user(...)` | Google/OTP sign-in runs before a user id is known | creates/returns the one matching user |
-| `auth_identity_owner(...)` | linking a second sign-in method: who owns this identity? | returns a user id |
-| `auth_refresh_lookup(hash)`, `auth_revoke_family(hash)` | refresh rotation / logout start from a token hash | one token family |
+| `auth_sync_google_sub()` (trigger) | keeps `users.google_sub` in step with the Google row in `auth_accounts` | one user's column |
 | `admin_user_counts(uuid)` | record counts for the user page | four integers (viewer+) |
+| `admin_active_sessions(uuid)` | live sessions for the user page | one integer (viewer+) |
 | `admin_set_user_status`, `admin_force_signout` | suspend / sign-out | support+ |
 | `admin_delete_user` | delete on request | admin+ |
 | `staff_list`, `staff_set_role` | role management | owner only |
 | `admin_migration_version()` | health page | text |
 | `analytics.*` | aggregates (below) | aggregates only |
 
-The pre-sign-in tables `otp_requests` / `otp_events` / `blocklist` are keyed by phone or IP, not by user, so they are not under RLS.
+The pre-sign-in tables `otp_events` / `blocklist` are keyed by phone or IP, not by user, so they are not under RLS.
 The `notra_system` role is `NOLOGIN` and cannot be reached except through these functions.
 
 ### Consented support access ("सहायता को मेरा डेटा 7 दिन दिखाएं")
@@ -159,7 +159,7 @@ admin response guard and the privacy test (below) are defence in depth, not the 
   forced. `server/test/ops.test.ts` proves k-anonymity (the switch from `<5` to a number happens at exactly 5 users).
   `cd server && npm test` runs all of it (also in the existing CI `server` job).
 
-## 4. Endpoints (`/admin/api`, `Authorization: Bearer <access token>`)
+## 4. Endpoints (`/admin/api`, `Authorization: Bearer <session token>` or the Better Auth cookie)
 
 Reads: `GET /me, /health, /errors, /overview, /users, /users/:id, /users/:id/notes (support+), /tickets, /tickets/:id, /config,
 /config-history, /abuse/otp, /abuse/blocklist, /reports, /reports/:name[?format=csv&from=&to=], /audit (admin+), /staff (owner),
@@ -180,14 +180,14 @@ app will show it.
 
 | Key | Use |
 | --- | --- |
-| `maintenance` `{enabled, message_hi, message_en}` | **On**: `/v1/auth/*` and `/v1/sync/*` answer **503** `{error:"maintenance", message_hi, message_en}` with `Retry-After`. `/v1/health`, `/v1/config`, the pages and the admin API stay up. The app keeps working offline. Needs a Hindi message; confirm dialog + reason. |
+| `maintenance` `{enabled, message_hi, message_en}` | **On**: `/api/auth/*` and `/v1/sync/*` answer **503** `{error:"maintenance", message_hi, message_en}` with `Retry-After`. `/v1/health`, `/v1/config`, the pages and the admin API stay up. The app keeps working offline. Needs a Hindi message; confirm dialog + reason. |
 | `min_supported_version`, `latest_version`, `force_update_message_hi` | **Force update**: the app compares its version with `min_supported_version` and blocks behind the message. `latest_version` only suggests an update. Rule: min must not be newer than latest. Publish the build to the Play Store **before** raising the minimum. Confirm dialog + reason. |
 | `announcement` `{enabled, message_hi, starts_at, ends_at, level}` | A home-screen banner (`info`, `warning`, `critical`) shown between the two times. |
 | `ads` `{enabled, banner, native, interstitial, rewarded, interstitial_min_interval_sec (30-86400), native_every_n_items (2-50), first_day_ads_free}` | Master switch plus formats and frequency. Defaults are all off. |
 | `features` `{web_app, ocr, invitation_cards}` | Flags. |
 
 Suspended users get **403** `{error:"account_suspended", message_hi:"आपका खाता अस्थायी रूप से रोका गया है। सहायता से संपर्क करें।"}`
-on sign-in, refresh and every sync request.
+on sign-in (Better Auth refuses to create the session) and on every sync request.
 
 ## 6. Support and grievances (DPDP)
 
@@ -212,11 +212,10 @@ turn it off when fixed. If a bad app build is the cause, raise `min_supported_ve
 
 **Account deletion request.** Confirm the requester (they can sign in, or you verify by phone: unmask is audited). User page >
 **Delete account**: reason + type `delete <first 8 characters of the user id>`. It erases the account, ledgers, households, events,
-entries, profile, tokens and OTP records in one transaction and is counted in the deletions report. Reply on the ticket and
+entries, profile, sessions, linked sign-ins and OTP records in one transaction and is counted in the deletions report. Reply on the ticket and
 resolve it within 30 days.
 
-**Lost phone / compromised account.** User page > Force sign-out (revokes refresh tokens; the current 15-minute access token may
-keep working) or Suspend (immediate, shows the Hindi message). Add an internal note.
+**Lost phone / compromised account.** User page > Force sign-out (deletes every session, so the phone is signed out on its next request) or Suspend (immediate, shows the Hindi message, and blocks signing in again). Add an internal note.
 
 **Someone left the team.** Staff & roles > Remove from staff (their account stays, role goes back to `user`). If it was a
 Google/phone you do not trust, also suspend the account.
@@ -239,12 +238,12 @@ CREATE ROLE notra_runtime LOGIN PASSWORD '<long random>' NOBYPASSRLS IN ROLE not
 
 ### Worker
 
-* Migrations `100_admin.sql`, `101_rls.sql`, `102_analytics.sql` (numbered 100+ so they never collide with app migrations 004+).
+* Migrations `100_admin.sql`, `101_rls.sql`, `102_analytics.sql`, `103_better_auth.sql` (numbered 100+ so they never collide with app migrations 004+).
 * `server/wrangler.toml`: Cron `45 0 * * *`, vars `ENVIRONMENT`, `SMS_COST_PAISE` (default 25), optional `ADMIN_ORIGIN`.
-* Secrets as before plus the two URLs above. Optional vars: `SERVER_VERSION` (shown on Monitoring).
+* Secrets: see docs/AUTH.md (`BETTER_AUTH_SECRET`, `DATABASE_URL`, `GOOGLE_CLIENT_IDS`, MSG91) plus the two URLs above. Optional vars: `SERVER_VERSION` (shown on Monitoring).
 * Serve the admin app and API from **one origin** if you can (route `admin.example.com/admin/api/*` to the Worker, everything else
-  to Pages): no CORS needed. If they differ, set `ADMIN_ORIGIN=https://admin.example.com` on the Worker (credentialed CORS is not
-  needed: the token is a Bearer header) and `VITE_API_BASE=https://api.example.com` at build time.
+  to Pages): no CORS needed. If they differ, set `ADMIN_ORIGIN=https://admin.example.com` on the Worker (the panel sends the Better Auth session token as a Bearer header; the Worker also allows credentialed CORS for that
+  exact origin so the cookie works when both are on one site) and `VITE_API_BASE=https://api.example.com` at build time.
 * Google sign-in on the web: create/reuse a **Web OAuth client**, add the admin origin to *Authorized JavaScript origins*, add the
   client id to the Worker's `GOOGLE_CLIENT_IDS` **and** set `VITE_GOOGLE_CLIENT_ID` for the admin build. Without it only mobile OTP is offered.
 
@@ -253,7 +252,7 @@ CREATE ROLE notra_runtime LOGIN PASSWORD '<long random>' NOBYPASSRLS IN ROLE not
 `npm run dev | typecheck | lint | test | build`. Tests are named `*.vtest.ts(x)` so the app's root Jest run (which ignores only `/server/`) does not pick them up. The workflow `.github/workflows/admin.yml` runs the checks on pushes touching
 `admin/**` and, from **Run workflow**, deploys with `npx wrangler@4 pages deploy admin/dist --project-name notra-admin`
 (secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`; optional repo variables `ADMIN_API_BASE`, `ADMIN_GOOGLE_CLIENT_ID`).
-The refresh token is kept in `sessionStorage` (cleared when the tab closes); the access token only in memory.
+The session token (from the `set-auth-token` header after sign-in) is kept in `sessionStorage` (cleared when the tab closes); the role is never stored client-side.
 
 ### Optional extra layer: Cloudflare Access
 

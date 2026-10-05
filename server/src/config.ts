@@ -6,9 +6,11 @@ import type { AdminDeps } from './admin/auth';
 export interface Env {
   DATABASE_URL?: string;
   HYPERDRIVE?: { connectionString: string };
-  JWT_SECRET: string;
-  OTP_PEPPER: string;
-  GOOGLE_CLIENT_IDS: string; // comma-separated OAuth client ids (web client id used by the app, etc.)
+  /** Better Auth signing/encryption secret (>= 32 chars). Rotating it signs everyone out. */
+  BETTER_AUTH_SECRET: string;
+  /** Public origin of this Worker, e.g. https://api.notra.app (Better Auth's baseURL; cookies and trusted origins derive from it). */
+  BETTER_AUTH_URL: string;
+  GOOGLE_CLIENT_IDS: string; // comma-separated OAuth client ids: the app's web + android + ios client ids, and the admin panel's web client id
   SMS_PROVIDER?: string; // "msg91" (default) | "dev"
   MSG91_AUTH_KEY?: string;
   MSG91_TEMPLATE_ID?: string;
@@ -23,18 +25,22 @@ export interface Env {
 }
 
 export interface Config {
-  jwtSecret: Uint8Array;
-  otpPepper: string;
+  authSecret: string;
+  authUrl: string;
   googleClientIds: string[];
+  /** Extra origins Better Auth accepts requests from (the admin panel); the app's own scheme is always trusted. */
+  trustedOrigins: string[];
 }
 
 export function loadConfig(env: Env): Config {
-  if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) throw new Error('JWT_SECRET must be set (>= 32 chars)');
-  if (!env.OTP_PEPPER || env.OTP_PEPPER.length < 16) throw new Error('OTP_PEPPER must be set (>= 16 chars)');
+  if (!env.BETTER_AUTH_SECRET || env.BETTER_AUTH_SECRET.length < 32) throw new Error('BETTER_AUTH_SECRET must be set (>= 32 chars)');
+  if (!env.BETTER_AUTH_URL || !/^https?:\/\//.test(env.BETTER_AUTH_URL)) throw new Error('BETTER_AUTH_URL must be set (https://...)');
+  const admin = env.ADMIN_ORIGIN?.trim().replace(/\/+$/, '');
   return {
-    jwtSecret: new TextEncoder().encode(env.JWT_SECRET),
-    otpPepper: env.OTP_PEPPER,
+    authSecret: env.BETTER_AUTH_SECRET,
+    authUrl: env.BETTER_AUTH_URL.replace(/\/+$/, ''),
     googleClientIds: (env.GOOGLE_CLIENT_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    trustedOrigins: admin ? [admin] : [],
   };
 }
 

@@ -1,5 +1,5 @@
 /** Support tickets (offline queue) and consented support access, over the app's api client. Every failure becomes a Hindi message. */
-import { getAuthUser, secureTokenStore } from '@/auth/session';
+import { getAuthUser } from '@/auth/session';
 import { getDb } from '@/db/database';
 import { getSetting, setSetting } from '@/db/repository';
 import type { Db } from '@/db/types';
@@ -31,7 +31,7 @@ async function send(t: QueuedTicket): Promise<SendResult> {
 export async function flushSupport(): Promise<number> {
   const db = await dbOf();
   const q = parseQueue(await getSetting(db, QUEUE_KEY));
-  if (!q.length || !(await secureTokenStore.get())) return q.length;
+  if (!q.length || !(await getAuthUser())) return q.length;
   const left = await flushQueue(q, send);
   if (left.length !== q.length) await setSetting(db, QUEUE_KEY, JSON.stringify(left));
   return left.length;

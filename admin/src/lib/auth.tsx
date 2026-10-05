@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api, hasRefreshToken, refreshSession, setSignedOutHandler, signOut as apiSignOut } from './api';
+import { api, hasSession, setSignedOutHandler, signOut as apiSignOut } from './api';
 import { can, isRole, type Action, type Role } from './roles';
 
 export interface Me { user_id: string; label: string; role: Role }
 interface AuthState {
   me: Me | null;
-  /** true while the stored refresh token is being exchanged on first load */
+  /** true while a stored session is being checked on first load */
   loading: boolean;
   /** Call after a successful sign-in to load the role. Throws if the account is not staff. */
   load: () => Promise<Me>;
@@ -17,7 +17,7 @@ const Ctx = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
-  const [loading, setLoading] = useState(hasRefreshToken());
+  const [loading, setLoading] = useState(hasSession());
 
   const load = useCallback(async () => {
     const r = await api<{ user_id: string; label: string; role: string }>('/admin/api/me');
@@ -34,11 +34,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setSignedOutHandler(() => setMe(null));
-    if (!hasRefreshToken()) return () => setSignedOutHandler(null);
+    if (!hasSession()) return () => setSignedOutHandler(null);
     let alive = true;
     void (async () => {
       try {
-        if (await refreshSession()) await load();
+        await load();
       } catch {
         /* show the sign-in page */
       } finally {

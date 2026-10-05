@@ -35,7 +35,7 @@ function useGoogleButton(onCredential: (idToken: string) => void) {
   return ref;
 }
 
-/** Same sign-in as the app: Google (ID token -> /v1/auth/google) or mobile OTP. Your role is read from the server after sign-in. */
+/** Same sign-in as the app, through Better Auth: Google (ID token -> /api/auth/sign-in/social) or mobile OTP (/api/auth/phone-number/*). Your role is read from the server after sign-in. */
 export default function Login() {
   const { me, load } = useAuth();
   const [phone, setPhone] = useState('');

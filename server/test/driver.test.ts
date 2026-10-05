@@ -12,7 +12,7 @@ import { fromPostgres } from '../src/db';
 import { createApp } from '../src/app';
 import { FakeSms, makeGoogle } from './helpers';
 
-it('the postgres driver adapter: sign-in, push, pull, refresh rotation', async () => {
+it('the postgres driver adapter: Better Auth sign-in, push, pull, sign-out, delete', async () => {
   const pg = new PGlite();
   for (const f of readdirSync(MIG).sort()) await pg.exec(readFileSync(MIG + '/' + f, 'utf8'));
   const server = new PGLiteSocketServer({ db: pg, port: PORT, host: '127.0.0.1' });
@@ -22,11 +22,16 @@ it('the postgres driver adapter: sign-in, push, pull, refresh rotation', async (
   await sql.unsafe('SET ROLE notra_app');
   const sms = new FakeSms();
   const g = await makeGoogle();
-  const app = createApp({ db: fromPostgres(sql), sms, googleKeys: g.keys, config: { jwtSecret: new TextEncoder().encode('x'.repeat(40)), otpPepper: 'p'.repeat(20), googleClientIds: ['test-client.apps.googleusercontent.com'] } });
-  const call = async (m: string, p: string, body?: any, token?: string) => { const r = await app.request(p, { method: m, headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: body ? JSON.stringify(body) : undefined }); return { s: r.status, j: await r.json() as any }; };
-  expect((await call('POST', '/v1/auth/otp/start', { phone: '9876543210' })).s).toBe(200);
-  const v = await call('POST', '/v1/auth/otp/verify', { phone: '9876543210', code: sms.last().code });
+  const app = createApp({ db: fromPostgres(sql), sms, googleKeys: g.keys, config: { authSecret: 'x'.repeat(40), authUrl: 'http://localhost:8787', googleClientIds: ['test-client.apps.googleusercontent.com'], trustedOrigins: [] } });
+  const call = async (m: string, p: string, body?: any, token?: string) => { const r = await app.request(p, { method: m, headers: { 'content-type': 'application/json', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: body ? JSON.stringify(body) : undefined }); return { s: r.status, j: await r.json() as any, tok: r.headers.get('set-auth-token') }; };
+  expect((await call('POST', '/api/auth/phone-number/send-otp', { phoneNumber: '9876543210' })).s).toBe(200);
+  const v = await call('POST', '/api/auth/phone-number/verify', { phoneNumber: '9876543210', code: sms.last().code });
   expect(v.s).toBe(200);
+  v.j.accessToken = v.tok;
+  // Google through the real driver too (timestamptz / boolean parameters, ON CONFLICT, RETURNING)
+  const gs = await call('POST', '/api/auth/sign-in/social', { provider: 'google', idToken: { token: await g.sign({ sub: 'drv-g' }) } });
+  expect(gs.s).toBe(200);
+  expect((await call('GET', '/v1/me', undefined, gs.tok!)).j.user).toMatchObject({ hasGoogle: true });
   const id = '00000000-0000-4000-8000-000000000001';
   const T = '2026-01-01T00:00:00.000Z';
   const p = await call('POST', '/v1/sync/push', { households: [{ id, headName: 'a', fatherName: 'b', jati: 'c', atak: 'd', village: 'e', fala: 'f', phone: null, createdAt: T, updatedAt: T }], entries: [{ id: id.replace(/1$/, '2'), eventId: id.replace(/1$/, '3'), otherHouseholdId: id, direction: 'AAYA', cashPaise: 100, inKindItem: null, inKindValuePaise: 0, paymentMode: 'CASH', recordedBy: 'x', createdAt: T, correctsEntryId: null, isVoid: false }] }, v.j.accessToken);
@@ -38,12 +43,13 @@ it('the postgres driver adapter: sign-in, push, pull, refresh rotation', async (
   const prof = { myHouseholdId: id, increment: { type: 'PERCENT', pct: 10 }, updatedAt: T };
   expect((await call('POST', '/v1/sync/push', { profile: prof }, v.j.accessToken)).j.accepted.profile).toBe(1);
   expect((await call('GET', '/v1/sync/pull?since=0', undefined, v.j.accessToken)).j.profile).toEqual(prof);
-  const r1 = await call('POST', '/v1/auth/refresh', { refreshToken: v.j.refreshToken });
-  expect(r1.s).toBe(200);
-  expect((await call('POST', '/v1/auth/refresh', { refreshToken: v.j.refreshToken })).s).toBe(401);
+  expect((await call('GET', '/v1/me', undefined, v.j.accessToken)).s).toBe(200);
+  const out = await call('POST', '/api/auth/sign-out', {}, gs.tok!);
+  expect(out.s).toBe(200);
+  expect((await call('GET', '/v1/me', undefined, gs.tok!)).s).toBe(401);
   expect((await call('DELETE', '/v1/account', undefined, v.j.accessToken)).s).toBe(200);
   await pg.exec('RESET ROLE');
-  expect((await sql`SELECT (SELECT count(*) FROM users)::int AS u, (SELECT count(*) FROM households)::int AS h, (SELECT count(*) FROM profiles)::int AS p, (SELECT count(*) FROM otp_requests)::int AS o`)[0]).toEqual({ u: 0, h: 0, p: 0, o: 0 });
+  expect((await sql`SELECT (SELECT count(*) FROM users)::int AS u, (SELECT count(*) FROM households)::int AS h, (SELECT count(*) FROM profiles)::int AS p, (SELECT count(*) FROM auth_sessions WHERE user_id IN (SELECT id FROM users WHERE phone_e164 IS NOT NULL))::int AS o`)[0]).toEqual({ u: 1, h: 0, p: 0, o: 0 }); // only the Google user is left
   expect((await call('POST', '/v1/sync/push', { households: [{ id, headName: 'a', fatherName: 'b', jati: 'c', atak: 'd', village: 'e', fala: 'f', phone: null, createdAt: T, updatedAt: T }] }, v.j.accessToken)).s).toBe(401);
   await sql.end(); await server.stop();
 }, 60000);
@@ -58,11 +64,12 @@ it('the admin API through the real postgres driver as the restricted role (bigin
   const g = await makeGoogle();
   const app = createApp({
     db: fromPostgres(sql), sms, googleKeys: g.keys, admin: { smsCostPaise: 25, serverVersion: 'drv' },
-    config: { jwtSecret: new TextEncoder().encode('x'.repeat(40)), otpPepper: 'p'.repeat(20), googleClientIds: ['test-client.apps.googleusercontent.com'] },
+    config: { authSecret: 'x'.repeat(40), authUrl: 'http://localhost:8787', googleClientIds: ['test-client.apps.googleusercontent.com'], trustedOrigins: [] },
   });
-  const call = async (m: string, p: string, body?: any, token?: string) => { const r = await app.request(p, { method: m, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '10.1.1.1', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: body ? JSON.stringify(body) : undefined }); return { s: r.status, j: await r.json().catch(() => null) as any }; };
-  await call('POST', '/v1/auth/otp/start', { phone: '9876543210' });
-  const v = await call('POST', '/v1/auth/otp/verify', { phone: '9876543210', code: sms.last().code });
+  const call = async (m: string, p: string, body?: any, token?: string) => { const r = await app.request(p, { method: m, headers: { 'content-type': 'application/json', 'cf-connecting-ip': '10.1.1.1', ...(token ? { authorization: 'Bearer ' + token } : {}) }, body: body ? JSON.stringify(body) : undefined }); return { s: r.status, j: await r.json().catch(() => null) as any, tok: r.headers.get('set-auth-token') }; };
+  await call('POST', '/api/auth/phone-number/send-otp', { phoneNumber: '9876543210' });
+  const v = await call('POST', '/api/auth/phone-number/verify', { phoneNumber: '9876543210', code: sms.last().code });
+  v.j.accessToken = v.tok;
   await sql`INSERT INTO profiles (user_id, updated_at, server_seq, role) VALUES (${v.j.user.id}, '1970-01-01T00:00:00.000Z', 0, 'owner')`;
   await sql.unsafe('SET ROLE notra_app');
   const tok = v.j.accessToken;

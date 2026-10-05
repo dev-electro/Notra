@@ -70,7 +70,7 @@ describe('remote config', () => {
     const u = await signInWithPhone(t, nextPhone());
     const on = await put(t, owner.accessToken, 'maintenance', { enabled: true, message_hi: 'रखरखाव चल रहा है', message_en: 'Down for maintenance' });
     expect(on.status).toBe(200);
-    for (const [m, p, body] of [['POST', '/v1/sync/push', {}], ['GET', '/v1/sync/pull', undefined], ['POST', '/v1/auth/otp/start', { phone: '9876543210' }], ['POST', '/v1/auth/refresh', { refreshToken: u.refreshToken }]] as const) {
+    for (const [m, p, body] of [['POST', '/v1/sync/push', {}], ['GET', '/v1/sync/pull', undefined], ['POST', '/api/auth/phone-number/send-otp', { phoneNumber: '9876543210' }], ['POST', '/api/auth/sign-out', {}], ['POST', '/api/auth/sign-in/social', { provider: 'google', idToken: { token: 'x' } }]] as const) {
       const r = await t.call(m, p, { token: u.accessToken, body });
       expect(r.status, p).toBe(503);
       expect(r.json).toMatchObject({ error: 'maintenance', message_hi: 'रखरखाव चल रहा है', message_en: 'Down for maintenance' });
@@ -139,8 +139,8 @@ describe('abuse control: blocklist', () => {
     const tok = support.accessToken;
     const phone = '9811111111';
     // OTP activity is recorded
-    await t.call('POST', '/v1/auth/otp/start', { body: { phone } });
-    await t.call('POST', '/v1/auth/otp/verify', { body: { phone, code: '000000' } });
+    await t.call('POST', '/api/auth/phone-number/send-otp', { body: { phoneNumber: phone } });
+    await t.call('POST', '/api/auth/phone-number/verify', { body: { phoneNumber: phone, code: '000000' } });
     const stats = await t.call('GET', `${A}/abuse/otp`, { token: tok });
     const today = stats.json.per_day[stats.json.per_day.length - 1];
     expect(today).toMatchObject({ sends: 2, verify_failures: 1 }); // 2 = the staff sign-in + this one
@@ -151,13 +151,13 @@ describe('abuse control: blocklist', () => {
     // block by phone (typed)
     const b = await t.call('POST', `${A}/abuse/blocklist`, { token: tok, body: { kind: 'phone', value: phone, reason: 'sms bombing' } });
     expect(b.status).toBe(201);
-    for (const p of ['/v1/auth/otp/start', '/v1/auth/otp/verify']) {
-      const r = await t.call('POST', p, { body: { phone, code: '123456' } });
+    for (const p of ['/api/auth/phone-number/send-otp', '/api/auth/phone-number/verify']) {
+      const r = await t.call('POST', p, { body: { phoneNumber: phone, code: '123456' } });
       expect(r.status, p).toBe(403);
       expect(r.json.error).toBe('blocked');
     }
     expect(((await t.pg.query(`SELECT count(*)::int AS n FROM otp_events WHERE kind = 'blocked'`)).rows[0] as { n: number }).n).toBe(2);
-    expect((await t.call('POST', '/v1/auth/otp/start', { body: { phone: '9822222222' } })).status).toBe(200); // others unaffected
+    expect((await t.call('POST', '/api/auth/phone-number/send-otp', { body: { phoneNumber: '9822222222' } })).status).toBe(200); // others unaffected
     // block by ref (picked from the masked top list)
     const ref = stats.json.top_phones.find((p: any) => p.sends >= 1).ref;
     expect((await t.call('POST', `${A}/abuse/blocklist`, { token: tok, body: { kind: 'phone', ref, reason: 'picked from list' } })).status).toBe(201);
@@ -165,15 +165,15 @@ describe('abuse control: blocklist', () => {
 
     // lift
     expect((await t.call('DELETE', `${A}/abuse/blocklist/${b.json.id}`, { token: tok, body: { reason: 'false alarm' } })).status).toBe(200);
-    await t.pg.query(`UPDATE otp_requests SET created_at = created_at - interval '1 hour'`);
-    expect((await t.call('POST', '/v1/auth/otp/start', { body: { phone } })).status).toBe(200);
+    await t.pg.query(`UPDATE otp_events SET at = at - interval '1 hour'`);
+    expect((await t.call('POST', '/api/auth/phone-number/send-otp', { body: { phoneNumber: phone } })).status).toBe(200);
 
     // IP block, then expiry
     expect((await t.call('POST', `${A}/abuse/blocklist`, { token: tok, body: { kind: 'ip', value: '198.51.100.7', reason: 'flood', expires_in_hours: 1 } })).status).toBe(201);
-    expect((await t.call('POST', '/v1/auth/otp/start', { body: { phone: '9833333333' }, ip: '198.51.100.7' })).status).toBe(403);
-    expect((await t.call('POST', '/v1/auth/otp/verify', { body: { phone: '9833333333', code: '123456' }, ip: '198.51.100.7' })).status).toBe(403);
+    expect((await t.call('POST', '/api/auth/phone-number/send-otp', { body: { phoneNumber: '9833333333' }, ip: '198.51.100.7' })).status).toBe(403);
+    expect((await t.call('POST', '/api/auth/phone-number/verify', { body: { phoneNumber: '9833333333', code: '123456' }, ip: '198.51.100.7' })).status).toBe(403);
     await t.pg.query(`UPDATE blocklist SET expires_at = now() - interval '1 minute' WHERE kind = 'ip'`);
-    expect((await t.call('POST', '/v1/auth/otp/start', { body: { phone: '9833333333' }, ip: '198.51.100.7' })).status).toBe(200);
+    expect((await t.call('POST', '/api/auth/phone-number/send-otp', { body: { phoneNumber: '9833333333' }, ip: '198.51.100.7' })).status).toBe(200);
     // validation
     expect((await t.call('POST', `${A}/abuse/blocklist`, { token: tok, body: { kind: 'ip', value: 'not-an-ip', reason: 'bad input' } })).status).toBe(400);
     expect((await t.call('POST', `${A}/abuse/blocklist`, { token: tok, body: { kind: 'phone', value: '12345', reason: 'bad input' } })).status).toBe(400);

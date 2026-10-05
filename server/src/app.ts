@@ -3,11 +3,9 @@ import { cors } from 'hono/cors';
 import type { JWTVerifyGetKey } from 'jose';
 import { createAdminApi } from './admin/api';
 import type { AdminDeps } from './admin/auth';
-import { verifyGoogleIdToken } from './auth/google';
-import { normalizeIndianMobile } from './auth/phone';
-import { startOtp, verifyOtp } from './auth/otp';
+import { AUTH_BASE_PATH, createAuth, type Auth } from './auth/better-auth';
+import { normalizeAuthResponse } from './auth/errors';
 import type { SmsProvider } from './auth/sms';
-import { ACCESS_TTL_S, issueRefreshToken, revokeFamilyOf, rotateRefreshToken, signAccessToken, verifyAccessToken } from './auth/tokens';
 import { getMaintenance, publicConfig } from './appconfig';
 import type { Config } from './config';
 import { withUserTx, type Db } from './db';
@@ -17,7 +15,7 @@ import { PAGE_HEADERS, renderPage } from './pages';
 import { activeGrant, grantAccess, parseTicketInput, revokeAccess, submitFromApp } from './support';
 import { enforceDirections, pullRows, pushRows } from './sync';
 import { countSyncError, logError, parseClientInfo, touchActivity } from './telemetry';
-import { authState, findOrCreateUser, getUser, linkIdentity, publicUser, type UserRow } from './users';
+import { authState, getUser, publicUser } from './users';
 import { parsePull, validatePush } from './validate';
 
 export interface Deps {
@@ -28,6 +26,8 @@ export interface Deps {
   now?: () => Date;
   /** Admin panel settings. Without it /admin/api is not mounted. */
   admin?: AdminDeps;
+  /** Tests may pass a prebuilt Better Auth instance; by default one is created from `config`, `sms` and `googleKeys`. */
+  auth?: Auth;
 }
 
 type Vars = { Variables: { userId: string; role: string } };
@@ -38,6 +38,7 @@ export function createApp(deps: Deps): Hono<Vars> {
   const app = new Hono<Vars>();
   const now = () => (deps.now ?? (() => new Date()))();
   const suspended = () => new ApiError(403, 'account_suspended', { message_hi: SUSPENDED_MESSAGE_HI });
+  const auth = deps.auth ?? createAuth({ db: deps.db, config: deps.config, sms: deps.sms, googleKeys: deps.googleKeys }, SUSPENDED_MESSAGE_HI);
 
   app.onError(async (err, c) => {
     if (err instanceof ApiError) {
@@ -77,12 +78,15 @@ export function createApp(deps: Deps): Hono<Vars> {
     if (m.enabled) throw new ApiError(503, 'maintenance', { message_hi: m.message_hi, message_en: m.message_en, retryAfter: 300 });
     await next();
   };
-  app.use('/v1/auth/*', maintenance);
+  app.use(`${AUTH_BASE_PATH}/*`, maintenance);
   app.use('/v1/sync/*', maintenance);
 
   if (deps.admin?.allowedOrigin) {
-    // The admin web app signs in through the normal auth endpoints from its own origin.
-    app.use('/v1/auth/*', cors({ origin: deps.admin.allowedOrigin, allowHeaders: ['authorization', 'content-type', 'x-app-version', 'x-platform'], maxAge: 600 }));
+    // The admin web app signs in through Better Auth from its own origin (cookie session, or the Bearer token from `set-auth-token`).
+    app.use(`${AUTH_BASE_PATH}/*`, cors({
+      origin: deps.admin.allowedOrigin, credentials: true, exposeHeaders: ['set-auth-token'],
+      allowHeaders: ['authorization', 'content-type', 'x-app-version', 'x-platform', 'x-os-version'], maxAge: 600,
+    }));
   }
 
   async function body(c: Context): Promise<unknown> {
@@ -99,29 +103,18 @@ export function createApp(deps: Deps): Hono<Vars> {
   const field = (b: unknown, k: string): unknown => (typeof b === 'object' && b !== null ? (b as Record<string, unknown>)[k] : undefined);
   const info = (c: Context) => parseClientInfo((n) => c.req.header(n));
 
-  /** Issue tokens and note the sign-in (device + activity). A suspended account gets 403 here: no new session. */
-  async function session(c: Context, user: UserRow) {
-    if (user.status === 'suspended') throw suspended();
-    const refresh = await withUserTx(deps.db, user.id, 'user', async (q) => {
-      await touchActivity(q, user.id, info(c), false);
-      return issueRefreshToken(q, user.id);
-    });
-    return {
-      accessToken: await signAccessToken(user.id, deps.config.jwtSecret, now()),
-      refreshToken: refresh.token,
-      expiresIn: ACCESS_TTL_S,
-      user: publicUser(user),
-    };
-  }
+  /** The signed-in user id (Better Auth session from the cookie or `Authorization: Bearer <session token>`), or null. */
+  const sessionUser = async (c: Context): Promise<string | null> => {
+    const s = await auth.api.getSession({ headers: c.req.raw.headers });
+    return s?.user.id ?? null;
+  };
 
-  /** Verifies the access token, then asks the database (not the token) whether the account is suspended and what staff role it has. */
+  /** Resolves the Better Auth session, then asks the database (not the session) whether the account is suspended and what staff role it has. */
   const requireAuth = async (c: Context<Vars>, next: () => Promise<void>) => {
-    const h = c.req.header('authorization') ?? '';
-    const m = /^Bearer (\S+)$/.exec(h);
-    if (!m) throw new ApiError(401, 'unauthorized');
-    const userId = await verifyAccessToken(m[1]!, deps.config.jwtSecret, now());
+    const userId = await sessionUser(c);
+    if (!userId) throw new ApiError(401, 'unauthorized');
     const st = await authState(deps.db, userId);
-    // A token for a deleted account is "signed out" (401), except that deleting an already-deleted account stays idempotent (200).
+    // A session for a deleted account is "signed out" (401), except that deleting an already-deleted account stays idempotent (200).
     if (!st && !(c.req.method === 'DELETE' && c.req.path === '/v1/account')) throw new ApiError(401, 'unauthorized');
     if (st?.status === 'suspended') throw suspended();
     c.set('userId', userId);
@@ -135,72 +128,25 @@ export function createApp(deps: Deps): Hono<Vars> {
   // Remote config for the app: public subset only, no auth, cached for 5 minutes.
   app.get('/v1/config', async (c) => c.json(await publicConfig(deps.db, now()), 200, { 'cache-control': 'public, max-age=300' }));
 
-  // ---- sign-in ----
-  app.post('/v1/auth/google', async (c) => {
-    const g = await verifyGoogleIdToken(field(await body(c), 'idToken'), deps.config.googleClientIds, deps.googleKeys, now());
-    const user = await findOrCreateUser(deps.db, { googleSub: g.sub, name: g.name, email: g.email });
-    return c.json(await session(c, user));
+  // ---- sign-in: Better Auth (Google ID token, phone OTP, sessions, sign-out, linking) at /api/auth/* ----
+  // The native app sends the Expo client's `expo-origin` header instead of Origin; Better Auth's CSRF check needs an Origin.
+  app.on(['GET', 'POST'], `${AUTH_BASE_PATH}/*`, async (c) => {
+    let req = c.req.raw;
+    const expoOrigin = req.headers.get('expo-origin');
+    if (expoOrigin && !req.headers.get('origin')) {
+      const headers = new Headers(req.headers);
+      headers.set('origin', expoOrigin);
+      req = new Request(req, { headers });
+    }
+    return normalizeAuthResponse(await auth.handler(req));
   });
 
-  const phoneOf = (b: unknown) => {
-    const p = normalizeIndianMobile(field(b, 'phone'));
-    if (!p) throw new ApiError(400, 'invalid_phone');
-    return p;
-  };
-  const clientIp = (c: Context) => c.req.header('cf-connecting-ip') ?? 'unknown';
-
-  app.post('/v1/auth/otp/start', async (c) => {
-    const phone = phoneOf(await body(c));
-    return c.json({ ok: true, ...(await startOtp(deps.db, deps.sms, deps.config.otpPepper, phone, clientIp(c))) });
-  });
-
-  app.post('/v1/auth/otp/verify', async (c) => {
-    const b = await body(c);
-    const phone = phoneOf(b);
-    await verifyOtp(deps.db, deps.config.otpPepper, phone, field(b, 'code'), clientIp(c));
-    return c.json(await session(c, await findOrCreateUser(deps.db, { phone })));
-  });
-
-  app.post('/v1/auth/refresh', async (c) => {
-    const token = field(await body(c), 'refreshToken');
-    if (typeof token !== 'string' || token.length < 20 || token.length > 200) throw new ApiError(401, 'invalid_refresh_token');
-    // The reuse-detection revocation must commit even though we answer 401, so rotate in its own transaction and
-    // return a value instead of throwing inside it.
-    const r = await deps.db.tx((q) => rotateRefreshToken(q, token));
-    if (!r.ok) throw new ApiError(401, 'invalid_refresh_token');
-    const user = await withUserTx(deps.db, r.userId, 'user', async (q) => {
-      await touchActivity(q, r.userId, info(c), false);
-      return getUser(q, r.userId);
-    });
-    if (!user) throw new ApiError(401, 'invalid_refresh_token');
-    if (user.status === 'suspended') throw suspended();
-    return c.json({
-      accessToken: await signAccessToken(user.id, deps.config.jwtSecret, now()),
-      refreshToken: r.token,
-      expiresIn: ACCESS_TTL_S,
-      user: publicUser(user),
-    });
-  });
-
-  app.post('/v1/auth/logout', async (c) => {
-    const token = field(await body(c), 'refreshToken');
-    if (typeof token === 'string' && token.length <= 200) await revokeFamilyOf(deps.db, token);
-    return c.json({ ok: true });
-  });
-
-  // ---- link a second sign-in method to the signed-in user ----
-  app.post('/v1/auth/link/google', requireAuth, async (c) => {
-    const g = await verifyGoogleIdToken(field(await body(c), 'idToken'), deps.config.googleClientIds, deps.googleKeys, now());
+  // Who am I (the app reads this right after sign-in and after linking a second method).
+  app.get('/v1/me', requireAuth, async (c) => {
     const uid = c.get('userId');
-    return c.json({ user: publicUser(await withUserTx(deps.db, uid, 'user', (q) => linkIdentity(q, uid, { googleSub: g.sub, name: g.name, email: g.email }))) });
-  });
-
-  app.post('/v1/auth/link/phone', requireAuth, async (c) => {
-    const b = await body(c);
-    const phone = phoneOf(b);
-    await verifyOtp(deps.db, deps.config.otpPepper, phone, field(b, 'code'), clientIp(c));
-    const uid = c.get('userId');
-    return c.json({ user: publicUser(await withUserTx(deps.db, uid, 'user', (q) => linkIdentity(q, uid, { phone }))) });
+    const user = await withUserTx(deps.db, uid, 'user', (q) => getUser(q, uid));
+    if (!user) throw new ApiError(401, 'unauthorized');
+    return c.json({ user: publicUser(user) });
   });
 
   // ---- sync (every query is scoped by the token's user id, and by Row Level Security) ----
@@ -255,7 +201,7 @@ export function createApp(deps: Deps): Hono<Vars> {
   });
 
   // ---- admin API (staff only; see server/src/admin) ----
-  if (deps.admin) app.route('/admin/api', createAdminApi(deps, deps.admin).app as unknown as Hono<Vars>);
+  if (deps.admin) app.route('/admin/api', createAdminApi(deps, deps.admin, auth).app as unknown as Hono<Vars>);
 
   // ---- public pages the Play listing links to ----
   const page = (path: string, id: Parameters<typeof renderPage>[0]) =>

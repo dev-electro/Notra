@@ -33,3 +33,7 @@ export function maskContact(c: string | null | undefined): string | null {
   if (digits.length >= 10) return maskPhone(`+${digits.length === 10 ? '91' : ''}${digits}`);
   return DOT.repeat(4);
 }
+
+/** Phone-only accounts carry a placeholder e-mail (Better Auth requires one per user). It is not an e-mail: show nothing. */
+export const PLACEHOLDER_EMAIL = /@phone\.notra\.invalid$/;
+export const realEmail = (e: string | null | undefined): string | null => (!e || PLACEHOLDER_EMAIL.test(e) ? null : e);

@@ -133,8 +133,8 @@ export default function UserDetail() {
       <ConfirmDialog open={dialog === 'unsuspend'} title="Unsuspend this account?" needReason confirmLabel="Unsuspend" onCancel={() => setDialog(null)}
         onConfirm={async ({ reason }) => { await post('unsuspend', { reason }, 'Account unsuspended.'); setDialog(null); }} />
       <ConfirmDialog open={dialog === 'signout'} title="Force sign-out on all devices?" needReason confirmLabel="Sign out" onCancel={() => setDialog(null)}
-        body="All refresh tokens are revoked. The phone's current session can still work for up to 15 minutes; suspend the account for an immediate stop."
-        onConfirm={async ({ reason }) => { await post('signout', { reason }, 'Refresh tokens revoked.'); setDialog(null); }} />
+        body="All of the person's sessions are deleted now: every phone is signed out on its next request (the diary on the phone is untouched). They can sign in again; suspend the account to stop that."
+        onConfirm={async ({ reason }) => { await post('signout', { reason }, 'Signed out on all devices.'); setDialog(null); }} />
       <ConfirmDialog open={dialog === 'delete'} title="Delete this account and all its data?" needReason danger confirmLabel="Delete forever" typeToConfirm={`delete ${id.slice(0, 8)}`} onCancel={() => setDialog(null)}
         body="This permanently erases the user's account, ledgers, households, events and entries from the server (their phone keeps its local copy). It cannot be undone."
         onConfirm={async ({ reason, typed }) => { await post('delete', { reason, confirm: typed }, 'Account deleted.'); nav('/users'); }} />

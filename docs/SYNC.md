@@ -41,7 +41,7 @@ flowchart LR
   signed in, `syncPaused()` (remote maintenance on, or account suspended), `SignedOutError`, `SuspendedError`.
 - `syncOnce` = `pushDirty` then `pullAll`, then `last_sync_at`.
 - Settings polls the status every 3 s while open; "अभी बैकअप लें" calls `syncSoon()`.
-- Maintenance mode: the server answers `503 maintenance` for `/v1/auth/*` and `/v1/sync/*`; the app also stops trying while
+- Maintenance mode: the server answers `503 maintenance` for `/api/auth/*` and `/v1/sync/*`; the app also stops trying while
   `config.maintenance.enabled`. The diary is unaffected.
 
 ## 3. Push
@@ -151,7 +151,7 @@ if it arrives first, so restore while online).
 
 Answers: **जोड़ें (merge)**: `user_id` set, `cursor = 0`, every household/event/entry/personal ledger and the profile marked dirty with
 `sync_error` cleared, so this phone's data is added to the account. **पहले फ़ोन साफ़ करें (wipe)**: `clearAllLocalData`, then restore the
-account's data. **रद्द करें (cancel)** or dismissing: nothing changes, the new session is logged out (`/v1/auth/logout`) and the person sees
+account's data. **रद्द करें (cancel)** or dismissing: nothing changes, the new session is signed out on the server (`/api/auth/sign-out`) and cleared on the phone and the person sees
 `CANCELLED_MESSAGE`. `deleteMyAccount` calls `releaseOwner` so the leftover local data counts as "never synced".
 
 ## 8. Backup file merge (offline path)
@@ -168,7 +168,7 @@ picks them up, PINs untouched, rows pointing at an unknown ledger/household are 
 | "N एंट्री नहीं भेजी जा सकीं" | server rejected rows (`sync_error`) | `/sync-errors` shows the reason: `invalid_payload:<field>` (bad data), `invalid_payload:direction` (event host vs direction mismatch, e.g. "my household" differs between devices) |
 | Rejected `direction` after restore | profile `my_household_id` differs from the device that wrote the entries | confirm the `profiles` row; the app that wrote the entry used another "me" |
 | 413 `too_large` | body over ~1 MB (very long text fields in a 500-row batch) | rows are capped per field; reduce batch only if fields are huge |
-| 401 loops | refresh failed -> `SignedOutError` -> sync stops, tokens cleared | sign in again; local data is untouched |
+| 401 loops | the server rejected the session -> `SignedOutError` -> sync stops, session cleared | sign in again; local data is untouched |
 | 403 `account_suspended` | staff suspended the account | `SuspendedError`: sync stops, Hindi message shown, local use continues |
 | 503 `maintenance` | remote config maintenance on | turn off in the admin panel |
 | Cursor stuck, `hasMore` true forever | would require `nextCursor <= cursor`; the loop exits | investigate server `server_seq` ordering; run a pull with `since=0` in a test account |

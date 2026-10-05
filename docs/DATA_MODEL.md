@@ -290,10 +290,12 @@ Not stored on the server: `photo_uri`, `voice_note_uri`, `lekhak_name`, PINs, `p
 ### 3.2 Identity tables (001, 100)
 
 `users` (`id`, `google_sub` unique, `phone_e164` unique, `display_name`, `created_at`; 100 adds `email`, `signup_method`, `status`
-active/suspended, `suspended_at`, `suspended_reason`), `refresh_tokens`, `otp_requests`. **Sign-in is moving to Better Auth on Neon**
-(see [DECISIONS.md](DECISIONS.md) ADR-021 and `docs/AUTH.md`); these three tables belong to the custom implementation being replaced, so
-their internals are intentionally not documented here. Whatever replaces them, the `users` id remains the `user_id` of every synced row,
-and `users.status` / `profiles.role` remain the database authority for suspension and staff roles.
+active/suspended, `suspended_at`, `suspended_reason`; 103 adds `email_verified`, `image`, `updated_at`, `phone_verified`). Since 103 this is
+**Better Auth's `user` table** (same uuid ids; see [DECISIONS.md](DECISIONS.md) ADR-021 and `docs/AUTH.md`), and `001`'s `otp_requests` and
+`refresh_tokens` no longer exist. Better Auth's own tables are `auth_sessions`, `auth_accounts` (Google: `provider_id = 'google'`, `account_id` =
+Google `sub`; a trigger keeps `users.google_sub` in step), `auth_verifications` (OTPs in flight) and `auth_rate_limits`, all under forced RLS that
+only the auth context (`app.auth = '1'`) or the owner of a row may use. The `users` id is still the `user_id` of every synced row, and
+`users.status` / `profiles.role` remain the database authority for suspension and staff roles.
 
 ### 3.3 Admin, support, config, monitoring tables (100)
 
@@ -320,10 +322,9 @@ Summarised here; full model in [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md).
 
 - Roles `notra_app` (NOLOGIN group the runtime LOGIN role belongs to) and `notra_system` (NOLOGIN, owns the `SECURITY DEFINER` functions).
 - `ENABLE` + `FORCE ROW LEVEL SECURITY` on `users, households, events, entries, ledgers, profiles, user_devices, user_activity_daily,
-  refresh_tokens, support_tickets, ticket_notes, user_notes, support_access_grants`.
+  support_tickets, ticket_notes, user_notes, support_access_grants`, and (103) `auth_sessions, auth_accounts, auth_verifications, auth_rate_limits`.
 - Helper functions `app_user()`, `app_role()`, `app_role_rank()`, `app_require_role()`, `app_sees_meta()`, `app_is_staff()`,
-  `app_has_grant()`; sign-in/staff functions `auth_state`, `auth_find_or_create_user`, `auth_identity_owner`, `auth_refresh_lookup`,
-  `auth_revoke_family`, `admin_user_counts`, `admin_set_user_status`, `admin_force_signout`, `admin_delete_user`, `staff_list`,
+  `app_has_grant()`; sign-in/staff functions `auth_state`, `admin_user_counts`, `admin_active_sessions`, `admin_set_user_status`, `admin_force_signout`, `admin_delete_user`, `staff_list`,
   `staff_set_role`, `admin_migration_version`.
 - Schema `analytics` (102): `k()` = 5, view `effective_entries` (not voided, not superseded), functions `events_per_month`,
   `events_by_occasion`, `entries_per_event`, `amount_buckets`, `entry_mix`, `region_distribution`, `retention`, `app_versions`,
@@ -333,14 +334,14 @@ Summarised here; full model in [SECURITY_PRIVACY.md](SECURITY_PRIVACY.md).
 
 | File | What changed |
 | --- | --- |
-| `001_auth.sql` | `users`, `otp_requests`, `refresh_tokens` (identity) |
+| `001_auth.sql` | `users`, `otp_requests`, `refresh_tokens` (identity; the last two were dropped by 103) |
 | `002_sync.sql` | `sync_seq`, `households`, `events`, `entries` with CHECKs and per-user seq indexes |
 | `003_profile_ledgers_account.sql` | `ledger_id` on events/entries (default = household ledger id), `ledgers`, `profiles` |
 | `004_stage7.sql` | six-value occasion CHECK, `occasion_label/note`, `entries.occurred_on` (backfilled from `created_at`, NOT NULL, regex CHECK) |
 | `100_admin.sql` | user metadata + status, `user_devices`, `user_activity_daily`, role enum + `profiles.role`, audit log, notes, remote config, tickets, blocklist, `otp_events`, `error_log`, `daily_stats`, support grants, `account_deletions` |
 | `101_rls.sql` | roles, privileges, column-level grants, RLS policies on all user-data tables, `SECURITY DEFINER` functions |
 | `102_analytics.sql` | `analytics` schema: k-anonymous aggregate functions, rollup, purge |
-| `103_better_auth.sql` | **in progress (uncommitted at time of writing)**: Better Auth tables on Neon; documented in `docs/AUTH.md`, not here |
+| `103_better_auth.sql` | Better Auth: `users` becomes its user table (new columns, placeholder e-mail for phone-only people, `signup_method` trigger), `auth_*` tables with forced RLS (`app_auth()`), existing Google identities copied to `auth_accounts`, `refresh_tokens` / `otp_requests` and their SQL functions dropped, `admin_force_signout` / `admin_delete_user` / `staff_list` redefined, `admin_active_sessions`, `real_email()` |
 
 Numbers 100+ never collide with synced-data migrations 004+. `scripts/migrate.mjs` applies files in name order, each once, in a
 transaction, and records them in `schema_migrations`.

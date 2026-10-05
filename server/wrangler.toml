@@ -4,7 +4,9 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Secrets are NOT stored here. Set them with `wrangler secret put <NAME>` (or the deploy workflow):
-#   DATABASE_URL (the RESTRICTED runtime role, member of notra_app; see docs/ADMIN.md), JWT_SECRET, OTP_PEPPER, GOOGLE_CLIENT_IDS, MSG91_AUTH_KEY, MSG91_TEMPLATE_ID, SMS_PROVIDER
+#   DATABASE_URL (the RESTRICTED runtime role, member of notra_app, Neon POOLED connection string; see docs/ADMIN.md),
+#   BETTER_AUTH_SECRET (>= 32 random chars; `openssl rand -base64 32`), GOOGLE_CLIENT_IDS, MSG91_AUTH_KEY, MSG91_TEMPLATE_ID, SMS_PROVIDER
+# Sign-in is Better Auth running in this Worker (docs/AUTH.md). BETTER_AUTH_URL below must be this Worker's public origin.
 # SMS_PROVIDER is "msg91" in production, "dev" (logs the code, sends nothing) only for local development.
 
 # Optional: Cloudflare Hyperdrive (connection pooling in front of Neon/Supabase). When bound, the Worker
@@ -20,6 +22,8 @@ crons = ["45 0 * * *"]
 # Plain variables (not secrets). Override per environment in the dashboard or with `wrangler deploy --var`.
 [vars]
 ENVIRONMENT = "production"
+# Public origin of this Worker (Better Auth baseURL: cookie scope, trusted origins). Change it to your custom domain if you use one.
+BETTER_AUTH_URL = "https://notra-book-api.workers.dev"
 SMS_COST_PAISE = "25"
 # Origin of the admin web app, only if it is served from a different origin than this Worker (enables CORS for it):
 # ADMIN_ORIGIN = "https://admin.example.com"

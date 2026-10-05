@@ -104,7 +104,8 @@
           "optimizeAdLoading": true
         }
       ],
-      "./plugins/withReleaseSigning"
+      "./plugins/withReleaseSigning",
+      "./plugins/withKotlinMetadataCompat"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -2,8 +2,10 @@
 import Constants from 'expo-constants';
 import { AppState } from 'react-native';
 import { askAddPhoneData } from '@/auth/switch-prompt';
-import { getAuthUser, secureTokenStore, setAuthUser, type AuthUser } from '@/auth/session';
+import { createAuthApi } from '@/auth/auth-api';
+import { getAuthUser, purgeLegacyTokens, secureSession, setAuthUser, type AuthUser } from '@/auth/session';
 import { getDb } from '@/db/database';
+import { getSetting, setSetting } from '@/db/repository';
 import { clearAllLocalData } from '@/db/maintenance';
 import type { Db } from '@/db/types';
 import { onLocalWrite } from '@/db/writes';
@@ -18,14 +20,22 @@ import { getSyncState, pendingCount, setSyncEnabled } from './state';
 
 const baseUrl = () => (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl ?? '';
 
-export const api: Api = createApi({ baseUrl: baseUrl(), tokens: secureTokenStore, headers: appHeaders, onSuspended: setSuspended });
+/** Sync / support / config calls: the Better Auth session cookie (kept by the Better Auth Expo client in the OS keystore) is sent as `Cookie`. */
+export const api: Api = createApi({
+  baseUrl: baseUrl(), session: secureSession, headers: appHeaders, onSuspended: setSuspended,
+  onSignedOut: () => void setAuthUser(null), // no / ended session: the Settings screen shows "not signed in"
+});
 const dbOf = async () => (await getDb()) as unknown as Db;
+/** Sign-in operations (Google ID token, phone OTP, linking, sign-out) through Better Auth. */
+const authApi = createAuthApi(async () => (await import('@/auth/client')).getAuthClient(), { onSuspended: setSuspended });
 
-export interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: AuthUser;
-}
+/**
+ * Set while a sign-in is between "Better Auth created the session" and "the person answered the account-switch prompt".
+ * If the app dies in that window the new session must not be used to sync the phone's old data into another account, so the next
+ * start discards it (see runOnce).
+ */
+const SIGNIN_PENDING = 'signin_pending';
+let signInInFlight = false;
 
 let scheduler: Scheduler | null = null;
 let lastError = false;
@@ -33,7 +43,15 @@ let lastError = false;
 async function runOnce(): Promise<boolean> {
   const db = await dbOf();
   if (!(await getSyncState(db)).enabled) return true;
-  if (!(await secureTokenStore.get())) return true; // not signed in: nothing to do
+  if (!signInInFlight && (await getSetting(db, SIGNIN_PENDING)) === '1') {
+    // an interrupted sign-in: forget its session (the phone's data and the old account link are untouched)
+    await secureSession.clear();
+    await setAuthUser(null);
+    await setSetting(db, SIGNIN_PENDING, '');
+    return true;
+  }
+  if (!(await getAuthUser())) return true; // not signed in: nothing to do
+  await keepSessionFresh();
   if (syncPaused()) return true; // maintenance or suspended account: only sync waits, the diary keeps working
   try {
     await syncOnce(db, apiTransport(api));
@@ -45,9 +63,18 @@ async function runOnce(): Promise<boolean> {
   }
 }
 
+let lastRefresh = 0;
+/** At most once a day: re-read the session so the server extends it and the Expo client stores the new expiry (sliding 60 days). */
+async function keepSessionFresh(): Promise<void> {
+  if (Date.now() - lastRefresh < 24 * 3_600_000) return;
+  lastRefresh = Date.now();
+  await authApi.refreshSession().catch(() => {});
+}
+
 /** Start background sync once (root layout). Triggers: app start, app foregrounded, ~10 s after a local write. */
 export function startSync(): () => void {
   if (scheduler) return () => {};
+  void purgeLegacyTokens();
   const s = (scheduler = createScheduler({ run: runOnce }));
   const offWrite = onLocalWrite(() => s.schedule());
   const sub = AppState.addEventListener('change', (st) => st === 'active' && s.trigger());
@@ -64,23 +91,46 @@ export const syncSoon = () => scheduler?.trigger();
 export const lastSyncFailed = () => lastError;
 
 /**
- * After a successful sign-in: decide whether this phone's data may be uploaded into this account (see account.ts) BEFORE
- * anything is saved or synced. If the account does not match the data on the phone, the person is asked first. Returns
- * 'cancelled' (nothing changed, the new session is revoked) or 'done' (session saved, backup on: signing in is the opt-in).
+ * After Better Auth created the session: read who signed in, decide whether this phone's data may be uploaded into this account
+ * (see account.ts) BEFORE anything is saved or synced. If the account does not match the data on the phone, the person is asked first.
+ * Returns 'cancelled' (nothing changed, the new session is revoked) or 'done' (backup on: signing in is the opt-in).
  */
-export async function completeSignIn(r: AuthResponse, ask: AskChoice = askAddPhoneData): Promise<'done' | 'cancelled'> {
+export async function completeSignIn(ask: AskChoice = askAddPhoneData): Promise<'done' | 'cancelled'> {
   const db = await dbOf();
-  const out = await bindAccount(db, r.user.id, ask);
-  if (out.status === 'cancelled') {
-    await api.request('POST', '/v1/auth/logout', { body: { refreshToken: r.refreshToken } }).catch(() => {});
-    return 'cancelled';
+  try {
+    const { user } = await api.request<{ user: AuthUser }>('GET', '/v1/me', { auth: true });
+    const out = await bindAccount(db, user.id, ask);
+    if (out.status === 'cancelled') {
+      await authApi.signOut().catch(() => {});
+      await secureSession.clear();
+      return 'cancelled';
+    }
+    setSuspended(null);
+    await setAuthUser(user);
+    await setSyncEnabled(db, true);
+    syncSoon();
+    return 'done';
+  } catch (e) {
+    await authApi.signOut().catch(() => {});
+    await secureSession.clear();
+    throw e;
+  } finally {
+    await setSetting(db, SIGNIN_PENDING, '');
+    signInInFlight = false;
   }
-  await secureTokenStore.set({ accessToken: r.accessToken, refreshToken: r.refreshToken });
-  setSuspended(null);
-  await setAuthUser(r.user);
-  await setSyncEnabled(db, true);
-  syncSoon();
-  return 'done';
+}
+
+async function signInThen(step: () => Promise<unknown>): Promise<'done' | 'cancelled'> {
+  signInInFlight = true;
+  await setSetting(await dbOf(), SIGNIN_PENDING, '1');
+  try {
+    await step();
+  } catch (e) {
+    await setSetting(await dbOf(), SIGNIN_PENDING, '');
+    signInInFlight = false;
+    throw e;
+  }
+  return completeSignIn();
 }
 
 /**
@@ -100,25 +150,21 @@ export async function restoreNow(timeoutMs = 25_000): Promise<boolean> {
   }
 }
 
-export const signInGoogle = (idToken: string) => api.request<AuthResponse>('POST', '/v1/auth/google', { body: { idToken } }).then((r) => completeSignIn(r));
-export const otpStart = (phone: string) =>
-  api.request<{ resendAfter: number; expiresIn: number }>('POST', '/v1/auth/otp/start', { body: { phone } });
-export const otpVerify = (phone: string, code: string) =>
-  api.request<AuthResponse>('POST', '/v1/auth/otp/verify', { body: { phone, code } }).then((r) => completeSignIn(r));
+export const signInGoogle = (idToken: string) => signInThen(() => authApi.signInGoogle(idToken));
+export const otpStart = (digits: string) => authApi.otpStart(digits);
+export const otpVerify = (digits: string, code: string) => signInThen(() => authApi.otpVerify(digits, code));
 
-async function refreshUser(user: AuthUser): Promise<void> {
+async function refreshUser(): Promise<void> {
+  const { user } = await api.request<{ user: AuthUser }>('GET', '/v1/me', { auth: true });
   await setAuthUser(user);
 }
-export const linkGoogle = (idToken: string) =>
-  api.request<{ user: AuthUser }>('POST', '/v1/auth/link/google', { body: { idToken }, auth: true }).then((r) => refreshUser(r.user));
-export const linkPhone = (phone: string, code: string) =>
-  api.request<{ user: AuthUser }>('POST', '/v1/auth/link/phone', { body: { phone, code }, auth: true }).then((r) => refreshUser(r.user));
+export const linkGoogle = (idToken: string) => authApi.linkGoogle(idToken).then(refreshUser);
+export const linkPhone = (digits: string, code: string) => authApi.linkPhone(digits, code).then(refreshUser);
 
-/** Sign out: revoke the refresh token and stop syncing. Local data is kept unless `clearLocal` is chosen. */
+/** Sign out: revoke the session on the server (best effort) and forget it here, then stop syncing. Local data is kept unless `clearLocal` is chosen. */
 export async function signOut(clearLocal = false): Promise<void> {
-  const t = await secureTokenStore.get();
-  if (t) await api.request('POST', '/v1/auth/logout', { body: { refreshToken: t.refreshToken } }).catch(() => {});
-  await secureTokenStore.set(null);
+  await authApi.signOut().catch(() => {});
+  await secureSession.clear();
   setSuspended(null);
   await setAuthUser(null);
   const db = await dbOf();
@@ -133,7 +179,7 @@ export async function signOut(clearLocal = false): Promise<void> {
  */
 export async function deleteMyAccount(wipeLocal: boolean): Promise<void> {
   await api.request('DELETE', '/v1/account', { auth: true });
-  await secureTokenStore.set(null);
+  await secureSession.clear();
   await setAuthUser(null);
   const db = await dbOf();
   await releaseOwner(db);

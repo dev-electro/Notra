@@ -16,7 +16,7 @@ Status as of 2026-10-05. Decisions behind each item: [DECISIONS.md](DECISIONS.md
 | 8 | Admin panel on Cloudflare Pages, DB roles, Row Level Security, k-anonymous analytics, audit log, abuse control, monitoring |
 | rename | Notra Book / नोतरा बुक, `app.notra.book` |
 | analytics | Firebase Analytics with a privacy allow-list (being finalised in parallel) |
-| in progress | Auth moved to Better Auth on Neon (`docs/AUTH.md`) |
+| done | Auth moved to self-hosted Better Auth on Neon (`docs/AUTH.md`); live smoke test against real Neon / Google / MSG91 still to do |
 
 There is no Stage 4 in the history (numbering skipped).
 
@@ -48,7 +48,7 @@ Found while reading the code for these docs. Items 1-4 break or endanger real fl
    - Fix: align one side, add a contract test that runs the app's `send()` and `grantAccess()` bodies against `createApp`.
 2. **Remote-config shape and defaults differ.** Server `server/src/appconfig.ts`: `features` has no `analytics` key and `shape()` **rejects unknown fields**, so staff cannot set `features.analytics` and the "switch analytics off for everyone" lever in `src/remote/config.ts` / ADS.md cannot be used; server default `ads.enabled = false`, app default `true`; `invitation_cards` default true (server) vs false (app); `interstitial_min_interval_sec` min 30 (server) vs 60 (app clamp); `native_every_n_items` min 2 vs 5; `min/latest_version` default `1.0.0` vs `0.0.0`. After the first successful fetch the server defaults win, so ads are **off** until staff turn them on, and analytics can never be remotely disabled.
 3. **A missing SMS secret takes the whole API down.** `server/src/worker.ts` builds `smsFromEnv(env)` inside `createApp(...)`; `server/src/config.ts` throws when `MSG91_AUTH_KEY`/`MSG91_TEMPLATE_ID` are absent (and `SMS_PROVIDER` is not `dev`), so **every** route, including `/v1/health`, `/v1/config` and the legal pages, answers `500 server_misconfigured`. Make the SMS provider lazy (fail only on OTP start). Will change with Better Auth.
-4. **Maintenance mode locks staff out.** `app.use('/v1/auth/*', maintenance)` in `server/src/app.ts` answers 503 for sign-in **and refresh**, and the admin panel signs in and refreshes through those routes. With maintenance on, an owner whose 15-minute access token expires cannot get back in to turn it off (docs claim the admin API "stays up"). Exempt staff, or exempt `/v1/auth/refresh` and `/v1/auth/*` for admin origins. Check again after the Better Auth switch.
+4. **Maintenance mode locks staff out.** `app.use('/api/auth/*', maintenance)` in `server/src/app.ts` answers 503 for every Better Auth route, including sign-in. There is no refresh any more and an admin session lasts 60 days (sliding), so an owner who is already signed in can still reach the admin API and turn maintenance off; an owner whose session has expired cannot sign in until maintenance ends. Exempt staff sign-in (or the admin origin) from the gate if that matters.
 
 ### Data and sync
 

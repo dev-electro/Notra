@@ -32,8 +32,8 @@ src/ads/                    AdMob: pure policy (tested), lazy service, banner / 
 src/legal/content.ts        Privacy, terms, grievance, delete-account text: ONE source for the app screens and the Worker pages
 src/onboarding/             Picture cards and screen help text, spoken in Hindi (expo-speech)
 src/sync/                   Cloud backup: engine (push dirty / pull cursor), http client, scheduler, runtime wiring
-src/auth/                   Token storage (secure-store), lazy Google sign-in, Hindi error messages
-server/                     Cloudflare Worker (Hono) + Postgres backend, its own npm package
+src/auth/                   Better Auth client wrapper (Expo client, session in secure-store), lazy Google sign-in, Hindi error messages (docs/AUTH.md)
+server/                     Cloudflare Worker (Hono + self-hosted Better Auth) + Neon Postgres backend, its own npm package
 src/components, src/hooks   UI pieces
 src/theme.ts                Design tokens (the only place for colours, fonts, sizes, spacing) + the contrast pairs the test checks
 src/components/icons.tsx    Hand-drawn line icon set (react-native-svg); motifs.tsx: dot border, toran, rice grains, empty-state art
@@ -130,27 +130,30 @@ ignore), households and events are last-write-wins by `updated_at`. Triggers: ap
 ~10 s after a local write; failures are silent and retried with backoff. Photos and voice notes are not synced yet.
 
 ```
-phone (SQLite, truth) --HTTPS--> Cloudflare Worker (Hono) --postgres driver--> any Postgres (Neon / Supabase / Hyperdrive)
+phone (SQLite, truth) --HTTPS--> Cloudflare Worker (Hono + Better Auth) --postgres driver--> Neon Postgres (RLS)
 ```
 
 `server/` is its own package (`cd server && npm ci`): `src/` (Hono app, auth, sync), `migrations/*.sql`, `test/`
 (vitest on an in-process Postgres, `@electric-sql/pglite`, running the real migrations; one test also drives the real
 `postgres` driver over the wire protocol). Scripts: `npm run typecheck`, `npm test`, `npm run migrate`, `npm run deploy`.
 
-**Auth** (no password, no vendor auth SDKs): `POST /v1/auth/google {idToken}` (verified with `jose` against Google's JWKS:
-issuer, audience in `GOOGLE_CLIENT_IDS`, expiry, verified email); `POST /v1/auth/otp/start {phone}` and
-`/v1/auth/otp/verify {phone, code}` (Indian mobiles, 6-digit code, SHA-256 hashed with `OTP_PEPPER`, 5 min expiry, 5
-attempts, single use; SQL-enforced limits: 3 starts per phone per 15 min, 10 per IP per hour, 30 s resend cooldown;
-SMS via MSG91 with a DLT template). Both return a 15-minute HS256 access token and a 60-day refresh token (stored
-hashed, rotated on every use; reusing a rotated token revokes its whole family). Also `/v1/auth/refresh`,
-`/v1/auth/logout`, and authenticated `/v1/auth/link/google` and `/v1/auth/link/phone` so one household can use both
-(refused if the identity belongs to another user). **Restore on a new phone**: sign in, and the first sync pulls from
+**Auth** (no password; self-hosted [Better Auth](https://better-auth.com) inside the Worker, on the same Neon database; full design,
+flows and the Neon steps are in `docs/AUTH.md`): Better Auth's handler is mounted at `/api/auth/*`. Google: the native Google
+Sign-In SDK's ID token goes to `POST /api/auth/sign-in/social {provider:"google", idToken:{token}}` (verified against Google's JWKS:
+issuer, audience in `GOOGLE_CLIENT_IDS`, expiry, verified email). Phone: `POST /api/auth/phone-number/send-otp {phoneNumber}` and
+`/api/auth/phone-number/verify {phoneNumber, code}` (Indian mobiles, 6-digit code, 5 min expiry, 5 attempts, single use; limits:
+3 starts per phone per 15 min, 10 per IP per hour, 30 s resend cooldown; SMS via MSG91 with a DLT template). Sessions last 60 days
+(sliding), are stored server-side, and are sent as the Better Auth cookie (`Cookie` header from the app, browser cookie) or
+`Authorization: Bearer <session token>`; `/api/auth/sign-out` revokes one. One household can use both methods: a signed-in user adds a
+phone (`/api/auth/phone-number/verify` with `updatePhoneNumber`) or Google (`/api/auth/link-social`); refused if the identity belongs to
+another user. `GET /v1/me` returns the signed-in user. **Restore on a new phone**: sign in, and the first sync pulls from
 cursor 0. Sync endpoints: `POST /v1/sync/push` (max 500 rows) and `GET /v1/sync/pull?since=&limit=`; every query is
-scoped by the token's `user_id`, and primary keys include `user_id`.
+scoped by the session's `user_id`, and primary keys include `user_id`.
 
-**Choose Neon or Supabase.** Create a Postgres database and set `DATABASE_URL` to its connection string; nothing else
-changes (plain SQL through the `postgres` driver, `prepare: false` so poolers work). Use the pooled connection string
-for Neon / the transaction pooler for Supabase. To use Cloudflare Hyperdrive, uncomment the `[[hyperdrive]]` block in
+**Database: Neon.** Create a Postgres database and set `DATABASE_URL` to the restricted runtime role's **pooled** connection string
+and `MIGRATION_DATABASE_URL` to the owner role's (plain SQL through the `postgres` driver, `prepare: false` so poolers work; Better
+Auth uses the same connection through a small Kysely dialect). Do **not** enable Neon Auth (`auth: true`): Better Auth here is the one
+user system (docs/AUTH.md). To use Cloudflare Hyperdrive, uncomment the `[[hyperdrive]]` block in
 `server/wrangler.toml`; the Worker then prefers `env.HYPERDRIVE.connectionString`.
 
 **Run migrations and deploy.**
@@ -164,20 +167,20 @@ npx wrangler login && npm run deploy            # or use the "Deploy server" Git
 Then put the Worker's URL in `app.json` `extra.apiUrl`.
 
 **GitHub secrets** (Actions workflow *Deploy server*, manual): `DATABASE_URL`, `CLOUDFLARE_API_TOKEN` (and
-`CLOUDFLARE_ACCOUNT_ID` if needed), `JWT_SECRET` (32+ random chars), `OTP_PEPPER` (16+ random chars),
-`GOOGLE_CLIENT_IDS` (comma-separated), `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, and optionally `SMS_PROVIDER`
+`CLOUDFLARE_ACCOUNT_ID` if needed), `MIGRATION_DATABASE_URL`, `BETTER_AUTH_SECRET` (32+ random chars),
+`GOOGLE_CLIENT_IDS` (comma-separated: the web, Android and iOS client ids, plus the admin panel's web client id),
+`MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, and optionally `SMS_PROVIDER`
 (`msg91` by default; `dev` only logs the code and must never be used in production). The workflow sets them as
-Worker secrets; nothing is committed. Add a Cloudflare rate-limiting rule on `/v1/auth/*` as defence in depth.
+Worker secrets; nothing is committed. `BETTER_AUTH_URL` (the Worker's public origin) is a plain var in `server/wrangler.toml`: set it to the real URL. Better Auth rate-limits `/api/auth/*` itself (database-backed); add a Cloudflare rate-limiting rule on `/api/auth/*` as defence in depth.
 
 **Google sign-in setup.** In Google Cloud Console: create an OAuth consent screen, then OAuth client IDs of type
-*Web application* (its client ID goes in `app.json` `extra.googleWebClientId` and in `GOOGLE_CLIENT_IDS`), *Android*
+*Web application* (its client ID goes in `app.json` `extra.googleWebClientId` and in `GOOGLE_CLIENT_IDS`; the ID token's audience is this web client id, so it must be in the list), *Android*
 (package `app.notra.book` plus the SHA-1 of the signing keystore; the debug keystore for CI APKs) and *iOS* (bundle ID
 `app.notra.book`; its reversed client ID replaces `iosUrlScheme` in the `@react-native-google-signin/google-signin`
 plugin entry). The native module needs a dev/CI build, not Expo Go; it is imported only when the Google button is tapped.
 
 **Privacy.** Data stays on the phone unless the person signs in (backup turns on with sign-in and can be switched off in
-Settings). The server stores: user id, Google subject or phone number, display name, hashed OTP codes and refresh
-tokens, and the synced ledger rows (names, village, amounts). Photos stay on the phone. Tokens live in the OS keystore.
+Settings). The server stores: user id, Google subject or phone number, display name, Better Auth sessions and the OTP in flight (5 min), and the synced ledger rows (names, village, amounts). Photos stay on the phone. The session lives in the OS keystore.
 Signing out keeps local data; wiping it is a separate, confirmed choice. Not yet built: end-to-end encryption of synced
 rows (the server can read them), account deletion, photo sync (R2).
 
@@ -188,7 +191,7 @@ that data to the new account. A row the server rejects as invalid would retry fo
 ## Stage 5: production hardening
 
 - **Account deletion.** Settings > खाता हटाएं (warning, type `हटाएं`, then a separate question about wiping this phone) calls
-  `DELETE /v1/account`, which deletes households, events, entries, ledgers, profile, refresh tokens, the phone's OTP rows and the
+  `DELETE /v1/account`, which deletes households, events, entries, ledgers, profile, sessions, linked sign-ins, the phone's OTP rows and the
   user in one transaction. The Worker also serves public pages for the Play listing: `GET /privacy`, `/terms`, `/grievance`,
   `/delete-account` (Hindi first, English below; text from `src/legal/content.ts`; placeholders in `CONTACT`: replace them).
 - **Profile sync.** "My household" and the village increment sync as one last-write-wins row, so a restored phone skips setup.

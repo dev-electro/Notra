@@ -4,12 +4,11 @@ import { Msg91Provider } from '../src/auth/sms';
 import { randomCode6 } from '../src/crypto';
 import { setup } from './helpers';
 
-const start = (t: Awaited<ReturnType<typeof setup>>, phone = '9876543210', ip?: string) =>
-  t.call('POST', '/v1/auth/otp/start', { body: { phone }, ip });
-const verify = (t: Awaited<ReturnType<typeof setup>>, code: string, phone = '9876543210') =>
-  t.call('POST', '/v1/auth/otp/verify', { body: { phone, code } });
-const age = (t: Awaited<ReturnType<typeof setup>>, interval: string) =>
-  t.pg.query(`UPDATE otp_requests SET created_at = created_at - interval '${interval}'`);
+type T = Awaited<ReturnType<typeof setup>>;
+const start = (t: T, phone = '9876543210', ip?: string) => t.call('POST', '/api/auth/phone-number/send-otp', { body: { phoneNumber: phone }, ip });
+const verify = (t: T, code: string, phone = '9876543210', ip?: string) => t.call('POST', '/api/auth/phone-number/verify', { body: { phoneNumber: phone, code }, ip });
+/** Make the OTP requests already sent look older (the limits count otp_events). */
+const age = (t: T, interval: string) => t.pg.query(`UPDATE otp_events SET at = at - interval '${interval}'`);
 
 describe('phone normalisation', () => {
   it('accepts Indian mobiles in common spellings', () => {
@@ -27,25 +26,36 @@ describe('phone normalisation', () => {
   });
 });
 
-describe('otp', () => {
-  it('happy path: start sends a code, verify signs in; the API never returns the code', async () => {
+describe('phone OTP (Better Auth phoneNumber plugin + MSG91 sender)', () => {
+  it('happy path: send-otp sends a 6-digit code, verify signs in with a session; the API never returns the code', async () => {
     const t = await setup();
     const s = await start(t, '+91 98765 43210');
     expect(s.status).toBe(200);
     expect(JSON.stringify(s.json)).not.toContain(t.sms.last().code);
     expect(t.sms.last().phone).toBe('+919876543210');
-    const v = await verify(t, t.sms.last().code);
+    expect(t.sms.last().code).toMatch(/^\d{6}$/);
+    const v = await verify(t, t.sms.last().code, '+91 98765 43210');
     expect(v.status).toBe(200);
-    expect(v.json.user).toMatchObject({ hasPhone: true, phone: '+919876543210' });
-    expect(v.json.accessToken).toBeTruthy();
+    expect(v.headers.get('set-auth-token')).toBeTruthy();
+    expect(v.headers.get('set-cookie')).toContain('notra.session_token=');
+    const me = await t.call('GET', '/v1/me', { token: v.headers.get('set-auth-token')! });
+    expect(me.json.user).toMatchObject({ hasPhone: true, hasGoogle: false, phone: '+919876543210', displayName: null });
+    // a phone-only account carries a placeholder e-mail and is marked as a phone sign-up
+    const [u] = (await t.pg.query<{ email: string; signup_method: string; phone_verified: boolean }>('SELECT email, signup_method, phone_verified FROM users')).rows;
+    expect(u).toEqual({ email: 'p919876543210@phone.notra.invalid', signup_method: 'phone', phone_verified: true });
   });
 
-  it('stores only a salted hash', async () => {
+  it('the code lives only in the short-lived verification row (5 minutes) and is consumed on success', async () => {
     const t = await setup();
     await start(t);
-    const [row] = (await t.pg.query<{ code_hash: string }>('SELECT code_hash FROM otp_requests')).rows;
-    expect(row!.code_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(row!.code_hash).not.toContain(t.sms.last().code);
+    const [row] = (await t.pg.query<{ identifier: string; value: string; secs: number }>(
+      `SELECT identifier, value, extract(epoch FROM expires_at - now())::int AS secs FROM auth_verifications`)).rows;
+    expect(row!.identifier).toBe('+919876543210');
+    expect(row!.value).toBe(`${t.sms.last().code}:0`);
+    expect(row!.secs).toBeGreaterThan(280);
+    expect(row!.secs).toBeLessThanOrEqual(300);
+    expect((await verify(t, t.sms.last().code)).status).toBe(200);
+    expect((await t.pg.query('SELECT 1 FROM auth_verifications')).rows).toHaveLength(0);
   });
 
   it('wrong code fails, and the code is single use', async () => {
@@ -57,13 +67,15 @@ describe('otp', () => {
     expect(w.status).toBe(400);
     expect(w.json.error).toBe('invalid_code');
     expect((await verify(t, code)).status).toBe(200);
-    expect((await verify(t, code)).status).toBe(400); // consumed
+    const again = await verify(t, code);
+    expect(again.status).toBe(400); // consumed
+    expect(again.json.error).toBe('code_expired');
   });
 
   it('expired codes fail', async () => {
     const t = await setup();
     await start(t);
-    await t.pg.query(`UPDATE otp_requests SET expires_at = now() - interval '1 second'`);
+    await t.pg.query(`UPDATE auth_verifications SET expires_at = now() - interval '1 second'`);
     const r = await verify(t, t.sms.last().code);
     expect(r.status).toBe(400);
     expect(r.json.error).toBe('code_expired');
@@ -78,6 +90,8 @@ describe('otp', () => {
     const r = await verify(t, code);
     expect(r.status).toBe(429);
     expect(r.json.error).toBe('too_many_attempts');
+    // the code is gone: a new one has to be requested
+    expect((await verify(t, code)).json.error).toBe('code_expired');
   });
 
   it('only the newest code is valid', async () => {
@@ -91,13 +105,16 @@ describe('otp', () => {
     expect((await verify(t, second)).status).toBe(200);
   });
 
-  it('validates input', async () => {
+  it('validates the phone number (Indian mobiles only) and answers 400 for junk codes', async () => {
     const t = await setup();
     expect((await start(t, '12345')).json.error).toBe('invalid_phone');
+    expect((await start(t, '+14155550123')).json.error).toBe('invalid_phone');
+    expect((await t.call('POST', '/api/auth/phone-number/send-otp', { body: {} })).status).toBe(400);
     await start(t);
     expect((await verify(t, '12')).status).toBe(400);
     expect((await verify(t, 'abcdef')).status).toBe(400);
     expect((await verify(t, '123456', '9123456780')).status).toBe(400); // no request for that phone
+    expect(t.sms.sent).toHaveLength(1);
   });
 
   it('enforces a 30 s resend cooldown', async () => {
@@ -128,7 +145,10 @@ describe('otp', () => {
   it('allows at most 10 starts per IP per hour', async () => {
     const t = await setup();
     for (let i = 0; i < 10; i++) expect((await start(t, `98765432${String(i).padStart(2, '0')}`, '1.2.3.4')).status).toBe(200);
-    expect((await start(t, '9111111111', '1.2.3.4')).status).toBe(429);
+    await t.pg.query('DELETE FROM auth_rate_limits'); // Better Auth's own 10-per-minute limiter would answer first; test OUR hourly limit
+    const blocked = await start(t, '9111111111', '1.2.3.4');
+    expect(blocked.status).toBe(429);
+    expect(blocked.json.error).toBe('too_many_requests');
     expect((await start(t, '9111111111', '5.6.7.8')).status).toBe(200);
     await age(t, '2 hours');
     expect((await start(t, '9222222222', '1.2.3.4')).status).toBe(200);
@@ -140,10 +160,34 @@ describe('otp', () => {
     expect(rs.filter((r) => r.status === 200)).toHaveLength(1);
   });
 
-  it('reports sms failures as 502', async () => {
+  it("Better Auth's own request limiter (database-backed) throttles a hammering IP on /api/auth/*", async () => {
+    const t = await setup();
+    const codes: number[] = [];
+    for (let i = 0; i < 12; i++) codes.push((await verify(t, '000000', '9876543210', '9.9.9.9')).status);
+    // /phone-number/* allows 10 requests per 60 s per IP; the rest are 429
+    expect(codes.filter((c) => c === 429).length).toBeGreaterThanOrEqual(1);
+    const r = await verify(t, '000000', '9876543210', '9.9.9.9');
+    expect(r.status).toBe(429);
+    expect(r.json.error).toBe('too_many_requests');
+    expect((await t.pg.query('SELECT 1 FROM auth_rate_limits')).rows.length).toBeGreaterThan(0);
+  });
+
+  it('reports sms failures as 502 and records them', async () => {
     const t = await setup();
     t.sms.fail = true;
-    expect((await start(t)).status).toBe(502);
+    const r = await start(t);
+    expect(r.status).toBe(502);
+    expect(r.json.error).toBe('sms_failed');
+    expect((await t.pg.query(`SELECT 1 FROM otp_events WHERE kind = 'send_fail'`)).rows).toHaveLength(1);
+  });
+
+  it('writes the otp_events telemetry: send, verify_fail, verify_ok', async () => {
+    const t = await setup();
+    await start(t);
+    await verify(t, t.sms.last().code === '000000' ? '111111' : '000000');
+    await verify(t, t.sms.last().code);
+    const kinds = (await t.pg.query<{ kind: string }>('SELECT kind FROM otp_events ORDER BY id')).rows.map((r) => r.kind);
+    expect(kinds).toEqual(['send', 'verify_fail', 'verify_ok']);
   });
 });
 

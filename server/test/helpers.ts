@@ -2,7 +2,8 @@ import { PGlite } from '@electric-sql/pglite';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from 'jose';
-import { createApp } from '../src/app';
+import { createApp, SUSPENDED_MESSAGE_HI } from '../src/app';
+import { createAuth } from '../src/auth/better-auth';
 import type { SmsProvider } from '../src/auth/sms';
 import type { Config } from '../src/config';
 import type { Db } from '../src/db';
@@ -24,11 +25,16 @@ export async function makeDb(): Promise<{ pg: PGlite; db: Db }> {
     const tables = (await pg.query<{ tablename: string }>(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`)).rows;
     await pg.exec(`TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(', ')} RESTART IDENTITY CASCADE`);
   }
-  const conn = pg;
-  // `pg` (superuser) is for seeding and assertions. `db` is what the app gets: EVERY statement runs as the restricted
-  // notra_app role inside a transaction, exactly like the production LOGIN role (a member of notra_app, no BYPASSRLS),
-  // so Row Level Security applies to all application code under test.
-  const db: Db = {
+  return { pg, db: runtimeDb(pg) };
+}
+
+/**
+ * `pg` (superuser) is for seeding and assertions. The `Db` is what the app gets: EVERY statement runs as the restricted
+ * notra_app role inside a transaction, exactly like the production LOGIN role (a member of notra_app, no BYPASSRLS),
+ * so Row Level Security applies to all application code under test.
+ */
+export function runtimeDb(conn: PGlite): Db {
+  return {
     query: async <T>(text: string, params: unknown[] = []) =>
       conn.transaction(async (t) => {
         await t.exec('SET LOCAL ROLE notra_app');
@@ -40,7 +46,6 @@ export async function makeDb(): Promise<{ pg: PGlite; db: Db }> {
         return fn({ query: async <T>(text: string, params: unknown[] = []) => (await t.query(text, params)).rows as T[] });
       }),
   };
-  return { pg, db };
 }
 
 export class FakeSms implements SmsProvider {
@@ -63,7 +68,7 @@ export async function makeGoogle() {
   const jwk: JWK = { ...(await exportJWK(publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' };
   const keys = createLocalJWKSet({ keys: [jwk] });
   const sign = (claims: Record<string, unknown> = {}, o: { iss?: string; aud?: string; exp?: number; key?: Key } = {}) =>
-    new SignJWT({ email_verified: true, name: 'Ramesh', ...claims })
+    new SignJWT({ email_verified: true, name: 'Ramesh', email: `${(claims.sub as string) ?? 'g-1'}@example.com`, ...claims })
       .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
       .setSubject((claims.sub as string) ?? 'g-1')
       .setIssuer(o.iss ?? 'https://accounts.google.com')
@@ -74,16 +79,18 @@ export async function makeGoogle() {
   return { keys, sign, wrongKey: other.privateKey };
 }
 
-export async function setup(opts: { now?: () => Date } = {}) {
+export async function setup(opts: { now?: () => Date; googleClientIds?: string[]; trustedOrigins?: string[] } = {}) {
   const { pg, db } = await makeDb();
   const sms = new FakeSms();
   const google = await makeGoogle();
   const config: Config = {
-    jwtSecret: new TextEncoder().encode('x'.repeat(40)),
-    otpPepper: 'pepper-pepper-pepper',
-    googleClientIds: [CLIENT_ID],
+    authSecret: 'x'.repeat(40),
+    authUrl: 'http://localhost:8787',
+    googleClientIds: opts.googleClientIds ?? [CLIENT_ID],
+    trustedOrigins: opts.trustedOrigins ?? [],
   };
-  const app = createApp({ db, config, sms, googleKeys: google.keys, now: opts.now, admin: { smsCostPaise: 25, serverVersion: 'test', environment: 'test' } });
+  const auth = createAuth({ db, config, sms, googleKeys: google.keys }, SUSPENDED_MESSAGE_HI);
+  const app = createApp({ db, config, sms, googleKeys: google.keys, auth, now: opts.now, admin: { smsCostPaise: 25, serverVersion: 'test', environment: 'test' } });
   let ipCounter = 0;
   const call = async (method: string, path: string, o: { body?: unknown; token?: string; ip?: string; headers?: Record<string, string> } = {}) => {
     const headers: Record<string, string> = { 'cf-connecting-ip': o.ip ?? `10.0.0.${++ipCounter}`, ...o.headers };
@@ -95,20 +102,30 @@ export async function setup(opts: { now?: () => Date } = {}) {
     try { json = JSON.parse(text); } catch { /* csv etc. */ }
     return { status: res.status, json, text, headers: res.headers };
   };
-  return { pg, db, sms, google, config, app, call };
+  return { pg, db, sms, google, config, app, auth, call };
 }
 export type Ctx = Awaited<ReturnType<typeof setup>>;
 
-export async function signInWithPhone(t: Ctx, phone = '9876543210') {
-  await t.call('POST', '/v1/auth/otp/start', { body: { phone } });
-  const r = await t.call('POST', '/v1/auth/otp/verify', { body: { phone, code: t.sms.last().code } });
-  if (r.status !== 200) throw new Error(`sign-in failed ${r.status}`);
-  return r.json as { accessToken: string; refreshToken: string; user: { id: string } };
+export interface Signed {
+  /** The Better Auth session token (signed), sent as `Authorization: Bearer`. */
+  accessToken: string;
+  user: { id: string };
 }
-export async function signInWithGoogle(t: Ctx, sub = 'g-1') {
-  const r = await t.call('POST', '/v1/auth/google', { body: { idToken: await t.google.sign({ sub }) } });
-  if (r.status !== 200) throw new Error(`google sign-in failed ${r.status}`);
-  return r.json as { accessToken: string; refreshToken: string; user: { id: string } };
+
+/** Phone OTP sign-in through Better Auth: send-otp, then verify with the code the fake SMS provider received. */
+export async function signInWithPhone(t: Ctx, phone = '9876543210'): Promise<Signed> {
+  const sent = await t.call('POST', '/api/auth/phone-number/send-otp', { body: { phoneNumber: phone } });
+  if (sent.status !== 200) throw new Error(`send-otp failed ${sent.status} ${sent.text}`);
+  const r = await t.call('POST', '/api/auth/phone-number/verify', { body: { phoneNumber: phone, code: t.sms.last().code } });
+  if (r.status !== 200) throw new Error(`sign-in failed ${r.status} ${r.text}`);
+  return { accessToken: r.headers.get('set-auth-token')!, user: { id: r.json.user.id } };
+}
+
+/** Native Google sign-in: the ID token goes to sign-in/social (what the Expo client's signIn.social({ provider, idToken }) sends). */
+export async function signInWithGoogle(t: Ctx, sub = 'g-1', claims: Record<string, unknown> = {}): Promise<Signed> {
+  const r = await t.call('POST', '/api/auth/sign-in/social', { body: { provider: 'google', idToken: { token: await t.google.sign({ sub, email: `${sub}@example.com`, ...claims }) } } });
+  if (r.status !== 200) throw new Error(`google sign-in failed ${r.status} ${r.text}`);
+  return { accessToken: r.headers.get('set-auth-token')!, user: { id: r.json.user.id } };
 }
 
 export type Role = 'viewer' | 'support' | 'admin' | 'owner';

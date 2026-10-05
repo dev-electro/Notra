@@ -5,10 +5,10 @@ import { rank, ROLES, type Role } from '../src/admin/auth';
 import { maskContact, maskEmail, maskPhone } from '../src/admin/mask';
 import { findForbidden, FORBIDDEN_KEYS, stripForbidden } from '../src/admin/privacy';
 import { REPORT_NAMES } from '../src/admin/reports';
-import { makeStaff, nextPhone, seedLedger, SENTINELS, setup, signInWithPhone, type Ctx } from './helpers';
+import { makeStaff, nextPhone, seedLedger, SENTINELS, setup, signInWithGoogle, signInWithPhone, type Ctx } from './helpers';
 
 const A = '/admin/api';
-const adminRoutes = async (t: Ctx) => createAdminApi({ db: t.db, config: t.config, sms: t.sms, googleKeys: t.google.keys }, { smsCostPaise: 25, serverVersion: 't' }).routes;
+const adminRoutes = async (t: Ctx) => createAdminApi({ db: t.db, config: t.config, sms: t.sms, googleKeys: t.google.keys }, { smsCostPaise: 25, serverVersion: 't' }, t.auth).routes;
 
 describe('masking', () => {
   it('masks phones and e-mails as specified', () => {
@@ -29,7 +29,7 @@ describe('masking', () => {
 });
 
 describe('admin authentication', () => {
-  it('rejects missing, malformed, wrong-signature and expired tokens (401)', async () => {
+  it('rejects missing, malformed, forged, tampered and expired sessions (401)', async () => {
     const t = await setup();
     expect((await t.call('GET', `${A}/me`)).status).toBe(401);
     expect((await t.call('GET', `${A}/me`, { token: 'garbage' })).status).toBe(401);
@@ -37,9 +37,10 @@ describe('admin authentication', () => {
       .setIssuedAt().setExpirationTime('1h').sign(new TextEncoder().encode('y'.repeat(40)));
     expect((await t.call('GET', `${A}/me`, { token: forged })).status).toBe(401);
     const owner = await makeStaff(t, 'owner');
-    const old = await new SignJWT({}).setProtectedHeader({ alg: 'HS256' }).setSubject(owner.user.id).setIssuer('notra-diary').setAudience('notra-api')
-      .setIssuedAt(Math.floor(Date.now() / 1000) - 7200).setExpirationTime(Math.floor(Date.now() / 1000) - 3600).sign(t.config.jwtSecret);
-    expect((await t.call('GET', `${A}/me`, { token: old })).status).toBe(401);
+    expect((await t.call('GET', `${A}/me`, { token: `${owner.accessToken.split('.')[0]}.AAAA` })).status).toBe(401); // tampered signature
+    const other = await makeStaff(t, 'viewer');
+    await t.pg.query(`UPDATE auth_sessions SET expires_at = now() - interval '1 second' WHERE user_id = $1`, [other.user.id]);
+    expect((await t.call('GET', `${A}/me`, { token: other.accessToken })).status).toBe(401); // expired session
     expect((await t.call('GET', `${A}/me`, { token: owner.accessToken })).json).toMatchObject({ role: 'owner' });
   });
 
@@ -197,9 +198,10 @@ describe('users', () => {
     expect(JSON.stringify(d.json)).not.toContain('SENTINEL');
 
     // google sign-in shows a masked e-mail
-    const g = await t.call('POST', '/v1/auth/google', { body: { idToken: await t.google.sign({ sub: 'g-77', email: 'Gaurav@Gmail.com' }) } });
+    const g = await signInWithGoogle(t, 'g-77', { email: 'Gaurav@Gmail.com' });
     const gl = await t.call('GET', `${A}/users?q=gmail`, { token: owner.accessToken });
-    expect(gl.json.items[0]).toMatchObject({ id: g.json.user.id, email_masked: 'g•••@gmail.com', sign_in_methods: ['google'] });
+    expect(gl.json.items).toHaveLength(1); // the placeholder e-mail of phone accounts is not searchable
+    expect(gl.json.items[0]).toMatchObject({ id: g.user.id, email_masked: 'g•••@gmail.com', sign_in_methods: ['google'] });
   });
 
   it('unmask: admin/owner only, needs a reason, is audited without storing the value', async () => {
@@ -230,14 +232,14 @@ describe('users', () => {
     expect((await t.call('POST', url, { token: admin.accessToken, body: { reason: 'abc', confirm } })).json.error).toBe('reason_required');
     expect((await t.call('POST', url, { token: admin.accessToken, body: { reason: 'user asked', confirm: 'yes' } })).json.error).toBe('confirmation_required');
     expect((await t.call('POST', url, { token: admin.accessToken, body: { reason: 'user asked', confirm } })).status).toBe(200);
-    for (const table of ['users', 'households', 'events', 'entries', 'refresh_tokens', 'profiles']) {
+    for (const table of ['users', 'households', 'events', 'entries', 'auth_sessions', 'auth_accounts', 'profiles']) {
       expect(((await t.pg.query(`SELECT count(*)::int AS n FROM ${table} WHERE ${table === 'users' ? 'id' : 'user_id'} = $1`, [u.user.id])).rows[0] as { n: number }).n, table).toBe(0);
     }
     expect((await t.pg.query(`SELECT count(*)::int AS n FROM account_deletions WHERE source = 'admin'`)).rows[0]).toEqual({ n: 1 });
     expect((await t.call('GET', `${A}/users/${u.user.id}`, { token: admin.accessToken })).status).toBe(404);
   });
 
-  it('suspend blocks sign-in, refresh and sync with the Hindi 403; unsuspend restores access; force sign-out kills refresh tokens', async () => {
+  it('suspend blocks sign-in, refresh and sync with the Hindi 403; unsuspend restores access; force sign-out deletes the sessions', async () => {
     const t = await setup();
     const support = await makeStaff(t, 'support');
     const phone = nextPhone();
@@ -250,12 +252,14 @@ describe('users', () => {
     expect(push.status).toBe(403);
     expect(push.json).toMatchObject({ error: 'account_suspended', message_hi: MSG });
     expect((await t.call('GET', '/v1/sync/pull', { token: u.accessToken })).status).toBe(403);
-    expect((await t.call('POST', '/v1/auth/refresh', { body: { refreshToken: u.refreshToken } })).json.message_hi).toBe(MSG);
-    await t.pg.query(`UPDATE otp_requests SET created_at = created_at - interval '1 hour'`);
-    await t.call('POST', '/v1/auth/otp/start', { body: { phone } }).then((s) => expect(s.status).toBe(200));
-    const verify = await t.call('POST', '/v1/auth/otp/verify', { body: { phone, code: t.sms.last().code } });
+    expect((await t.call('GET', '/v1/me', { token: u.accessToken })).json.message_hi).toBe(MSG);
+    // a new sign-in (phone OTP or Google) is refused with the same Hindi message, and creates no session
+    await t.pg.query(`UPDATE otp_events SET at = at - interval '1 hour'`);
+    await t.call('POST', '/api/auth/phone-number/send-otp', { body: { phoneNumber: phone } }).then((s) => expect(s.status).toBe(200));
+    const verify = await t.call('POST', '/api/auth/phone-number/verify', { body: { phoneNumber: phone, code: t.sms.last().code } });
     expect(verify.status).toBe(403);
-    expect(verify.json.message_hi).toBe(MSG);
+    expect(verify.json).toMatchObject({ error: 'account_suspended', message_hi: MSG });
+    expect((await t.pg.query('SELECT 1 FROM auth_sessions WHERE user_id = $1', [u.user.id])).rows).toHaveLength(1); // only the old one
     expect((await t.call('DELETE', '/v1/account', { token: u.accessToken })).status).toBe(403);
 
     await t.call('POST', `${A}/users/${u.user.id}/unsuspend`, { token: support.accessToken, body: { reason: 'resolved' } });
@@ -263,7 +267,7 @@ describe('users', () => {
 
     const out = await t.call('POST', `${A}/users/${u.user.id}/signout`, { token: support.accessToken, body: { reason: 'lost phone' } });
     expect(out.json.revoked_tokens).toBeGreaterThan(0);
-    expect((await t.call('POST', '/v1/auth/refresh', { body: { refreshToken: u.refreshToken } })).status).toBe(401);
+    expect((await t.call('GET', '/v1/sync/pull', { token: u.accessToken })).status).toBe(401); // the session is gone
   });
 
   it('notes are staff-only and invisible to the user', async () => {

@@ -90,10 +90,10 @@ Time: 25-45 min.
 
 Manual only. Working directory `server/`. Steps: `npm ci`, `npm run typecheck`, `npm test`, **`npm run migrate`** (env `MIGRATION_DATABASE_URL`, the OWNER role),
 **`npm run deploy`** (`wrangler deploy`, env `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`), then **set Worker secrets** with `wrangler secret put` for each
-non-empty one of `DATABASE_URL JWT_SECRET OTP_PEPPER GOOGLE_CLIENT_IDS SMS_PROVIDER MSG91_AUTH_KEY MSG91_TEMPLATE_ID` (values piped, never printed).
+non-empty one of `DATABASE_URL BETTER_AUTH_SECRET GOOGLE_CLIENT_IDS SMS_PROVIDER MSG91_AUTH_KEY MSG91_TEMPLATE_ID` (values piped, never printed).
 Order matters: migrations first so the new Worker finds its schema; secrets after the first deploy because `wrangler secret put` needs the Worker to exist
 (on a first ever deploy the Worker answers 500 until the secrets are set). `[vars]` (`ENVIRONMENT`, `SMS_COST_PAISE`) come from `wrangler.toml`; `ADMIN_ORIGIN`
-and `SERVER_VERSION` are not set by this workflow. The auth secrets change with the Better Auth move; follow `docs/AUTH.md`.
+and `SERVER_VERSION` are not set by this workflow. `BETTER_AUTH_URL` is a plain var in `wrangler.toml`; auth details: `docs/AUTH.md`.
 
 ### 1.5 `admin.yml` (name: Admin panel)
 
@@ -129,7 +129,7 @@ falls back to the default branch cache), so a brand new branch starts slow.
 | `ADMOB_ANDROID_APP_ID`, `ADMOB_BANNER_ID`, `ADMOB_NATIVE_ID`, `ADMOB_INTERSTITIAL_ID`, `ADMOB_REWARDED_ID` | secret | release (-> `EXPO_PUBLIC_ADMOB_*`) | for real ads |
 | `MIGRATION_DATABASE_URL` | secret | deploy-server | yes (owner role) |
 | `DATABASE_URL` | secret | deploy-server (set as Worker secret) | yes (restricted runtime role) |
-| `JWT_SECRET`, `OTP_PEPPER`, `GOOGLE_CLIENT_IDS`, `SMS_PROVIDER`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID` | secret | deploy-server -> Worker secrets | until the Better Auth move replaces them (see `docs/AUTH.md`) |
+| `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_IDS`, `SMS_PROVIDER`, `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID` | secret | deploy-server -> Worker secrets | yes (see `docs/AUTH.md`; `JWT_SECRET` and `OTP_PEPPER` are retired) |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | secret | deploy-server, admin | yes |
 | `ADMIN_API_BASE`, `ADMIN_GOOGLE_CLIENT_ID` | repository **variables** | admin build | when the admin site and API are on different origins / Google login wanted |
 

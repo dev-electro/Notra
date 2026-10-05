@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Notra Book sync backend: Cloudflare Worker (Hono) + any Postgres (Neon, Supabase, Hyperdrive)",
+  "description": "Notra Book backend: Cloudflare Worker (Hono + Better Auth) + Neon Postgres",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -16,8 +16,10 @@
     "node": ">=22"
   },
   "dependencies": {
+    "better-auth": "^1.7.7",
     "hono": "^4.13.13",
     "jose": "^6.2.12",
+    "kysely": "^0.29.6",
     "postgres": "^3.4.9"
   },
   "devDependencies": {

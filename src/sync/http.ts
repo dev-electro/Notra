@@ -1,13 +1,15 @@
 import type { Batch, PullPage, PushResult } from './wire';
 import type { Transport } from './engine';
 
-export interface Tokens {
-  accessToken: string;
-  refreshToken: string;
-}
-export interface TokenStore {
-  get(): Promise<Tokens | null>;
-  set(t: Tokens | null): Promise<void>;
+/**
+ * Where the signed-in session comes from. It is the Better Auth session cookie that the Expo client keeps in the OS keystore
+ * (expo-secure-store); the server reads it from the `Cookie` header on every sync / support call. Never SQLite, never logs.
+ */
+export interface SessionSource {
+  /** The `Cookie` header value for the current session, or '' when signed out. */
+  cookie(): Promise<string>;
+  /** Forget the session on this phone (the server said it is not valid any more). Local data is untouched. */
+  clear(): Promise<void>;
 }
 
 export class HttpError extends Error {
@@ -23,7 +25,7 @@ export class SuspendedError extends Error {
 }
 export const SUSPENDED_FALLBACK_HI = 'आपका क्लाउड खाता अभी रोका गया है। आपका हिसाब फ़ोन में सुरक्षित है और ऐप चलता रहेगा।';
 
-/** The refresh token was rejected: the person must sign in again. Local data is untouched. */
+/** The server no longer accepts the session (expired, revoked, signed out elsewhere): the person must sign in again. Local data is untouched. */
 export class SignedOutError extends Error {
   constructor() {
     super('signed out');
@@ -32,10 +34,10 @@ export class SignedOutError extends Error {
 
 export interface ApiClientOptions {
   baseUrl: string;
-  tokens: TokenStore;
+  session: SessionSource;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
-  /** Called with the refreshed token response's user (optional). */
+  /** Called when the server rejected the session (401) and it was cleared. */
   onSignedOut?: () => void;
   /** Extra headers on every call (app version, platform, OS version). */
   headers?: () => Record<string, string>;
@@ -44,7 +46,7 @@ export interface ApiClientOptions {
 }
 
 export interface Api {
-  /** JSON request. `auth: true` adds the bearer token and, on a 401, refreshes once and retries once. */
+  /** JSON request. `auth: true` sends the session cookie; a 401 clears the session and throws SignedOutError. */
   request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, o?: { body?: unknown; auth?: boolean }): Promise<T>;
 }
 
@@ -52,9 +54,8 @@ export interface Api {
 export function createApi(o: ApiClientOptions): Api {
   const f = o.fetchImpl ?? fetch;
   const timeoutMs = o.timeoutMs ?? 15_000;
-  let refreshing: Promise<Tokens> | null = null;
 
-  async function raw(method: string, path: string, body: unknown, token?: string): Promise<Response> {
+  async function raw(method: string, path: string, body: unknown, cookie?: string): Promise<Response> {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), timeoutMs);
     try {
@@ -64,7 +65,7 @@ export function createApi(o: ApiClientOptions): Api {
           accept: 'application/json',
           ...(o.headers?.() ?? {}),
           ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-          ...(token ? { authorization: `Bearer ${token}` } : {}),
+          ...(cookie ? { cookie } : {}),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: ctl.signal,
@@ -72,31 +73,6 @@ export function createApi(o: ApiClientOptions): Api {
     } finally {
       clearTimeout(timer);
     }
-  }
-
-  // Single flight: concurrent 401s share one refresh (a rotated refresh token can only be used once).
-  function refresh(): Promise<Tokens> {
-    refreshing ??= (async () => {
-      try {
-        const cur = await o.tokens.get();
-        if (!cur) throw new SignedOutError();
-        const res = await raw('POST', '/v1/auth/refresh', { refreshToken: cur.refreshToken });
-        if (res.status === 401 || res.status === 400) {
-          await o.tokens.set(null);
-          o.onSignedOut?.();
-          throw new SignedOutError();
-        }
-        if (res.status === 403) await parse(res); // suspended: throws SuspendedError
-        if (!res.ok) throw new HttpError(res.status, 'refresh_failed');
-        const j = (await res.json()) as Tokens;
-        const next = { accessToken: j.accessToken, refreshToken: j.refreshToken };
-        await o.tokens.set(next);
-        return next;
-      } finally {
-        refreshing = null;
-      }
-    })();
-    return refreshing;
   }
 
   async function parse<T>(res: Response): Promise<T> {
@@ -113,12 +89,16 @@ export function createApi(o: ApiClientOptions): Api {
   return {
     async request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, opts: { body?: unknown; auth?: boolean } = {}): Promise<T> {
       if (!opts.auth) return parse<T>(await raw(method, path, opts.body));
-      let t = await o.tokens.get();
-      if (!t) throw new SignedOutError();
-      let res = await raw(method, path, opts.body, t.accessToken);
+      const cookie = await o.session.cookie();
+      if (!cookie) {
+        o.onSignedOut?.(); // e.g. an account signed in with the old (pre Better Auth) tokens: there is no session now
+        throw new SignedOutError();
+      }
+      const res = await raw(method, path, opts.body, cookie);
       if (res.status === 401) {
-        t = await refresh();
-        res = await raw(method, path, opts.body, t.accessToken);
+        await o.session.clear();
+        o.onSignedOut?.();
+        throw new SignedOutError();
       }
       return parse<T>(res);
     },

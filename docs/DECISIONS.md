@@ -26,7 +26,7 @@ Status values: Accepted, Superseded, Planned, Postponed.
 | 018 | Firebase Analytics with a privacy allow-list | Accepted |
 | 019 | Staged, cost-efficient development; CI builds; test APK as pre-release | Accepted |
 | 020 | Money in paise, append-only entries with voids | Accepted |
-| 021 | Auth moved to Better Auth on Neon | Accepted (user decision, latest) |
+| 021 | Auth: self-hosted Better Auth in the Worker, on Neon | Accepted (user decision, implemented) |
 | 022 | Ledgers (household + personal) with local-only PINs | Accepted |
 | 023 | Password-encrypted backup file for people who never sign in | Accepted |
 | 024 | Remote config and force update must never trap data | Accepted |
@@ -154,11 +154,11 @@ Status values: Accepted, Superseded, Planned, Postponed.
 - **Context:** The relationship ledger must be trustworthy and mergeable across devices; immutable rows make sync conflict-free (`INSERT OR IGNORE`).
 - **Consequences:** SQLite triggers block updates/deletes; `active_entries` view and `activeEntries()` implement the same rule; balances and उतार/चढ़ाव are derived, never stored. See [DATA_MODEL.md](DATA_MODEL.md).
 
-## ADR-021: Auth moved to Better Auth on Neon
+## ADR-021: Auth moved to self-hosted Better Auth (in the Worker, on Neon)
 - **Date:** 2026-10-05
-- **Decision:** Auth moved to **Better Auth on Neon** (user decision, for robustness), replacing the custom Worker implementation (Google ID-token verification, MSG91 OTP tables, own JWT + rotating refresh tokens). Neon project **`winter-voice-10801980`, branch `production`**. Sign-in methods stay Google and mobile OTP. Details live in `docs/AUTH.md`.
+- **Decision:** Auth moved to **Better Auth, self-hosted inside the Cloudflare Worker, against the same Neon database** (user decision, for robustness), replacing the custom Worker implementation (Google ID-token verification, MSG91 OTP tables, own JWT + rotating refresh tokens). **Managed Neon Auth (`auth: true`) is deliberately not used** (it would be a second user system). Neon project **`winter-voice-10801980`, branch `production`**. Sign-in methods stay Google (native ID token) and mobile OTP (MSG91). Details, research and sources live in `docs/AUTH.md`.
 - **Context:** Hand-rolled authentication is the riskiest code to own and maintain; a maintained library on the same Neon database reduces that risk.
-- **Consequences:** The auth endpoints, sign-in secrets, OTP provider variables, token tables and some `auth_*` SQL functions change (other docs describe only the high level). The access-control model (RLS with `withUserTx`, DB-derived role and suspension, admin gates) must keep working with the new session identity. The app's `src/auth`, `src/sync/http.ts`, the admin `lib/api.ts` login and `scripts/admin-bootstrap.mjs` need review after the switch. Owner steps for the Neon CLI are in [DEPLOYMENT.md](DEPLOYMENT.md).
+- **Consequences:** Better Auth's `user` model is our `users` table (same ids), so RLS, foreign keys, suspension and staff roles are unchanged; its own tables are `auth_*` under RLS that admits only the auth context (`app.auth`). Endpoints moved to `/api/auth/*`; sign-in secrets are `BETTER_AUTH_SECRET` (+ `BETTER_AUTH_URL` var), `JWT_SECRET` and `OTP_PEPPER` are gone; sessions are server-side (revocable at once) instead of 15-minute JWTs + rotating refresh tokens; everyone signs in once more after the migration. The OTP is stored in clear for its 5 minutes (library behaviour). Owner steps are in [AUTH.md](AUTH.md) and [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## ADR-022: Ledgers (household + personal) with local-only PINs
 - **Date:** 2026-10-05
